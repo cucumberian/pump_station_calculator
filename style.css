@@ -35,6 +35,8 @@ header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .header-btns { display: flex; gap: 8px; }
 .btn:hover { background: #dbe6f5; }

@@ -202,16 +202,33 @@ function loadFromUrl() {
   return hasTable;
 }
 
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { /* ниже fallback */ }
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.append(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length); // ponytail: iOS Safari требует явный selection
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { /* устаревший API, но единственный на старых мобильных */ }
+  ta.remove();
+  return ok;
+}
+
 $("share").addEventListener("click", async () => {
   const p = new URLSearchParams();
   for (const id of PARAM_IDS) p.set(id, $(id).value);
   history.replaceState(null, "", "?" + p);
-  try {
-    await navigator.clipboard.writeText(location.href);
+  const ok = await copyText(location.href);
+  if (ok) {
     $("share").textContent = "Скопировано!";
     setTimeout(() => { $("share").textContent = "Поделиться"; }, 1500);
-  } catch {
-    prompt("Скопируйте ссылку:", location.href); // ponytail: clipboard API недоступен вне secure context
+  } else {
+    prompt("Скопируйте ссылку:", location.href);
   }
 });
 
