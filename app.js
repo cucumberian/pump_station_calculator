@@ -67,7 +67,7 @@ const CARDS = [
       `T_{н}^{нс} = t_r\\left(\\frac{Q_{нс}}{Q_r}\\right)^{\\frac{1}{1-n}} = ${fmt(tr)}\\left(\\frac{${fmt(Q)}}{${fmt(Qr)}}\\right)^{\\frac{1}{1-${fmt(n)}}} = ${fmt(r.tn)}\\ \\text{мин}`
   },
   {
-    title: "Tкⁿˢ — конец превышения, мин (подбором)",
+    title: "Tкⁿˢ — конец превышения, мин",
     sym: "T_{к}^{нс}", unit: "\\text{мин}",
     val: r => fmt(r.tk),
     tex: (Q, Qr, tr, n, r) =>
