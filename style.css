@@ -125,6 +125,7 @@ main {
 .card .value .katex { font-weight: 700; }
 
 .chart-wrap { max-width: 720px; height: 340px; }
+.chart-wrap + .chart-wrap { margin-top: 16px; }
 
 .table-wrap { overflow-x: auto; max-width: 720px; }
 .range-controls {

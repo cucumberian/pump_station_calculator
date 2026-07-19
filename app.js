@@ -173,7 +173,67 @@ const CARDS = [
   },
 ];
 
-let chart;
+let chart, chartQT;
+
+function hydro(T, Qr, tr, n) {
+  const x = T / tr;
+  return Qr * (x ** (1 - n) - (x > 1 ? (x - 1) ** (1 - n) : 0));
+}
+
+function renderQT(Q, Qr, tr, n, r) {
+  const tMax = Math.max(1.5 * r.tk, 2 * tr);
+  const N = 120;
+  const ts = [], qs = [], fill = [];
+  for (let i = 0; i <= N; i++) {
+    const t = tMax * i / N;
+    ts.push(+t.toFixed(3));
+    qs.push(+hydro(t, Qr, tr, n).toFixed(2));
+    fill.push(t >= r.tn && t <= r.tk ? qs[i] : null);
+  }
+  const marker = (t, label) => ({
+    label, data: [{ x: t, y: 0 }, { x: t, y: hydro(t, Qr, tr, n) }],
+    borderColor: "#8a929c", borderWidth: 1, borderDash: [4, 4],
+    pointRadius: 3, backgroundColor: "#8a929c", showLine: true,
+  });
+  const data = {
+    labels: ts,
+    datasets: [
+      { label: "Q(T), л/с", data: qs, borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, tension: 0.2 },
+      { label: "Wнс (площадь)", data: fill, borderWidth: 0, pointRadius: 0,
+        fill: { value: Q }, backgroundColor: "rgba(31, 111, 235, 0.18)" },
+      { label: "Qнс", data: ts.map(() => Q), borderColor: "#d6336c", borderWidth: 1.5,
+        borderDash: [6, 4], pointRadius: 0 },
+      marker(r.tn, "Tн"), marker(tr, "tr"), marker(r.tk, "Tк"),
+    ],
+  };
+  if (chartQT) {
+    chartQT.data = data;
+    chartQT.update("none");
+  } else {
+    chartQT = new Chart($("chartQT"), {
+      type: "line", data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: false },
+        scales: {
+          x: { type: "linear", title: { display: true, text: "T, мин" }, min: 0 },
+          y: { title: { display: true, text: "Q, л/с" }, beginAtZero: true },
+        },
+        plugins: {
+          legend: { labels: { filter: i => !["Tн", "tr", "Tк"].includes(i.text) } },
+          tooltip: {
+            filter: c => c.datasetIndex < 3,
+            callbacks: {
+              title: c => `T = ${fmt(c[0].parsed.x, 1)} мин`,
+              label: c => c.datasetIndex === 2 ? `Qнс = ${fmt(Q)} л/с` : `Q = ${fmt(c.parsed.y, 1)} л/с`,
+            },
+          },
+        },
+      },
+    });
+  }
+}
 
 function render() {
   const Qr = parseFloat($("Qr").value);
@@ -259,10 +319,11 @@ function render() {
     });
   }
 
+  renderQT(Q, Qr, tr, n, r);
+
   const tbody = $("variants").querySelector("tbody");
   tbody.innerHTML = "";
-  const rc = clampRange(Qr);
-  if (!rc) return;
+  const rc = clampRange(Qr);  if (!rc) return;
   const { from, to, step } = rc;
   for (let q = from, i = 0; q <= to + 1e-9 && i < 51; q += step, i++) {
     const v = calc(q, Qr, tr, n);
