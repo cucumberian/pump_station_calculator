@@ -187,9 +187,37 @@ function render() {
   }
 }
 
+const PARAM_IDS = ["Qr", "tr", "n", "Q", "vFrom", "vTo", "vStep"];
+
+function loadFromUrl() {
+  const p = new URLSearchParams(location.search);
+  let hasTable = false;
+  for (const id of PARAM_IDS) {
+    const v = parseFloat(p.get(id));
+    if (Number.isFinite(v)) {
+      $(id).value = v;
+      if (id.startsWith("v")) hasTable = true;
+    }
+  }
+  return hasTable;
+}
+
+$("share").addEventListener("click", async () => {
+  const p = new URLSearchParams();
+  for (const id of PARAM_IDS) p.set(id, $(id).value);
+  history.replaceState(null, "", "?" + p);
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $("share").textContent = "Скопировано!";
+    setTimeout(() => { $("share").textContent = "Поделиться"; }, 1500);
+  } catch {
+    prompt("Скопируйте ссылку:", location.href); // ponytail: clipboard API недоступен вне secure context
+  }
+});
+
 selfCheck();
 $("schemeToggle").addEventListener("click", () => $("scheme").classList.toggle("open"));
-let rangeDirty = false;
+let rangeDirty = loadFromUrl();
 for (const id of ["vFrom", "vTo", "vStep"]) {
   $(id).addEventListener("input", () => { rangeDirty = true; render(); });
   $(id).addEventListener("change", () => {

@@ -27,12 +27,16 @@ header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
   padding: 6px 14px;
   background: #fff;
   color: #12325e;
+  border: none;
   border-radius: 6px;
   text-decoration: none;
+  font: inherit;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
+  cursor: pointer;
 }
+.header-btns { display: flex; gap: 8px; }
 .btn:hover { background: #dbe6f5; }
 
 .doc { grid-template-columns: 1fr; max-width: 900px; margin: 0 auto; }
