@@ -52,6 +52,71 @@ function selfCheck() {
   }
 }
 
+function traceTk(Q, Qr, tr, n) {
+  const f = T => Qr * ((T / tr) ** (1 - n) - (T / tr - 1) ** (1 - n));
+  const bracket = [];
+  let lo = tr, hi = tr * 2;
+  while (f(hi) > Q) { bracket.push([lo, hi]); lo = hi; hi *= 2; }
+  bracket.push([lo, hi]);
+  const iters = [];
+  for (let i = 1; hi - lo > 0.005 && i <= 100; i++) {
+    const mid = (lo + hi) / 2;
+    iters.push([i, lo, hi, mid, f(mid)]);
+    if (f(mid) > Q) lo = mid; else hi = mid;
+  }
+  return { bracket, iters, tk: (lo + hi) / 2 };
+}
+
+function openHelp(blocks, ctx) {
+  const body = $("modalBody");
+  body.innerHTML = "";
+  for (const b of blocks) {
+    if (b.p) {
+      const p = document.createElement("p");
+      p.textContent = b.p;
+      body.append(p);
+    } else if (b.tex) {
+      const d = document.createElement("div");
+      d.className = "modal-tex";
+      katex.render(b.tex, d, { displayMode: true, throwOnError: false });
+      body.append(d);
+    } else if (b.ol) {
+      const ol = document.createElement("ol");
+      for (const item of b.ol) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        ol.append(li);
+      }
+      body.append(ol);
+    } else if (b.trace) {
+      const t = traceTk(ctx.Q, ctx.Qr, ctx.tr, ctx.n);
+      const det = document.createElement("details");
+      const sum = document.createElement("summary");
+      sum.textContent = `Итерации подбора для текущих значений (Qнс = ${fmt(ctx.Q)} л/с)`;
+      det.append(sum);
+      const tbl = document.createElement("table");
+      tbl.className = "trace";
+      tbl.innerHTML = "<thead><tr><th>#</th><th>отрезок [lo; hi], мин</th><th>T = середина, мин</th><th>f(T), л/с</th></tr></thead>";
+      const tb = tbl.createTBody();
+      for (const [j, [lo, hi]] of t.bracket.entries()) {
+        const row = tb.insertRow();
+        row.className = "bracket";
+        [`г${j}`, `[${fmt(lo, 2)}; ${fmt(hi, 2)}]`, "—", "—"].forEach(x => row.insertCell().textContent = x);
+      }
+      for (const [i, lo, hi, mid, fm] of t.iters) {
+        const row = tb.insertRow();
+        [i, `[${fmt(lo, 4)}; ${fmt(hi, 4)}]`, fmt(mid, 4), fmt(fm, 2)].forEach(x => row.insertCell().textContent = x);
+      }
+      const res = document.createElement("p");
+      res.className = "trace-res";
+      res.textContent = `Итог: Tкⁿˢ = ${fmt(t.tk, 2)} мин (f = ${fmt(t.iters.at(-1)?.[4] ?? ctx.Q, 2)} л/с ≈ Qнс)`;
+      det.append(tbl, res);
+      body.append(det);
+    }
+  }
+  $("modal").hidden = false;
+}
+
 function tex(formula) {
   const span = document.createElement("span");
   katex.render(formula, span, { throwOnError: false });
@@ -71,7 +136,19 @@ const CARDS = [
     sym: "T_{к}^{нс}", unit: "\\text{мин}",
     val: r => fmt(r.tk),
     tex: (Q, Qr, tr, n, r) =>
-      `Q_{нс} = Q_r\\left[\\left(\\frac{T_{к}^{нс}}{t_r}\\right)^{1-n} - \\left(\\frac{T_{к}^{нс}}{t_r}-1\\right)^{1-n}\\right] \\Rightarrow T_{к}^{нс} = ${fmt(r.tk)}\\ \\text{мин}`
+      `Q_{нс} = Q_r\\left[\\left(\\frac{T_{к}^{нс}}{t_r}\\right)^{1-n} - \\left(\\frac{T_{к}^{нс}}{t_r}-1\\right)^{1-n}\\right] \\Rightarrow T_{к}^{нс} = ${fmt(r.tk)}\\ \\text{мин}`,
+    help: [
+      { p: "Tкⁿˢ не выражается прямой формулой — она находится подбором (итерационно), формула (3) Приложения 8. Решается уравнение относительно T > tr:" },
+      { tex: "Q_{нс} = Q_r\\left[\\left(\\frac{T}{t_r}\\right)^{1-n} - \\left(\\frac{T}{t_r}-1\\right)^{1-n}\\right]" },
+      { p: "Правая часть при T > tr монотонно убывает от Qr (при T = tr) до 0, поэтому корень единственный." },
+      { p: "Численно уравнение решается методом бисекции (деления отрезка пополам):" },
+      { ol: [
+        "Начальный отрезок [tr; 2·tr]; верхняя граница удваивается, пока f(T) > Qнс — так корень гарантированно оказывается внутри отрезка.",
+        "Итерации делят отрезок пополам: если f(середина) > Qнс — корень в правой половине, иначе в левой.",
+      ] },
+      { trace: true },
+      { p: "Пример из методички: Qнс = 100 л/с, Qr = 342,3 л/с, tr = 10 мин, n = 0,71 → подбор даёт Tкⁿˢ = 15,61 мин." },
+    ],
   },
   {
     title: "Wнс — рабочий объём резервуара, м³",
@@ -120,6 +197,15 @@ function render() {
     div.className = "card" + (c.wide ? " wide" : "");
     const h = document.createElement("h3");
     h.textContent = c.title;
+    if (c.help) {
+      const btn = document.createElement("button");
+      btn.className = "help-btn";
+      btn.type = "button";
+      btn.textContent = "?";
+      btn.title = "Как считается этот параметр";
+      btn.addEventListener("click", () => openHelp(c.help, { Q, Qr, tr, n }));
+      div.append(btn);
+    }
     const v = document.createElement("div");
     v.className = "value";
     v.append(tex(`${c.sym} = ${c.val(r, Q)}\\ ${c.unit}`));
@@ -234,6 +320,9 @@ $("share").addEventListener("click", async () => {
 
 selfCheck();
 $("schemeToggle").addEventListener("click", () => $("scheme").classList.toggle("open"));
+$("modalClose").addEventListener("click", () => { $("modal").hidden = true; });
+$("modal").addEventListener("click", e => { if (e.target === $("modal")) $("modal").hidden = true; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("modal").hidden = true; });
 let rangeDirty = loadFromUrl();
 for (const id of ["vFrom", "vTo", "vStep"]) {
   $(id).addEventListener("input", () => { rangeDirty = true; render(); });

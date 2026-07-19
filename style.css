@@ -102,6 +102,7 @@ main {
   max-width: 720px;
 }
 .card {
+  position: relative;
   border: 1px solid #dde1e6;
   border-radius: 8px;
   padding: 10px 12px;
@@ -109,7 +110,6 @@ main {
   overflow-x: auto;
   display: flex;
   flex-direction: column;
-  font-size: 14px;
 }
 .card h3 { margin: 0 0 6px; font-weight:800; font-size: 14px; color: #272727; }
 .card.wide { grid-column: 1 / -1; }
@@ -138,6 +138,70 @@ table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #dde1e6; padding: 6px 10px; text-align: right; }
 th { background: #eef1f5; font-size: 13px; }
 tr.active { background: #fff3d6; font-weight: 600; }
+
+.help-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid #5a6572;
+  border-radius: 50%;
+  background: #fff;
+  color: #5a6572;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.help-btn:hover { background: #12325e; border-color: #12325e; color: #fff; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 10;
+}
+.modal[hidden] { display: none; }
+.modal-box {
+  position: relative;
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 24px;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+.modal-box p { margin: 0 0 10px; }
+.modal-box ol { margin: 0 0 10px; padding-left: 20px; }
+.modal-tex { margin: 6px 0 14px; overflow-x: auto; }
+.modal-box details { margin: 0 0 10px; }
+.modal-box summary { cursor: pointer; font-weight: 600; color: #12325e; margin-bottom: 6px; }
+table.trace { font-size: 12px; }
+table.trace th, table.trace td { padding: 3px 8px; text-align: right; white-space: nowrap; }
+table.trace tr.bracket td { color: #5a6572; }
+.trace-res { margin-top: 6px; font-weight: 600; }
+.modal-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: #5a6572;
+  cursor: pointer;
+}
+.modal-close:hover { color: #b0341f; }
 
 #selfcheck {
   position: fixed;
