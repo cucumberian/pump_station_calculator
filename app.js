@@ -244,11 +244,13 @@ function render() {
 
   $("Qrange").max = Qr;
   $("Qrange").value = Math.min(Q, Qr);
+  $("nrange").value = n;
   $("Qhint").textContent = Q >= Qr
     ? "Qнс ≥ Qr — резервуар не требуется (сток перекачивается без регулирования)"
     : "";
 
   const r = calc(Q, Qr, tr, n);
+  saveToStorage();
 
   const cards = $("cards");
   cards.innerHTML = "";
@@ -335,6 +337,22 @@ function render() {
 }
 
 const PARAM_IDS = ["Qr", "tr", "n", "Q", "vFrom", "vTo", "vStep"];
+const LS_KEY = "kns-params";
+
+function loadFromStorage() {
+  try {
+    const data = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    for (const id of PARAM_IDS) {
+      if (data[id] != null && data[id] !== "") $(id).value = data[id];
+    }
+  } catch { /* повреждённые данные игнорируем */ }
+}
+
+function saveToStorage() {
+  const data = {};
+  for (const id of PARAM_IDS) data[id] = $(id).value;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch { /* приватный режим */ }
+}
 
 function loadFromUrl() {
   const p = new URLSearchParams(location.search);
@@ -381,9 +399,12 @@ $("share").addEventListener("click", async () => {
 
 selfCheck();
 $("schemeToggle").addEventListener("click", () => $("scheme").classList.toggle("open"));
+$("resultsToggle").addEventListener("click", () => $("results").classList.toggle("open"));
+if (window.matchMedia("(min-width: 901px)").matches) $("results").classList.add("open");
 $("modalClose").addEventListener("click", () => { $("modal").hidden = true; });
 $("modal").addEventListener("click", e => { if (e.target === $("modal")) $("modal").hidden = true; });
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("modal").hidden = true; });
+loadFromStorage();
 let rangeDirty = loadFromUrl();
 for (const id of ["vFrom", "vTo", "vStep"]) {
   $(id).addEventListener("input", () => { rangeDirty = true; render(); });
@@ -410,6 +431,15 @@ $("Qr").addEventListener("input", () => {
 });
 for (const id of ["Qr", "tr", "n", "Q"]) $(id).addEventListener("input", render);
 $("Qrange").addEventListener("input", e => { $("Q").value = e.target.value; render(); });
+$("nrange").addEventListener("input", e => { $("n").value = e.target.value; render(); });
+
+const shiftTr = dh => {
+  const tr = parseFloat($("tr").value) || 0;
+  $("tr").value = Math.max(1, tr + dh * 60);
+  render();
+};
+$("trMinus").addEventListener("click", () => shiftTr(-1));
+$("trPlus").addEventListener("click", () => shiftTr(1));
 
 const WHEEL_STEPS = { Qr: 1, tr: 1, n: 0.01, Q: 1, vFrom: 1, vTo: 1, vStep: 1 };
 for (const [id, step] of Object.entries(WHEEL_STEPS)) {

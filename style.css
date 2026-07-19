@@ -41,6 +41,11 @@ header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
 .header-btns { display: flex; gap: 8px; }
 .btn:hover { background: #dbe6f5; }
 
+.tr-row { display: flex; gap: 8px; align-items: center; }
+.tr-row input[type="number"] { flex: 1; min-width: 0; }
+.tr-btns { display: flex; gap: 8px; }
+.tr-btns .btn { border: 1px solid #c6d3e4; padding: 5px 10px; }
+
 .doc { grid-template-columns: 1fr; max-width: 900px; margin: 0 auto; }
 .doc img { max-width: 100%; height: auto; }
 .doc table { max-width: 100%; }
@@ -59,10 +64,11 @@ main {
 
 .right {
   display: grid;
-  gap: 16px;
+  justify-content: center;
+  gap: 2rem;
   min-width: 0;
 }
-.right section { min-width: 0; }
+.right section { min-width: 0; max-width: 720px; width: 100%;}
 
 .panel {
   background: #fff;
@@ -95,11 +101,17 @@ main {
 .scheme img { width: 100%; max-width: 500px; height: auto; display: block; }
 .scheme-arrow { display: none; }
 
+.results .cards { display: none; }
+.results.open .cards { display: grid; }
+.results.open .scheme-arrow { transform: rotate(180deg); }
+#resultsToggle { cursor: pointer; user-select: none; }
+#resultsToggle .scheme-arrow { display: inline-block; transition: transform 0.15s; }
+
 .cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  max-width: 720px;
+  /* max-width: 720px; */
 }
 .card {
   position: relative;
@@ -124,10 +136,10 @@ main {
 }
 .card .value .katex { font-weight: 700; }
 
-.chart-wrap { max-width: 720px; height: 340px; }
+.chart-wrap { height: 340px; }
 .chart-wrap + .chart-wrap { margin-top: 16px; }
 
-.table-wrap { overflow-x: auto; max-width: 720px; }
+.table-wrap { overflow-x: auto; }
 .range-controls {
   display: flex;
   gap: 10px;
@@ -227,5 +239,4 @@ table.trace tr.bracket td { color: #5a6572; }
   .scheme.open img { display: block; }
   .scheme.open .scheme-arrow { transform: rotate(180deg); }
   .scheme-arrow { display: inline-block; transition: transform 0.15s; }
-  #schemeToggle { cursor: pointer; user-select: none; }
 }

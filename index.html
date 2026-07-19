@@ -30,22 +30,28 @@
     <section class="panel inputs">
       <h2>Исходные данные</h2>
 
-      <div class="field">
+      <div class="field" title="максимальный расчётный расход дождевых вод в коллекторе дождевой канализации в расчётном участке, л/с">
         <label for="Qr">Q<sub>r</sub> — макс. расход дождевого стока, л/с</label>
         <input id="Qr" type="number" step="any" min="1" value="342.3">
       </div>
-      <div class="field">
+      <div class="field" title="расчетная продолжительность дождя, равная продолжительности протекания поверхностных вод по поверхности и трубам до расчетного участка, мин">
         <label for="tr">t<sub>r</sub> — расчётная продолжительность дождя, мин</label>
-        <input id="tr" type="number" step="any" min="1" value="10">
+        <div class="tr-row">
+          <input id="tr" type="number" step="any" min="1" value="10">
+          <div class="tr-btns">
+            <button class="btn" id="trMinus" type="button">− час</button>
+            <button class="btn" id="trPlus" type="button">+ час</button>
+          </div>
+        </div>
       </div>
-      <div class="field">
-        <label for="n">n — показатель степени (климатический)</label>
+      <div class="field" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности">
+        <label for="n">n — климатический параметр</label>
         <input id="n" type="number" step="any" min="0.01" max="0.99" value="0.71">
+        <input id="nrange" type="range" min="0.01" max="0.99" step="0.01" value="0.71">
       </div>
 
-      <h2>Производительность нс</h2>
-      <div class="field">
-        <label for="Q">Q<sub>нс</sub>, л/с</label>
+      <div class="field" title="максимальная производительности насосов в насосной станции, л/с">
+        <label for="Q">Q<sub>нс</sub> — производительность насосной станции, л/с</label>
         <input id="Q" type="number" step="any" min="1" value="100">
         <input id="Qrange" type="range" min="1" max="342.3" step="0.5" value="100">
       </div>
@@ -58,8 +64,8 @@
     </section>
 
     <div class="right panel">
-      <section class="results">
-        <h2>Результаты</h2>
+      <section class="results" id="results">
+        <h2 id="resultsToggle">Результаты <span class="scheme-arrow">▾</span></h2>
         <div id="cards" class="cards"></div>
       </section>
 
