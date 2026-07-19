@@ -225,7 +225,7 @@ function renderQT(Q, Qr, tr, n, r) {
           tooltip: {
             filter: c => c.datasetIndex < 3,
             callbacks: {
-              title: c => `T = ${fmt(c[0].parsed.x, 1)} мин`,
+              title: c => c.length ? `T = ${fmt(c[0].parsed.x, 1)} мин` : "",
               label: c => c.datasetIndex === 2 ? `Qнс = ${fmt(Q)} л/с` : `Q = ${fmt(c.parsed.y, 1)} л/с`,
             },
           },
