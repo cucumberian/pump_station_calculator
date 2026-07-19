@@ -24,6 +24,19 @@ function calc(Q, Qr, tr, n) {
   return { tn, tk, W: Math.max(W, 0), fill: W / Q * 1000 / 60 };
 }
 
+function clampRange(Qr) {
+  const lo = Math.max(1, 0.02 * Qr), hi = Qr;
+  let from = parseFloat($("vFrom").value);
+  let to = parseFloat($("vTo").value);
+  let step = parseFloat($("vStep").value);
+  if (!(from > 0) || !(to > 0) || !(step > 0)) return null;
+  from = Math.min(Math.max(from, lo), hi);
+  to = Math.min(Math.max(to, lo), hi);
+  if (to < from) [from, to] = [to, from];
+  step = Math.max(step, (to - from) / 49);
+  return { from, to, step };
+}
+
 function selfCheck() {
   const cases = [[100, 15.61, 113.8], [110, 14.47, 104.9], [120, 13.58, 96.6],
                  [130, 12.87, 88.9], [150, 11.84, 74.7], [200, 10.55, 44.4]];
@@ -48,31 +61,36 @@ function tex(formula) {
 const CARDS = [
   {
     title: "Tнⁿˢ — начало превышения, мин",
+    sym: "T_{н}^{нс}", unit: "\\text{мин}",
     val: r => fmt(r.tn),
     tex: (Q, Qr, tr, n, r) =>
       `T_{н}^{нс} = t_r\\left(\\frac{Q_{нс}}{Q_r}\\right)^{\\frac{1}{1-n}} = ${fmt(tr)}\\left(\\frac{${fmt(Q)}}{${fmt(Qr)}}\\right)^{\\frac{1}{1-${fmt(n)}}} = ${fmt(r.tn)}\\ \\text{мин}`
   },
   {
     title: "Tкⁿˢ — конец превышения, мин (подбором)",
+    sym: "T_{к}^{нс}", unit: "\\text{мин}",
     val: r => fmt(r.tk),
     tex: (Q, Qr, tr, n, r) =>
       `Q_{нс} = Q_r\\left[\\left(\\frac{T_{к}^{нс}}{t_r}\\right)^{1-n} - \\left(\\frac{T_{к}^{нс}}{t_r}-1\\right)^{1-n}\\right] \\Rightarrow T_{к}^{нс} = ${fmt(r.tk)}\\ \\text{мин}`
   },
   {
     title: "Wнс — рабочий объём резервуара, м³",
+    sym: "W_{нс}", unit: "\\text{м}^3",
     wide: true,
     val: r => fmt(r.W, 1),
     tex: (Q, Qr, tr, n, r) =>
       `\\begin{aligned} W_{нс} &= \\frac{0{,}06\\,Q_r\\,t_r}{2-n}\\left[\\left(\\frac{T_{к}^{нс}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{н}^{нс}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{к}^{нс}}{t_r}-1\\right)^{2-n} - \\frac{Q_{нс}}{Q_r}(2-n)\\left(\\frac{T_{к}^{нс}}{t_r}-\\frac{T_{н}^{нс}}{t_r}\\right)\\right] \\\\ &= \\frac{0{,}06\\cdot ${fmt(Qr)}\\cdot ${fmt(tr)}}{2-${fmt(n)}}\\left[ ${fmt(r.tk / tr, 2)}^{${fmt(2 - n)}} - ${fmt(r.tn / tr, 3)}^{${fmt(2 - n)}} - ${fmt(r.tk / tr - 1, 2)}^{${fmt(2 - n)}} - ${fmt(Q / Qr, 3)}\\cdot ${fmt(2 - n)}\\cdot (${fmt(r.tk / tr, 2)}-${fmt(r.tn / tr, 3)}) \\right] = ${fmt(r.W, 1)}\\ \\text{м}^3 \\end{aligned}`
   },
   {
-    title: "Время наполнения резервуара, мин",
+    title: "tзап — время наполнения резервуара, мин",
+    sym: "t_{зап}", unit: "\\text{мин}",
     val: r => fmt(r.fill, 1),
     tex: (Q, Qr, tr, n, r) =>
       `t_{зап} = \\frac{W_{нс}}{Q_{нс}} = \\frac{${fmt(r.W, 1)}\\cdot 1000}{${fmt(Q)}\\cdot 60} = ${fmt(r.fill, 1)}\\ \\text{мин}`
   },
   {
-    title: "Qнс в м³/ч",
+    title: "Qнс — производительность насосной станции, м³/ч",
+    sym: "Q_{нс}", unit: "\\text{м}^3/\\text{ч}",
     val: (r, Q) => fmt(Q * 3.6, 1),
     tex: (Q) => `Q_{нс} = ${fmt(Q)}\\ \\text{л/с} \\cdot 3{,}6 = ${fmt(Q * 3.6, 1)}\\ \\text{м}^3/\\text{ч}`
   },
@@ -104,7 +122,7 @@ function render() {
     h.textContent = c.title;
     const v = document.createElement("div");
     v.className = "value";
-    v.textContent = c.val(r, Q);
+    v.append(tex(`${c.sym} = ${c.val(r, Q)}\\ ${c.unit}`));
     div.append(h, tex(c.tex(Q, Qr, tr, n, r)), v);
     cards.append(div);
   }
@@ -157,23 +175,48 @@ function render() {
 
   const tbody = $("variants").querySelector("tbody");
   tbody.innerHTML = "";
-  const steps = 8;
-  for (let i = 1; i <= steps; i++) {
-    const q = +(Qr * i / steps).toFixed(0);
-    if (q <= 0) continue;
+  const rc = clampRange(Qr);
+  if (!rc) return;
+  const { from, to, step } = rc;
+  for (let q = from, i = 0; q <= to + 1e-9 && i < 51; q += step, i++) {
     const v = calc(q, Qr, tr, n);
     const row = tbody.insertRow();
-    if (Math.abs(q - Q) < Qr / steps / 2) row.className = "active";
+    if (Math.abs(q - Q) < step / 2) row.className = "active";
     [fmt(q, 0), fmt(q * 3.6, 1), fmt(v.tn), fmt(v.tk), fmt(v.W, 1), fmt(v.fill, 1)]
       .forEach(x => row.insertCell().textContent = x);
   }
 }
 
 selfCheck();
+$("schemeToggle").addEventListener("click", () => $("scheme").classList.toggle("open"));
+let rangeDirty = false;
+for (const id of ["vFrom", "vTo", "vStep"]) {
+  $(id).addEventListener("input", () => { rangeDirty = true; render(); });
+  $(id).addEventListener("change", () => {
+    const Qr = parseFloat($("Qr").value);
+    const rc = Qr > 0 && clampRange(Qr);
+    if (rc) {
+      $("vFrom").value = +rc.from.toFixed(2);
+      $("vTo").value = +rc.to.toFixed(2);
+      $("vStep").value = +rc.step.toFixed(2);
+    }
+    render();
+  });
+}
+$("Qr").addEventListener("input", () => {
+  if (!rangeDirty) {
+    const Qr = parseFloat($("Qr").value);
+    if (Qr > 0) {
+      $("vFrom").value = Math.max(1, Math.round(Qr / 8));
+      $("vTo").value = Math.round(Qr);
+      $("vStep").value = Math.max(1, Math.round(Qr / 8));
+    }
+  }
+});
 for (const id of ["Qr", "tr", "n", "Q"]) $(id).addEventListener("input", render);
 $("Qrange").addEventListener("input", e => { $("Q").value = e.target.value; render(); });
 
-const WHEEL_STEPS = { Qr: 1, tr: 1, n: 0.01, Q: 1 };
+const WHEEL_STEPS = { Qr: 1, tr: 1, n: 0.01, Q: 1, vFrom: 1, vTo: 1, vStep: 1 };
 for (const [id, step] of Object.entries(WHEEL_STEPS)) {
   $(id).addEventListener("wheel", e => {
     e.preventDefault();

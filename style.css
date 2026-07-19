@@ -11,9 +11,37 @@ header {
   background: #12325e;
   color: #fff;
   padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 header h1 { margin: 0; font-size: 20px; }
 header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px 14px;
+  background: #fff;
+  color: #12325e;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.btn:hover { background: #dbe6f5; }
+
+.doc { grid-template-columns: 1fr; max-width: 900px; margin: 0 auto; }
+.doc img { max-width: 100%; height: auto; }
+.doc table { max-width: 100%; }
+.doc article { overflow-x: auto; }
+.doc article h1 { font-size: 22px; }
+.doc article h2 { text-transform: none; letter-spacing: normal; font-size: 17px; color: #1a1a1a; }
+.doc .katex-display { font-size: 0.92em; }
 
 main {
   display: grid;
@@ -22,6 +50,13 @@ main {
   padding: 16px 24px;
   align-items: start;
 }
+
+.right {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.right section { min-width: 0; }
 
 .panel {
   background: #fff;
@@ -51,10 +86,14 @@ main {
 
 .hint { font-size: 13px; color: #b0341f; }
 
+.scheme img { width: 100%; max-width: 500px; height: auto; display: block; }
+.scheme-arrow { display: none; }
+
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
+  max-width: 720px;
 }
 .card {
   border: 1px solid #dde1e6;
@@ -62,19 +101,33 @@ main {
   padding: 10px 12px;
   background: #fafbfc;
   overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
 }
-.card h3 { margin: 0 0 6px; font-size: 13px; color: #5a6572; }
+.card h3 { margin: 0 0 6px; font-weight:800; font-size: 14px; color: #272727; }
 .card.wide { grid-column: 1 / -1; }
+.card.wide .katex { font-size: 0.92em; }
+.card > span { flex: 1; }
 .card .value {
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: #12325e;
-  margin-top: 6px;
+  margin-top: auto;
+  padding-top: 6px;
 }
+.card .value .katex { font-weight: 700; }
 
 .chart-wrap { max-width: 720px; height: 340px; }
 
 .table-wrap { overflow-x: auto; max-width: 720px; }
+.range-controls {
+  display: flex;
+  gap: 10px;
+  max-width: 720px;
+  margin-bottom: 10px;
+}
+.range-controls .field { flex: 1; margin-bottom: 0; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #dde1e6; padding: 6px 10px; text-align: right; }
 th { background: #eef1f5; font-size: 13px; }
@@ -97,4 +150,9 @@ tr.active { background: #fff3d6; font-weight: 600; }
   .chart-wrap { height: 240px; }
   .card .katex { font-size: 0.82em; }
   th, td { padding: 5px 8px; font-size: 13px; white-space: nowrap; }
+  .scheme img { display: none; margin: 0 auto; }
+  .scheme.open img { display: block; }
+  .scheme.open .scheme-arrow { transform: rotate(180deg); }
+  .scheme-arrow { display: inline-block; transition: transform 0.15s; }
+  #schemeToggle { cursor: pointer; user-select: none; }
 }
