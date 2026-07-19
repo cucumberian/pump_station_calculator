@@ -1,0 +1,100 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, sans-serif;
+  color: #1a1a1a;
+  background: #f4f5f7;
+}
+
+header {
+  background: #12325e;
+  color: #fff;
+  padding: 14px 24px;
+}
+header h1 { margin: 0; font-size: 20px; }
+header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
+
+main {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  padding: 16px 24px;
+  align-items: start;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #dde1e6;
+  border-radius: 8px;
+  padding: 16px;
+}
+.panel h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5a6572;
+  margin: 16px 0 10px;
+}
+.panel h2:first-child { margin-top: 0; }
+
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 13px; margin-bottom: 4px; }
+.field input[type="number"] {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #c4ccd4;
+  border-radius: 6px;
+  font-size: 15px;
+}
+.field input[type="range"] { width: 100%; margin-top: 6px; }
+
+.hint { font-size: 13px; color: #b0341f; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+.card {
+  border: 1px solid #dde1e6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fafbfc;
+  overflow-x: auto;
+}
+.card h3 { margin: 0 0 6px; font-size: 13px; color: #5a6572; }
+.card.wide { grid-column: 1 / -1; }
+.card .value {
+  font-size: 22px;
+  font-weight: 600;
+  color: #12325e;
+  margin-top: 6px;
+}
+
+.chart-wrap { max-width: 720px; height: 340px; }
+
+.table-wrap { overflow-x: auto; max-width: 720px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #dde1e6; padding: 6px 10px; text-align: right; }
+th { background: #eef1f5; font-size: 13px; }
+tr.active { background: #fff3d6; font-weight: 600; }
+
+#selfcheck {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #b0341f;
+  color: #fff;
+  padding: 10px 24px;
+}
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  header { padding: 12px 16px; }
+  header h1 { font-size: 17px; }
+  .panel { padding: 12px; }
+  .cards { grid-template-columns: 1fr; }
+  .chart-wrap { height: 240px; }
+  .card .katex { font-size: 0.82em; }
+  th, td { padding: 5px 8px; font-size: 13px; white-space: nowrap; }
+}

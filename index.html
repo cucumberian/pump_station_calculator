@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>КНС · п. 5.1 — Перекачка незарегулированного дождевого стока</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<header>
+  <h1>Насосная станция · подбор параметров</h1>
+  <p>Перекачка незарегулированного дождевого стока — п. 5.1, формулы (1)–(3) Приложения 8 («Рекомендации» НИИ ВОДГЕО)</p>
+</header>
+
+<main>
+  <section class="panel inputs">
+    <h2>Исходные данные</h2>
+
+    <div class="field">
+      <label for="Qr">Q<sub>r</sub> — макс. расход дождевого стока, л/с</label>
+      <input id="Qr" type="number" step="any" min="1" value="342.3">
+    </div>
+    <div class="field">
+      <label for="tr">t<sub>r</sub> — расчётная продолжительность дождя, мин</label>
+      <input id="tr" type="number" step="any" min="1" value="10">
+    </div>
+    <div class="field">
+      <label for="n">n — показатель степени (климатический)</label>
+      <input id="n" type="number" step="any" min="0.01" max="0.99" value="0.71">
+    </div>
+
+    <h2>Производительность насосов</h2>
+    <div class="field">
+      <label for="Q">Q<sub>нс</sub>, л/с</label>
+      <input id="Q" type="number" step="any" min="1" value="100">
+      <input id="Qrange" type="range" min="1" max="342.3" step="0.5" value="100">
+    </div>
+    <p class="hint" id="Qhint"></p>
+  </section>
+
+  <section class="panel results">
+    <h2>Результаты</h2>
+    <div id="cards" class="cards"></div>
+
+    <h2>Подбор: мощность насоса ↔ объём резервуара</h2>
+    <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+    <h2>Таблица вариантов</h2>
+    <div class="table-wrap">
+    <table id="variants">
+      <thead><tr>
+        <th>Q<sub>нс</sub>, л/с</th><th>Q<sub>нс</sub>, м³/ч</th>
+        <th>T<sub>н</sub>, мин</th><th>T<sub>к</sub>, мин</th>
+        <th>W<sub>нс</sub>, м³</th><th>Наполнение, мин</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </section>
+</main>
+
+<div id="selfcheck" hidden></div>
+</body>
+</html>
