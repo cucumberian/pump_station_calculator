@@ -130,7 +130,7 @@ function render() {
   };
   if (chart) {
     chart.data = data;
-    chart.update();
+    chart.update("none");
   } else {
     chart = new Chart($("chart"), {
       type: "line", data,
