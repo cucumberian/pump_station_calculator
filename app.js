@@ -188,9 +188,9 @@ function renderQT(Q, Qr, tr, n, r) {
     labels: ts,
     datasets: [
       { label: "Q(T), л/с", data: qs, borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, tension: 0.2 },
-      { label: "Wнс (площадь)", data: fill, borderWidth: 0, pointRadius: 0,
+      { label: "Wнс (площадь), м³", data: fill, borderWidth: 0, pointRadius: 0,
         fill: { value: Q }, backgroundColor: "rgba(31, 111, 235, 0.18)" },
-      { label: "Qнс", data: ts.map(() => Q), borderColor: "#d6336c", borderWidth: 1.5,
+      { label: "Qнс, л/с", data: ts.map(() => Q), borderColor: "#d6336c", borderWidth: 1.5,
         borderDash: [6, 4], pointRadius: 0 },
       marker(r.tn, "Tн"), marker(tr, "tr"), marker(r.tk, "Tк"),
     ],
@@ -279,7 +279,7 @@ function render() {
     labels: qs,
     datasets: [
       { label: "Wнс, м³", data: ws, borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, tension: 0.2 },
-      { label: "текущий выбор", data: marker,
+      { label: `Qнс = ${fmt(Q)} л/с`, data: marker,
         borderColor: "#d6336c", backgroundColor: "#d6336c", pointRadius: 6, pointHoverRadius: 7, showLine: false },
     ],
   };
@@ -300,8 +300,9 @@ function render() {
         plugins: {
           tooltip: {
             callbacks: {
+              title: c => c.length ? `Qнс = ${fmt(c[0].parsed.x, 0)} л/с` : "",
               label: c => c.datasetIndex === 0
-                ? `Qнс = ${fmt(c.parsed.x, 0)} л/с → Wнс = ${fmt(c.parsed.y, 1)} м³, наполнение ${fmt((v => v.tk - v.tn)(calc(c.parsed.x, Qr, tr, n)), 1)} мин`
+                ? `Wнс = ${fmt(c.parsed.y, 1)} м³, наполнение ${fmt((v => v.tk - v.tn)(calc(c.parsed.x, Qr, tr, n)), 1)} мин`
                 : `выбрано: Qнс = ${fmt(Q)} л/с`,
             },
           },
