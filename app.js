@@ -183,13 +183,15 @@ function hydro(T, Qr, tr, n) {
 function renderQT(Q, Qr, tr, n, r) {
   const tMax = Math.max(1.5 * r.tk, 2 * tr);
   const N = 120;
-  const ts = [], qs = [], fill = [];
-  for (let i = 0; i <= N; i++) {
-    const t = tMax * i / N;
-    ts.push(+t.toFixed(3));
-    qs.push(+hydro(t, Qr, tr, n).toFixed(2));
-    fill.push(t >= r.tn && t <= r.tk ? qs[i] : null);
-  }
+  const tSet = new Set();
+  for (let i = 0; i <= N; i++) tSet.add(+(tMax * i / N).toFixed(3));
+  const lo = Math.max(0, 0.7 * tr), hi = Math.min(tMax, 1.3 * tr);
+  const M = 100;
+  for (let i = 0; i <= M; i++) tSet.add(+(lo + (hi - lo) * i / M).toFixed(3));
+  tSet.add(tr);
+  const ts = [...tSet].sort((a, b) => a - b);
+  const qs = ts.map(t => +hydro(t, Qr, tr, n).toFixed(2));
+  const fill = ts.map((t, i) => (t >= r.tn && t <= r.tk ? qs[i] : null));
   const marker = (t, label) => ({
     label, data: [{ x: t, y: 0 }, { x: t, y: hydro(t, Qr, tr, n) }],
     borderColor: "#8a929c", borderWidth: 1, borderDash: [4, 4],
