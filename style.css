@@ -125,7 +125,7 @@ main {
 }
 .card h3 { margin: 0 0 6px; font-weight:800; font-size: 14px; color: #272727; }
 .card.wide { grid-column: 1 / -1; }
-.card.wide .katex { font-size: 0.92em; }
+.card.wide .katex { font-size: 1.1em; }
 .card > span { flex: 1; }
 .card .value {
   font-size: 16px;
