@@ -352,6 +352,9 @@ function saveToStorage() {
   const data = {};
   for (const id of PARAM_IDS) data[id] = $(id).value;
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch { /* приватный режим */ }
+  const p = new URLSearchParams();
+  for (const id of PARAM_IDS) p.set(id, data[id]);
+  history.replaceState(null, "", "?" + p);
 }
 
 function loadFromUrl() {
