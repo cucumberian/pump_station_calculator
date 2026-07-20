@@ -96,6 +96,11 @@ main {
 }
 .field input[type="range"] { width: 100%; margin-top: 6px; }
 
+.dual { display: flex; align-items: center; gap: 6px; }
+.dual input { flex: 1; min-width: 0; }
+.dual-eq { color: #5a6572; }
+.dual-unit { font-size: 13px; color: #5a6572; white-space: nowrap; }
+
 .hint { font-size: 13px; color: #b0341f; }
 
 .scheme img { width: 100%; max-width: 500px; height: auto; display: block; }

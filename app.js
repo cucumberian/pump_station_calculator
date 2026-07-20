@@ -21,7 +21,7 @@ function calc(Q, Qr, tr, n) {
     (tk / tr) ** (2 - n) - (tn / tr) ** (2 - n) - (tk / tr - 1) ** (2 - n)
     - Q / Qr * (2 - n) * (tk / tr - tn / tr)
   );
-  return { tn, tk, W: Math.max(W, 0), fill: W / Q * 1000 / 60 };
+  return { tn, tk, W: Math.max(W, 0) };
 }
 
 function clampRange(Qr) {
@@ -157,19 +157,6 @@ const CARDS = [
     val: r => fmt(r.W, 1),
     tex: (Q, Qr, tr, n, r) =>
       `\\begin{aligned} W_{нс} &= \\frac{0{,}06\\,Q_r\\,t_r}{2-n}\\left[\\left(\\frac{T_{к}^{нс}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{н}^{нс}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{к}^{нс}}{t_r}-1\\right)^{2-n} - \\frac{Q_{нс}}{Q_r}(2-n)\\left(\\frac{T_{к}^{нс}}{t_r}-\\frac{T_{н}^{нс}}{t_r}\\right)\\right] \\\\ &= \\frac{0{,}06\\cdot ${fmt(Qr)}\\cdot ${fmt(tr)}}{2-${fmt(n)}}\\left[ ${fmt(r.tk / tr, 2)}^{${fmt(2 - n)}} - ${fmt(r.tn / tr, 3)}^{${fmt(2 - n)}} - ${fmt(r.tk / tr - 1, 2)}^{${fmt(2 - n)}} - ${fmt(Q / Qr, 3)}\\cdot ${fmt(2 - n)}\\cdot (${fmt(r.tk / tr, 2)}-${fmt(r.tn / tr, 3)}) \\right] = ${fmt(r.W, 1)}\\ \\text{м}^3 \\end{aligned}`
-  },
-  {
-    title: "tзап — время наполнения резервуара, мин",
-    sym: "t_{зап}", unit: "\\text{мин}",
-    val: r => fmt(r.fill, 1),
-    tex: (Q, Qr, tr, n, r) =>
-      `t_{зап} = \\frac{W_{нс}}{Q_{нс}} = \\frac{${fmt(r.W, 1)}\\cdot 1000}{${fmt(Q)}\\cdot 60} = ${fmt(r.fill, 1)}\\ \\text{мин}`
-  },
-  {
-    title: "Qнс — производительность насосной станции, м³/ч",
-    sym: "Q_{нс}", unit: "\\text{м}^3/\\text{ч}",
-    val: (r, Q) => fmt(Q * 3.6, 1),
-    tex: (Q) => `Q_{нс} = ${fmt(Q)}\\ \\text{л/с} \\cdot 3{,}6 = ${fmt(Q * 3.6, 1)}\\ \\text{м}^3/\\text{ч}`
   },
 ];
 
@@ -314,7 +301,7 @@ function render() {
           tooltip: {
             callbacks: {
               label: c => c.datasetIndex === 0
-                ? `Wнс = ${fmt(c.parsed.y, 1)} м³, наполнение ${fmt(calc(c.parsed.x, Qr, tr, n).fill, 1)} мин`
+                ? `Qнс = ${fmt(c.parsed.x, 0)} л/с → Wнс = ${fmt(c.parsed.y, 1)} м³, наполнение ${fmt((v => v.tk - v.tn)(calc(c.parsed.x, Qr, tr, n)), 1)} мин`
                 : `выбрано: Qнс = ${fmt(Q)} л/с`,
             },
           },
@@ -333,7 +320,7 @@ function render() {
     const v = calc(q, Qr, tr, n);
     const row = tbody.insertRow();
     if (Math.abs(q - Q) < step / 2) row.className = "active";
-    [fmt(q, 0), fmt(q * 3.6, 1), fmt(v.tn), fmt(v.tk), fmt(v.W, 1), fmt(v.fill, 1)]
+    [fmt(q, 0), fmt(q * 3.6, 1), fmt(v.tn), fmt(v.tk), fmt(v.W, 1)]
       .forEach(x => row.insertCell().textContent = x);
   }
 }
@@ -411,6 +398,7 @@ $("modal").addEventListener("click", e => { if (e.target === $("modal")) $("moda
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("modal").hidden = true; });
 loadFromStorage();
 let rangeDirty = loadFromUrl();
+{ const q = parseFloat($("Q").value); if (q > 0) $("Qm3h").value = +(q * 3.6).toFixed(1); }
 for (const id of ["vFrom", "vTo", "vStep"]) {
   $(id).addEventListener("input", () => { rangeDirty = true; render(); });
   $(id).addEventListener("change", () => {
@@ -434,8 +422,21 @@ $("Qr").addEventListener("input", () => {
     }
   }
 });
-for (const id of ["Qr", "tr", "n", "Q"]) $(id).addEventListener("input", render);
-$("Qrange").addEventListener("input", e => { $("Q").value = e.target.value; render(); });
+for (const id of ["Qr", "tr", "n"]) $(id).addEventListener("input", render);
+$("Q").addEventListener("input", () => {
+  const q = parseFloat($("Q").value);
+  if (q > 0) $("Qm3h").value = +(q * 3.6).toFixed(1);
+  render();
+});
+$("Qm3h").addEventListener("input", () => {
+  const m = parseFloat($("Qm3h").value);
+  if (m > 0) $("Q").value = +(m / 3.6).toFixed(2);
+  render();
+});
+$("Qrange").addEventListener("input", e => {
+  $("Q").value = e.target.value;
+  $("Q").dispatchEvent(new Event("input"));
+});
 $("nrange").addEventListener("input", e => { $("n").value = e.target.value; render(); });
 
 const shiftTr = dh => {
@@ -446,7 +447,7 @@ const shiftTr = dh => {
 $("trMinus").addEventListener("click", () => shiftTr(-1));
 $("trPlus").addEventListener("click", () => shiftTr(1));
 
-const WHEEL_STEPS = { Qr: 1, tr: 1, n: 0.01, Q: 1, vFrom: 1, vTo: 1, vStep: 1 };
+const WHEEL_STEPS = { Qr: 1, tr: 1, n: 0.01, Q: 1, Qm3h: 3.6, vFrom: 1, vTo: 1, vStep: 1 };
 for (const [id, step] of Object.entries(WHEEL_STEPS)) {
   $(id).addEventListener("wheel", e => {
     e.preventDefault();
