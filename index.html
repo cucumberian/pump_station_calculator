@@ -31,13 +31,17 @@
       <h2>Исходные данные</h2>
 
       <div class="field" title="максимальный расчётный расход дождевых вод в коллекторе дождевой канализации в расчётном участке, л/с">
-        <label for="Qr">Q<sub>r</sub> — макс. расход дождевого стока, л/с</label>
-        <input id="Qr" type="number" step="any" min="1" value="342.3">
+        <label for="Qr">Q<sub>r</sub> — макс. расход дождевого стока</label>
+        <div class="dual">
+          <input id="Qr" type="number" step="any" min="1" value="342.3">
+          <span class="dual-unit">л/с</span>
+        </div>
       </div>
       <div class="field" title="расчетная продолжительность дождя, равная продолжительности протекания поверхностных вод по поверхности и трубам до расчетного участка, мин">
-        <label for="tr">t<sub>r</sub> — расчётная продолжительность дождя, мин</label>
+        <label for="tr">t<sub>r</sub> — расчётная продолжительность дождя</label>
         <div class="tr-row">
           <input id="tr" type="number" step="any" min="1" value="10">
+          <span class="dual-unit">мин</span>
           <div class="tr-btns">
             <button class="btn" id="trMinus" type="button">− час</button>
             <button class="btn" id="trPlus" type="button">+ час</button>
@@ -75,10 +79,14 @@
         <div id="cards" class="cards"></div>
       </section>
 
-      <section class="chart-panel">
-        <h2>Подбор: производительность нс ↔ рабочий объём резервуара нс </h2>
-        <div class="chart-wrap"><canvas id="chart"></canvas></div>
-        <div class="chart-wrap"><canvas id="chartQT"></canvas></div>
+      <section class="chart-panel" id="charts">
+        <h2 id="chartsToggle">Графики <span class="scheme-arrow">▾</span></h2>
+        <div class="charts-body">
+          <label class="chart-opt"><input id="chartRangeFromTable" type="checkbox"> Диапазон оси Qнс — из таблицы вариантов</label>
+          <div class="chart-wrap"><canvas id="chart"></canvas></div>
+          <div class="chart-wrap"><canvas id="chartQT"></canvas><button class="help-btn" id="hydroHelp"
+              type="button" title="Как строится гидрограф Q(T)">?</button></div>
+        </div>
       </section>
 
       <section class="table-panel">

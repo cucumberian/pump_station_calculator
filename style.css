@@ -112,6 +112,13 @@ main {
 #resultsToggle { cursor: pointer; user-select: none; }
 #resultsToggle .scheme-arrow { display: inline-block; transition: transform 0.15s; }
 
+.charts-body { display: none; }
+.chart-panel.open .charts-body { display: block; }
+.chart-panel.open .scheme-arrow { transform: rotate(180deg); }
+#chartsToggle { cursor: pointer; user-select: none; }
+#chartsToggle .scheme-arrow { display: inline-block; transition: transform 0.15s; }
+.chart-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 8px; cursor: pointer; }
+
 .cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -141,7 +148,7 @@ main {
 }
 .card .value .katex { font-weight: 700; }
 
-.chart-wrap { height: 340px; }
+.chart-wrap { height: 340px; position: relative; }
 .chart-wrap + .chart-wrap { margin-top: 16px; }
 
 .table-wrap { overflow-x: auto; }
