@@ -757,10 +757,11 @@ $c("clearAll").addEventListener("click", () => {
 
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
-let ctxPos = null, ctxConn = null;
+let ctxPos = null, ctxConn = null, ctxShownAt = 0;
 function showCtxMenu(x, y, connEl) {
   ctxPos = [x, y];
   ctxConn = null;
+  ctxShownAt = Date.now();
   const m = $c("ctxMenu");
   if (connEl) {
     const cls = [...connEl.classList];
@@ -817,8 +818,13 @@ $c("drawflow").addEventListener("touchend", () => {
   clearTimeout(lpTimer);
   lpStart = null;
 });
+$c("drawflow").addEventListener("touchcancel", () => {
+  clearTimeout(lpTimer);
+  lpStart = null;
+});
 
 $c("ctxMenu").addEventListener("click", e => {
+  if (Date.now() - ctxShownAt < 300) return;
   const delBtn = e.target.closest("[data-delconn]");
   if (delBtn && ctxConn) {
     if (ctxConn.outId && ctxConn.inId && ctxConn.outClass && ctxConn.inClass) {
@@ -837,6 +843,7 @@ $c("ctxMenu").addEventListener("click", e => {
   hideCtxMenu();
 });
 document.addEventListener("click", e => {
+  if (Date.now() - ctxShownAt < 400) return;
   if (!e.target.closest("#ctxMenu")) hideCtxMenu();
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") hideCtxMenu(); });

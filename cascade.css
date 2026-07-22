@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -51,6 +52,7 @@
   min-width: 0;
   position: relative;
   touch-action: none;
+  -webkit-touch-callout: none;
   background: #f4f5f7;
   background-image: radial-gradient(#d3dae2 1px, transparent 1px);
   background-size: 20px 20px;
