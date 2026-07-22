@@ -577,5 +577,17 @@ $c("clearAll").addEventListener("click", () => {
 
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
+$c("menuToggle").addEventListener("click", e => {
+  e.stopPropagation();
+  $c("headerBtns").classList.toggle("open");
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest("#headerBtns")) $c("headerBtns").classList.remove("open");
+});
+
+document.querySelectorAll("#headerBtns .btn").forEach(b => {
+  b.addEventListener("click", () => $c("headerBtns").classList.remove("open"));
+});
+
 bindModal();
 loadInitial();

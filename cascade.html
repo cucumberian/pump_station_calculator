@@ -24,7 +24,9 @@
       <p>Соединяйте насосные станции и задержки · клик по ноде КНС открывает её расчёт</p>
     </div>
 
-    <div class="header-btns">
+    <button class="menu-toggle" id="menuToggle" type="button" aria-label="Меню">☰</button>
+
+    <div class="header-btns" id="headerBtns">
       <button class="btn" id="exportJson" type="button" title="Скачать схему в JSON-файл">Экспорт</button>
       <button class="btn" id="importJson" type="button" title="Загрузить схему из JSON-файла">Импорт</button>
       <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить</button>
@@ -37,6 +39,7 @@
       <h2>Параметры схемы</h2>
       <div class="field global-n" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности — общий для всей схемы">
         <label for="globalN">n — климатический параметр</label>
+        <span class="n-short">n</span>
         <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
       </div>
       <h2>Ноды</h2>
