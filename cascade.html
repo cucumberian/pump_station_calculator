@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Каскад КНС — редактор схемы насосных станций</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="cascade.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
+  <script defer src="hydro.js"></script>
+  <script defer src="calc-view.js"></script>
+  <script defer src="cascade.js"></script>
+</head>
+
+<body class="cascade-page">
+  <header>
+    <div>
+      <h1>Каскад насосных станций</h1>
+      <p>Соединяйте насосные станции и задержки · клик по ноде КНС открывает её расчёт</p>
+    </div>
+
+    <div class="header-btns">
+      <button class="btn" id="exportJson" type="button" title="Скачать схему в JSON-файл">Экспорт</button>
+      <button class="btn" id="importJson" type="button" title="Загрузить схему из JSON-файла">Импорт</button>
+      <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить</button>
+      <a class="btn" href="index.html" title="Одиночный расчёт насосной станции">Одиночный расчёт</a>
+    </div>
+  </header>
+
+  <div class="cascade-main">
+    <aside class="palette">
+      <h2>Параметры схемы</h2>
+      <div class="field global-n" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности — общий для всей схемы">
+        <label for="globalN">n — климатический параметр</label>
+        <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
+      </div>
+      <h2>Ноды</h2>
+      <div class="pal-node pal-pump" draggable="true" data-node="pump">
+        <b>Насосная станция</b>
+        <span>Qr, tr, Qнс</span>
+      </div>
+      <div class="pal-node pal-delay" draggable="true" data-node="delay">
+        <b>Задержка</b>
+        <span>v, м/с · L, м</span>
+      </div>
+      <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к кругу входа. Каждая КНС имеет собственный дождевой сток (Qr, tr).</p>
+    </aside>
+
+    <div id="drawflow"></div>
+
+    <aside class="sidebar panel" id="sidebar" hidden>
+      <div class="sidebar-head">
+        <h2 id="sbTitle">Насосная станция</h2>
+        <button class="modal-close" id="sbClose" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <div id="sbBody">
+        <p class="sb-empty" id="sbEmpty">Задайте Qr, tr и Qнс на ноде станции.</p>
+        <div id="sbContent">
+          <div class="field" title="максимальный расчётный расход дождевых вод для этой станции, л/с">
+            <label for="sbQr">Qr — макс. расход дождевого стока</label>
+            <div class="dual">
+              <input id="sbQr" type="number" step="any" min="1">
+              <span class="dual-unit">л/с</span>
+            </div>
+          </div>
+          <div class="field" title="расчётная продолжительность дождя для этой станции, мин">
+            <label for="sbTr">tr — расчётная продолжительность дождя</label>
+            <div class="dual">
+              <input id="sbTr" type="number" step="any" min="1">
+              <span class="dual-unit">мин</span>
+            </div>
+          </div>
+          <div class="field" title="максимальная производительность насосов в насосной станции, л/с">
+            <label for="sbQ">Qнс — производительность насосной станции</label>
+            <div class="dual">
+              <input id="sbQ" type="number" step="any" min="1">
+              <span class="dual-unit">л/с</span>
+              <span class="dual-eq">=</span>
+              <input id="sbQm3h" type="number" step="any" min="3.6">
+              <span class="dual-unit">м³/ч</span>
+            </div>
+            <input id="sbQrange" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
+          </div>
+          <div class="mode-row">
+            <span>Режим расчёта:</span>
+            <label><input type="radio" name="sbMode" value="analytic" checked> аналитический</label>
+            <label><input type="radio" name="sbMode" value="numeric"> численный</label>
+          </div>
+          <p class="approx-note" id="sbApprox" hidden>Вход — не чистый дождевой гидрограф: аналитический режим использует эквивалентные Qr*, tr* (пик суммарного гидрографа) — это приближение. Для точного результата включите численный режим.</p>
+          <h3 class="sb-h">Входной гидрограф (суммарный)<button class="help-btn sb-help" id="sbHydroHelp" type="button" title="Методика расчёта каскада">?</button></h3>
+          <div class="chart-wrap"><canvas id="sbInflow"></canvas></div>
+          <h3 class="sb-h">Результаты</h3>
+          <div id="sbCards" class="cards"></div>
+          <h3 class="sb-h">Wнс от Qнс</h3>
+          <div class="chart-wrap"><canvas id="sbChart"></canvas></div>
+          <h3 class="sb-h">Таблица вариантов</h3>
+          <div class="range-controls">
+            <div class="field"><label for="sbFrom">Qнс от, л/с</label><input id="sbFrom" type="number" step="any" min="1"></div>
+            <div class="field"><label for="sbTo">до, л/с</label><input id="sbTo" type="number" step="any" min="1"></div>
+            <div class="field"><label for="sbStep">шаг, л/с</label><input id="sbStep" type="number" step="any" min="0.5"></div>
+          </div>
+          <div class="table-wrap">
+            <table id="sbVariants">
+              <thead>
+                <tr>
+                  <th>Qнс, л/с</th>
+                  <th>Qнс, м³/ч</th>
+                  <th>Tн, мин</th>
+                  <th>Tк, мин</th>
+                  <th>Wнс, м³</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <input type="file" id="importFile" accept=".json,application/json" hidden>
+
+  <div id="selfcheck" hidden></div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-box">
+      <button id="modalClose" class="modal-close" type="button" aria-label="Закрыть">×</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+</body>
+
+</html>
