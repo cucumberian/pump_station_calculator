@@ -270,12 +270,39 @@
   .sidebar {
     width: 100%;
     flex-shrink: 0;
-    max-height: 55%;
+    height: 60%;
+    max-height: 60%;
     overflow-y: auto;
     border-left: none;
     border-top: 1px solid #dde1e6;
   }
-  .palette {
+.ctx-menu {
+  position: fixed;
+  z-index: 30;
+  background: #fff;
+  border: 1px solid #dde1e6;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+.ctx-menu[hidden] { display: none; }
+.ctx-menu button {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #1a1a1a;
+}
+.ctx-menu button:hover { background: #eef3fa; }
+
+.palette {
     width: 100%;
     display: flex;
     gap: 8px;

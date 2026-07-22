@@ -757,6 +757,90 @@ $c("clearAll").addEventListener("click", () => {
 
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
+let ctxPos = null, ctxConn = null;
+function showCtxMenu(x, y, connEl) {
+  ctxPos = [x, y];
+  ctxConn = null;
+  const m = $c("ctxMenu");
+  if (connEl) {
+    const cls = [...connEl.classList];
+    ctxConn = {
+      outId: cls.find(c => c.startsWith("node_out_node-"))?.replace("node_out_node-", ""),
+      inId: cls.find(c => c.startsWith("node_in_node-"))?.replace("node_in_node-", ""),
+      outClass: cls.find(c => /^output_\d+$/.test(c)),
+      inClass: cls.find(c => /^input_\d+$/.test(c)),
+    };
+    m.innerHTML = `<button type="button" data-delconn>Удалить связь</button>`;
+  } else {
+    m.innerHTML = `
+      <button type="button" data-add="pump">Насосная станция</button>
+      <button type="button" data-add="delay">Время протекания</button>`;
+  }
+  m.hidden = false;
+  m.style.left = Math.min(x, window.innerWidth - 200) + "px";
+  m.style.top = Math.min(y, window.innerHeight - 120) + "px";
+}
+function hideCtxMenu() {
+  $c("ctxMenu").hidden = true;
+  ctxPos = null;
+  ctxConn = null;
+}
+
+$c("drawflow").addEventListener("contextmenu", e => {
+  if (e.target.closest(".drawflow-node")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  showCtxMenu(e.clientX, e.clientY, e.target.closest(".connection"));
+}, true);
+
+let lpTimer = null, lpStart = null;
+$c("drawflow").addEventListener("touchstart", e => {
+  if (e.touches.length !== 1 || e.target.closest(".drawflow-node")) {
+    clearTimeout(lpTimer);
+    lpStart = null;
+    return;
+  }
+  const t = e.touches[0];
+  const connEl = e.target.closest(".connection");
+  lpStart = [t.clientX, t.clientY];
+  lpTimer = setTimeout(() => showCtxMenu(t.clientX, t.clientY, connEl), 550);
+});
+$c("drawflow").addEventListener("touchmove", e => {
+  if (!lpStart) return;
+  const t = e.touches[0];
+  if (Math.hypot(t.clientX - lpStart[0], t.clientY - lpStart[1]) > 10) {
+    clearTimeout(lpTimer);
+    lpStart = null;
+  }
+});
+$c("drawflow").addEventListener("touchend", () => {
+  clearTimeout(lpTimer);
+  lpStart = null;
+});
+
+$c("ctxMenu").addEventListener("click", e => {
+  const delBtn = e.target.closest("[data-delconn]");
+  if (delBtn && ctxConn) {
+    if (ctxConn.outId && ctxConn.inId && ctxConn.outClass && ctxConn.inClass) {
+      editor.removeSingleConnection(ctxConn.outId, ctxConn.inId, ctxConn.outClass, ctxConn.inClass);
+    }
+    hideCtxMenu();
+    return;
+  }
+  const btn = e.target.closest("[data-add]");
+  if (!btn || !ctxPos) return;
+  const rect = $c("drawflow").getBoundingClientRect();
+  const x = (ctxPos[0] - rect.left - editor.canvas_x) / editor.zoom;
+  const y = (ctxPos[1] - rect.top - editor.canvas_y) / editor.zoom;
+  addNodeOfType(btn.dataset.add, x, y);
+  computeCascade();
+  hideCtxMenu();
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest("#ctxMenu")) hideCtxMenu();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") hideCtxMenu(); });
+
 $c("menuToggle").addEventListener("click", e => {
   e.stopPropagation();
   $c("headerBtns").classList.toggle("open");
