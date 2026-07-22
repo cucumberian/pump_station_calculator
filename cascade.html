@@ -54,7 +54,13 @@
       <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к кругу входа. Каждая КНС имеет собственный дождевой сток (Qr, tr).</p>
     </aside>
 
-    <div id="drawflow"></div>
+    <div id="drawflow">
+      <div class="zoom-controls">
+        <button id="zoomIn" type="button" title="Приблизить">+</button>
+        <button id="zoomOut" type="button" title="Отдалить">−</button>
+        <button id="zoomFit" type="button" title="Показать всю схему">⤢</button>
+      </div>
+    </div>
 
     <aside class="sidebar panel" id="sidebar" hidden>
       <div class="sidebar-head">
@@ -62,20 +68,44 @@
         <button class="modal-close" id="sbClose" type="button" aria-label="Закрыть">×</button>
       </div>
       <div id="sbBody">
-        <p class="sb-empty" id="sbEmpty">Задайте Qr, tr и Qнс на ноде станции.</p>
-        <div id="sbContent">
-          <div class="field" title="максимальный расчётный расход дождевых вод для этой станции, л/с">
-            <label for="sbQr">Qr — макс. расход дождевого стока</label>
-            <div class="dual">
-              <input id="sbQr" type="number" step="any" min="1">
-              <span class="dual-unit">л/с</span>
+        <div id="sbDelay" hidden>
+          <div class="range-controls">
+            <div class="field" title="скорость протекания жидкости в коллекторе, м/с">
+              <label for="sbV">v — скорость</label>
+              <div class="dual">
+                <input id="sbV" type="number" step="any" min="0.01">
+                <span class="dual-unit">м/с</span>
+              </div>
+            </div>
+            <div class="field" title="длина участка коллектора, м">
+              <label for="sbL">L — длина</label>
+              <div class="dual">
+                <input id="sbL" type="number" step="any" min="0">
+                <span class="dual-unit">м</span>
+              </div>
             </div>
           </div>
-          <div class="field" title="расчётная продолжительность дождя для этой станции, мин">
-            <label for="sbTr">tr — расчётная продолжительность дождя</label>
-            <div class="dual">
-              <input id="sbTr" type="number" step="any" min="1">
-              <span class="dual-unit">мин</span>
+          <p class="sb-dt" id="sbDt"></p>
+          <h3 class="sb-h">Гидрограф до и после сдвига</h3>
+          <div class="chart-wrap" id="sbDelayChartWrap"><canvas id="sbDelayChart"></canvas></div>
+          <p class="sb-empty" id="sbDelayEmpty" hidden>Подключите вход к ноде времени протекания.</p>
+        </div>
+        <p class="sb-empty" id="sbEmpty">Задайте Qr, tr и Qнс на ноде станции.</p>
+        <div id="sbContent">
+          <div class="sb-pair">
+            <div class="field" title="максимальный расчётный расход дождевых вод для этой станции, л/с">
+              <label for="sbQr">Qr — макс. расход дождевого стока</label>
+              <div class="dual">
+                <input id="sbQr" type="number" step="any" min="1">
+                <span class="dual-unit">л/с</span>
+              </div>
+            </div>
+            <div class="field" title="расчётная продолжительность дождя для этой станции, мин">
+              <label for="sbTr">tr — расчётная продолжительность дождя</label>
+              <div class="dual">
+                <input id="sbTr" type="number" step="any" min="1">
+                <span class="dual-unit">мин</span>
+              </div>
             </div>
           </div>
           <div class="field" title="максимальная производительность насосов в насосной станции, л/с">

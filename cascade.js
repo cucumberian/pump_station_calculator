@@ -9,9 +9,9 @@ const NODE_HTML = {
   pump: `
     <div class="node-box node-pump">
       <div class="node-title">Насосная станция <span class="node-num"></span></div>
-      <div class="nf"><label>Qr, л/с</label><input df-Qr type="number" step="any" min="1"></div>
+      <div class="nf"><label>Qr, л/с</label><input df-qr type="number" step="any" min="1"></div>
       <div class="nf"><label>tr, мин</label><input df-tr type="number" step="any" min="1"></div>
-      <div class="nf"><label>Qнс, л/с</label><input df-Q type="number" step="any" min="1"></div>
+      <div class="nf"><label>Qнс, л/с</label><input df-q type="number" step="any" min="1"></div>
       <input class="q-range" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
       <div class="nf"><label>вне пика, %</label><input df-idle type="number" step="any" min="0" max="100"></div>
       <div class="node-summary">—</div>
@@ -26,7 +26,7 @@ const NODE_HTML = {
 };
 
 const NODE_DEFAULTS = {
-  pump: { Qr: 342.3, tr: 10, Q: 100, idle: 50, mode: "analytic" },
+  pump: { qr: 342.3, tr: 10, q: 100, idle: 50, mode: "analytic" },
   delay: { v: 1, l: 3600 },
 };
 
@@ -35,7 +35,104 @@ const NODE_LABEL = { pump: "КНС", delay: "Протекание" };
 const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#1098ad"];
 
 const editor = new Drawflow($c("drawflow"));
+editor.zoom_max = 2.5;
+editor.zoom_min = 0.25;
 editor.start();
+
+function applyTransform() {
+  editor.zoom_last_value = editor.zoom;
+  editor.precanvas.style.transform =
+    `translate(${editor.canvas_x}px, ${editor.canvas_y}px) scale(${editor.zoom})`;
+  editor.dispatch("zoom", editor.zoom);
+}
+
+function setZoomAt(zNew, mx, my) {
+  const zOld = editor.zoom;
+  zNew = Math.min(editor.zoom_max, Math.max(editor.zoom_min, zNew));
+  const cx = mx - (zNew / zOld) * (mx - editor.canvas_x);
+  const cy = my - (zNew / zOld) * (my - editor.canvas_y);
+  editor.zoom = zNew;
+  editor.canvas_x = cx;
+  editor.canvas_y = cy;
+  applyTransform();
+}
+
+function fitView() {
+  const nodes = [...document.querySelectorAll("#drawflow .drawflow-node")];
+  if (!nodes.length) return;
+  const z = editor.zoom;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const nd of nodes) {
+    const data = editor.getNodeFromId(nd.id.replace("node-", ""));
+    minX = Math.min(minX, data.pos_x);
+    minY = Math.min(minY, data.pos_y);
+    maxX = Math.max(maxX, data.pos_x + nd.offsetWidth / z);
+    maxY = Math.max(maxY, data.pos_y + nd.offsetHeight / z);
+  }
+  const rect = $c("drawflow").getBoundingClientRect();
+  const pad = 60;
+  const zNew = Math.min(
+    (rect.width - pad * 2) / Math.max(maxX - minX, 1),
+    (rect.height - pad * 2) / Math.max(maxY - minY, 1),
+    1.2
+  );
+  editor.zoom = Math.min(editor.zoom_max, Math.max(editor.zoom_min, zNew));
+  editor.canvas_x = (rect.width - editor.zoom * (maxX + minX)) / 2;
+  editor.canvas_y = (rect.height - editor.zoom * (maxY + minY)) / 2;
+  applyTransform();
+}
+
+function zoomStep(dir) {
+  const rect = $c("drawflow").getBoundingClientRect();
+  setZoomAt(editor.zoom + dir * editor.zoom_value, rect.width / 2, rect.height / 2);
+}
+
+$c("zoomIn").addEventListener("click", () => zoomStep(1));
+$c("zoomOut").addEventListener("click", () => zoomStep(-1));
+$c("zoomFit").addEventListener("click", fitView);
+window.addEventListener("wheel", e => {
+  if (!e.ctrlKey || !(e.target instanceof Element) || !e.target.closest("#drawflow")) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const rect = $c("drawflow").getBoundingClientRect();
+  const step = e.deltaY > 0 ? -editor.zoom_value : editor.zoom_value;
+  setZoomAt(editor.zoom + step, e.clientX - rect.left, e.clientY - rect.top);
+}, { capture: true, passive: false });
+for (const id of ["zoomIn", "zoomOut", "zoomFit"]) {
+  for (const ev of ["mousedown", "touchstart", "pointerdown", "click"]) {
+    $c(id).addEventListener(ev, e => e.stopPropagation());
+  }
+}
+
+let pinch = null;
+$c("drawflow").addEventListener("touchstart", e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const [a, b] = e.touches;
+    pinch = {
+      dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+      cx: (a.clientX + b.clientX) / 2,
+      cy: (a.clientY + b.clientY) / 2,
+    };
+  }
+}, { capture: true, passive: false });
+$c("drawflow").addEventListener("touchmove", e => {
+  if (e.touches.length === 2 && pinch) {
+    e.preventDefault();
+    e.stopPropagation();
+    const [a, b] = e.touches;
+    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (pinch.dist > 0) {
+      const rect = $c("drawflow").getBoundingClientRect();
+      setZoomAt(editor.zoom * dist / pinch.dist,
+        pinch.cx - rect.left, pinch.cy - rect.top);
+    }
+    pinch.dist = dist;
+  }
+}, { capture: true, passive: false });
+$c("drawflow").addEventListener("touchend", e => {
+  if (e.touches.length < 2) pinch = null;
+}, true);
 
 let results = {};
 let sbNodeId = null;
@@ -131,7 +228,7 @@ function computeCascade() {
       if (!src) { res[id] = null; continue; }
       res[id] = { series: shiftSeries(src.series, delayDt(d)) };
     } else if (nd.name === "pump") {
-      const Qr = parseFloat(d.Qr), tr = parseFloat(d.tr), Q = parseFloat(d.Q);
+      const Qr = parseFloat(d.qr), tr = parseFloat(d.tr), Q = parseFloat(d.q);
       if (!(Qr > 0 && tr > 0 && Q > 0)) { res[id] = null; continue; }
       let idle = parseFloat(d.idle);
       if (!(idle >= 0)) idle = 50;
@@ -155,7 +252,7 @@ function computeCascade() {
         r = numericCalc(Q, inflow);
       }
       res[id] = {
-        series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1], HYDRO_DT, idle),
+        series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1] + totalDelay, HYDRO_DT, idle),
         ownRain, inflow, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob,
         approx: mode === "analytic" && !pureRain,
       };
@@ -196,6 +293,55 @@ function updateSummaries(data = graphData()) {
     }
   }
 }
+
+const delayChart = (() => {
+  let chart = null;
+  return {
+    update(dt, inSeries, outSeries) {
+      const ts = outSeries.t.map(t => +t.toFixed(2));
+      const inEnd = inSeries.t[inSeries.t.length - 1];
+      const inLast = inSeries.q[inSeries.q.length - 1];
+      const data = {
+        labels: ts,
+        datasets: [
+          { label: "вход, л/с", data: outSeries.t.map(t => +(t <= inEnd ? interpAt(inSeries, t) : inLast).toFixed(2)),
+            borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, stepped: true },
+          { label: `выход (сдвиг ${fmt(dt, 1)} мин), л/с`, data: outSeries.q.map(q => +q.toFixed(2)),
+            borderColor: "#f08c00", borderWidth: 2, borderDash: [6, 3], pointRadius: 0, stepped: true },
+          { label: "Δt", data: [{ x: dt, y: 0 }, { x: dt, y: seriesPeak(inSeries).q }],
+            borderColor: "#b26a00", borderWidth: 1, borderDash: [4, 4],
+            pointRadius: 3, backgroundColor: "#b26a00", showLine: true },
+        ],
+      };
+      if (chart) {
+        chart.data = data;
+        chart.update("none");
+      } else {
+        chart = new Chart($c("sbDelayChart"), {
+          type: "line", data,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "nearest", intersect: false },
+            scales: {
+              x: { type: "linear", title: { display: true, text: "T, мин" }, min: 0 },
+              y: { title: { display: true, text: "Q, л/с" }, beginAtZero: true },
+            },
+            plugins: {
+              legend: { labels: { filter: i => i.text !== "Δt", boxWidth: 14 } },
+              tooltip: {
+                callbacks: {
+                  title: c => c.length ? `T = ${fmt(c[0].parsed.x, 1)} мин` : "",
+                  label: c => `${c.dataset.label}: ${fmt(c.parsed.y, 1)} л/с`,
+                },
+              },
+            },
+          },
+        });
+      }
+    },
+  };
+})();
 
 const inflowChart = (() => {
   let chart = null;
@@ -275,9 +421,31 @@ function sbCalcFn(res) {
     : q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
 }
 
+function renderDelaySidebar(node) {
+  $c("sbTitle").textContent = `Время протекания · нода #${sbNodeId}`;
+  $c("sbDelay").hidden = false;
+  $c("sbEmpty").hidden = true;
+  $c("sbContent").hidden = true;
+  const d = node.data || {};
+  if (document.activeElement !== $c("sbV")) $c("sbV").value = d.v;
+  if (document.activeElement !== $c("sbL")) $c("sbL").value = d.l;
+  const dt = delayDt(d);
+  $c("sbDt").textContent = `Δt = L / (60·v) = ${fmt(dt, 1)} мин`;
+  const srcId = upstreamIds(sbNodeId, graphData())[0];
+  const src = srcId && results[srcId];
+  const out = results[sbNodeId];
+  const has = !!(src && out);
+  $c("sbDelayChartWrap").hidden = !has;
+  $c("sbDelayEmpty").hidden = has;
+  if (has) delayChart.update(dt, src.series, out.series);
+}
+
 function renderSidebar() {
   if (sbNodeId === null) return;
   const node = editor.getNodeFromId(sbNodeId);
+  if (!node) return;
+  if (node.name === "delay") { renderDelaySidebar(node); return; }
+  $c("sbDelay").hidden = true;
   const res = results[sbNodeId];
   $c("sbTitle").textContent = `Насосная станция · нода #${sbNodeId}`;
   if (!node || !res) {
@@ -297,15 +465,7 @@ function renderSidebar() {
   rg.max = Math.ceil(qMax);
   if (document.activeElement !== rg) rg.value = Math.min(res.Q, qMax);
   if (document.activeElement !== $c("sbIdle")) $c("sbIdle").value = res.idle;
-$c("sbQrange").addEventListener("input", e => {
-  $c("sbQ").value = e.target.value;
-  $c("sbQ").dispatchEvent(new Event("input", { bubbles: true }));
-});
-$c("sbIdle").addEventListener("input", () => {
-  const v = parseFloat($c("sbIdle").value);
-  if (v >= 0 && v <= 100 && sbNodeId !== null) syncNodeParam(sbNodeId, "idle", v);
-});
-for (const rb of document.querySelectorAll('input[name="sbMode"]')) {
+  for (const rb of document.querySelectorAll('input[name="sbMode"]')) {
     rb.checked = rb.value === res.mode;
   }
   $c("sbApprox").hidden = !res.approx;
@@ -381,6 +541,10 @@ function rebuildScheme(stored) {
   for (const [oldId, nd] of Object.entries(data)) {
     if (!(nd.name in NODE_PORTS)) continue;
     const d = { ...NODE_DEFAULTS[nd.name], ...nd.data };
+    if (nd.name === "pump") {
+      if (d.Qr !== undefined) { d.qr = d.Qr; delete d.Qr; }
+      if (d.Q !== undefined) { d.q = d.Q; delete d.Q; }
+    }
     if (nd.name === "delay") {
       const lOld = parseFloat(d.l ?? d.L);
       const dtOld = parseFloat(d.dt);
@@ -437,11 +601,11 @@ $c("drawflow").addEventListener("click", e => {
   if (!nodeEl || !mouseDownPos) return;
   if (Math.hypot(e.clientX - mouseDownPos[0], e.clientY - mouseDownPos[1]) > 5) return;
   const id = nodeEl.id.replace("node-", "");
-  if (editor.getNodeFromId(id)?.name === "pump") openSidebar(id);
+  if (["pump", "delay"].includes(editor.getNodeFromId(id)?.name)) openSidebar(id);
 });
 
-const NODE_WHEEL_STEPS = { Qr: 1, tr: 1, Q: 1, idle: 5, v: 0.1, l: 100 };
-const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01 };
+const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100 };
+const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01 };
 
 const CASCADE_HELP = [
   { p: "Входной гидрограф станции складывается из собственного дождевого стока и выходных гидрографов вышестоящих станций, сдвинутых нодами времени протекания. Все составляющие показаны на графике пунктиром." },
@@ -481,7 +645,7 @@ window.addEventListener("wheel", e => {
   el.value = v;
   if (inNode) {
     const id = el.closest(".drawflow-node").id.replace("node-", "");
-    syncNodeParam(id, el.type === "range" ? "Q" : dfKey(el), v);
+    syncNodeParam(id, el.type === "range" ? "q" : dfKey(el), v);
   } else {
     el.dispatchEvent(new Event("input", { bubbles: true }));
   }
@@ -496,7 +660,7 @@ for (const evName of ["mousedown", "touchstart", "pointerdown"]) {
 $c("drawflow").addEventListener("input", e => {
   if (!e.target.classList?.contains("q-range")) return;
   const id = e.target.closest(".drawflow-node").id.replace("node-", "");
-  syncNodeParam(id, "Q", parseFloat(e.target.value));
+  syncNodeParam(id, "q", parseFloat(e.target.value));
 });
 
 editor.on("connectionCreated", conn => {
@@ -517,7 +681,7 @@ editor.on("nodeMoved", () => saveScheme());
 $c("sbClose").addEventListener("click", closeSidebar);
 $c("sbQr").addEventListener("input", () => {
   const v = parseFloat($c("sbQr").value);
-  if (v > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "Qr", v);
+  if (v > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "qr", v);
 });
 $c("sbTr").addEventListener("input", () => {
   const v = parseFloat($c("sbTr").value);
@@ -525,11 +689,27 @@ $c("sbTr").addEventListener("input", () => {
 });
 $c("sbQ").addEventListener("input", () => {
   const q = parseFloat($c("sbQ").value);
-  if (q > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "Q", q);
+  if (q > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "q", q);
 });
 $c("sbQm3h").addEventListener("input", () => {
   const m = parseFloat($c("sbQm3h").value);
-  if (m > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "Q", +(m / 3.6).toFixed(2));
+  if (m > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "q", +(m / 3.6).toFixed(2));
+});
+$c("sbQrange").addEventListener("input", e => {
+  $c("sbQ").value = e.target.value;
+  $c("sbQ").dispatchEvent(new Event("input", { bubbles: true }));
+});
+$c("sbIdle").addEventListener("input", () => {
+  const v = parseFloat($c("sbIdle").value);
+  if (v >= 0 && v <= 100 && sbNodeId !== null) syncNodeParam(sbNodeId, "idle", v);
+});
+$c("sbV").addEventListener("input", () => {
+  const v = parseFloat($c("sbV").value);
+  if (v > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "v", v);
+});
+$c("sbL").addEventListener("input", () => {
+  const v = parseFloat($c("sbL").value);
+  if (v >= 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "l", v);
 });
 for (const rb of document.querySelectorAll('input[name="sbMode"]')) {
   rb.addEventListener("change", () => {
