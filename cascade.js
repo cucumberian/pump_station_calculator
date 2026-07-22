@@ -478,6 +478,12 @@ window.addEventListener("wheel", e => {
   }
 }, { capture: true, passive: false });
 
+for (const evName of ["mousedown", "touchstart", "pointerdown"]) {
+  $c("drawflow").addEventListener(evName, e => {
+    if (e.target.classList?.contains("q-range")) e.stopPropagation();
+  }, true);
+}
+
 $c("drawflow").addEventListener("input", e => {
   if (!e.target.classList?.contains("q-range")) return;
   const id = e.target.closest(".drawflow-node").id.replace("node-", "");

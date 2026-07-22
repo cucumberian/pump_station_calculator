@@ -174,8 +174,8 @@
   background: #fff;
   border: 1.5px solid #9fb8d9;
 }
-.drawflow .drawflow-node .input { left: -18px; }
-.drawflow .drawflow-node .output { right: -18px; }
+.drawflow .drawflow-node .input { left: -20px; }
+.drawflow .drawflow-node .output { right: -9px; }
 .drawflow .drawflow-node.delay .input,
 .drawflow .drawflow-node.delay .output { border-color: #dfc48d; }
 .drawflow .drawflow-node .input:hover,
