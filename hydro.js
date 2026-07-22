@@ -97,13 +97,14 @@ function numericCalc(Q, s) {
   return { tn, tk, W };
 }
 
-function pumpOutSeries(Q, r, tMax, dt = HYDRO_DT) {
+function pumpOutSeries(Q, r, tMax, dt = HYDRO_DT, idlePct = 50) {
   const ts = [], qs = [];
+  const idle = Q * idlePct / 100;
   const N = Math.max(2, Math.ceil(tMax / dt));
   for (let i = 0; i <= N; i++) {
     const t = i * dt;
     ts.push(t);
-    qs.push(!r.dry && t >= r.tn && t <= r.tk ? Q : Q / 2);
+    qs.push(!r.dry && t >= r.tn && t <= r.tk ? Q : idle);
   }
   return { t: ts, q: qs };
 }

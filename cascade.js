@@ -13,11 +13,12 @@ const NODE_HTML = {
       <div class="nf"><label>tr, мин</label><input df-tr type="number" step="any" min="1"></div>
       <div class="nf"><label>Qнс, л/с</label><input df-Q type="number" step="any" min="1"></div>
       <input class="q-range" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
+      <div class="nf"><label>вне пика, %</label><input df-idle type="number" step="any" min="0" max="100"></div>
       <div class="node-summary">—</div>
     </div>`,
   delay: `
     <div class="node-box node-delay">
-      <div class="node-title">Задержка</div>
+      <div class="node-title">Время протекания</div>
       <div class="nf"><label>v, м/с</label><input df-v type="number" step="any" min="0.01"></div>
       <div class="nf"><label>L, м</label><input df-l type="number" step="any" min="0"></div>
       <div class="delay-out">Δt = —</div>
@@ -25,12 +26,12 @@ const NODE_HTML = {
 };
 
 const NODE_DEFAULTS = {
-  pump: { Qr: 342.3, tr: 10, Q: 100, mode: "analytic" },
+  pump: { Qr: 342.3, tr: 10, Q: 100, idle: 50, mode: "analytic" },
   delay: { v: 1, l: 3600 },
 };
 
 const NODE_PORTS = { pump: [1, 1], delay: [1, 1] };
-const NODE_LABEL = { pump: "КНС", delay: "Задержка" };
+const NODE_LABEL = { pump: "КНС", delay: "Протекание" };
 const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#1098ad"];
 
 const editor = new Drawflow($c("drawflow"));
@@ -132,6 +133,9 @@ function computeCascade() {
     } else if (nd.name === "pump") {
       const Qr = parseFloat(d.Qr), tr = parseFloat(d.tr), Q = parseFloat(d.Q);
       if (!(Qr > 0 && tr > 0 && Q > 0)) { res[id] = null; continue; }
+      let idle = parseFloat(d.idle);
+      if (!(idle >= 0)) idle = 50;
+      idle = Math.min(idle, 100);
       const ownRain = sampleHydro(Qr, tr, nGlob, 4 * tr + totalDelay + 30);
       const ups = upstreamIds(id, data).map(u => ({ id: u, r: res[u] })).filter(x => x.r);
       const inflow = combineSeries([ownRain, ...ups.map(x => x.r.series)]);
@@ -151,8 +155,8 @@ function computeCascade() {
         r = numericCalc(Q, inflow);
       }
       res[id] = {
-        series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1]),
-        ownRain, inflow, r, Q, Qr, tr, mode, eq, nEff: nGlob,
+        series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1], HYDRO_DT, idle),
+        ownRain, inflow, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob,
         approx: mode === "analytic" && !pureRain,
       };
     }
@@ -292,9 +296,14 @@ function renderSidebar() {
   const rg = $c("sbQrange");
   rg.max = Math.ceil(qMax);
   if (document.activeElement !== rg) rg.value = Math.min(res.Q, qMax);
+  if (document.activeElement !== $c("sbIdle")) $c("sbIdle").value = res.idle;
 $c("sbQrange").addEventListener("input", e => {
   $c("sbQ").value = e.target.value;
   $c("sbQ").dispatchEvent(new Event("input", { bubbles: true }));
+});
+$c("sbIdle").addEventListener("input", () => {
+  const v = parseFloat($c("sbIdle").value);
+  if (v >= 0 && v <= 100 && sbNodeId !== null) syncNodeParam(sbNodeId, "idle", v);
 });
 for (const rb of document.querySelectorAll('input[name="sbMode"]')) {
     rb.checked = rb.value === res.mode;
@@ -431,15 +440,15 @@ $c("drawflow").addEventListener("click", e => {
   if (editor.getNodeFromId(id)?.name === "pump") openSidebar(id);
 });
 
-const NODE_WHEEL_STEPS = { Qr: 1, tr: 1, Q: 1, v: 0.1, l: 100 };
-const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01 };
+const NODE_WHEEL_STEPS = { Qr: 1, tr: 1, Q: 1, idle: 5, v: 0.1, l: 100 };
+const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01 };
 
 const CASCADE_HELP = [
-  { p: "Входной гидрограф станции складывается из собственного дождевого стока и выходных гидрографов вышестоящих станций, сдвинутых нодами задержки. Все составляющие показаны на графике пунктиром." },
+  { p: "Входной гидрограф станции складывается из собственного дождевого стока и выходных гидрографов вышестоящих станций, сдвинутых нодами времени протекания. Все составляющие показаны на графике пунктиром." },
   { p: "Собственный дождевой сток строится по формулам (2) и (3) Приложения 8 — так же, как в одиночном расчёте:" },
   { tex: "Q(T) = Q_r\\left(\\frac{T}{t_r}\\right)^{1-n}, \\ T \\le t_r; \\qquad Q(T) = Q_r\\left[\\left(\\frac{T}{t_r}\\right)^{1-n} - \\left(\\frac{T}{t_r}-1\\right)^{1-n}\\right], \\ T > t_r" },
-  { p: "Нода задержки сдвигает гидрограф по времени на Δt = L / (60·v) минут, где L — длина участка в метрах, v — скорость протекания в м/с." },
-  { p: "Выходной гидрограф станции (принятое упрощение): на интервале [Tнⁿˢ; Tкⁿˢ] станция откачивает полную производительность Qнс, в остальное время — половину расчётной (Qнс/2)." },
+  { p: "Нода времени протекания сдвигает гидрограф по времени на Δt = L / (60·v) минут, где L — длина участка в метрах, v — скорость протекания в м/с." },
+  { p: "Выходной гидрограф станции (принятое упрощение): на интервале [Tнⁿˢ; Tкⁿˢ] станция откачивает полную производительность Qнс, в остальное время — заданный процент от Qнс (параметр «вне пика, %», по умолчанию 50%)." },
   { p: "Аналитический режим. Для одиночной станции без входов — точные формулы одиночного расчёта (формулы (1)–(3) Приложения 8). В каскаде суммарный гидрограф заменяется эквивалентным дождевым: Qr* — пик суммарного гидрографа, tr* — момент пика, n — общий климатический параметр схемы; далее применяются те же формулы. Это приближение, о чём выводится предупреждение." },
   { p: "Численный режим. Работа резервуара моделируется по шагам Δt: на каждом шаге уровень заполнения меняется на приток минус откачку, но не может стать отрицательным:" },
   { tex: "V_{i+1} = \\max\\!\\left(0,\\; V_i + 0{,}06\\,\\frac{(Q_i - Q_{нс}) + (Q_{i+1} - Q_{нс})}{2}\\,\\Delta t\\right), \\qquad W_{нс} = \\max_i V_i" },

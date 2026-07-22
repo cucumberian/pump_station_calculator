@@ -45,7 +45,7 @@
         <span>Qr, tr, Qнс</span>
       </div>
       <div class="pal-node pal-delay" draggable="true" data-node="delay">
-        <b>Задержка</b>
+        <b>Время протекания</b>
         <span>v, м/с · L, м</span>
       </div>
       <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к кругу входа. Каждая КНС имеет собственный дождевой сток (Qr, tr).</p>
@@ -85,6 +85,13 @@
               <span class="dual-unit">м³/ч</span>
             </div>
             <input id="sbQrange" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
+          </div>
+          <div class="field" title="процент производительности, с которой станция работает вне пикового периода [Tн; Tк]">
+            <label for="sbIdle">Работа вне пика</label>
+            <div class="dual">
+              <input id="sbIdle" type="number" step="any" min="0" max="100">
+              <span class="dual-unit">% от Qнс</span>
+            </div>
           </div>
           <div class="mode-row">
             <span>Режим расчёта:</span>
