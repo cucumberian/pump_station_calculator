@@ -8,13 +8,13 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=4">
-  <link rel="stylesheet" href="static/css/cascade.css?v=8">
+  <link rel="stylesheet" href="static/css/cascade.css?v=9">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script defer src="static/js/hydro.js?v=3"></script>
   <script defer src="static/js/calc-view.js?v=3"></script>
-  <script defer src="static/js/cascade.js?v=8"></script>
+  <script defer src="static/js/cascade.js?v=9"></script>
 </head>
 
 <body class="cascade-page">
@@ -33,13 +33,15 @@
   </header>
 
   <div class="cascade-main">
-    <aside class="palette">
-      <div>
+    <aside class="palette" id="palette">
+      <div id="paletteBody">
         <h2>Параметры схемы</h2>
-        <div class="field global-n" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности — общий для всей схемы">
-          <label for="globalN">n — климатический параметр</label>
-          <span class="n-short">n</span>
-          <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
+        <div id="gnSlot">
+          <div class="field global-n" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности — общий для всей схемы">
+            <label for="globalN">n — климатический параметр</label>
+            <span class="n-short">n</span>
+            <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
+          </div>
         </div>
         <h2>Ноды</h2>
         <div class="pal-node pal-pump" draggable="true" data-node="pump">
@@ -54,9 +56,13 @@
       </div>
 
       <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить</button>
+      <button class="palette-toggle" id="paletteToggle" type="button" aria-label="Свернуть панель" title="Свернуть панель">‹</button>
     </aside>
 
     <div id="drawflow">
+      <div class="n-float" id="nFloat" hidden>
+        <button class="palette-toggle" id="paletteExpand" type="button" aria-label="Развернуть панель" title="Развернуть панель">›</button>
+      </div>
       <div class="zoom-controls">
         <button id="zoomIn" type="button" title="Приблизить">+</button>
         <button id="zoomOut" type="button" title="Отдалить">−</button>

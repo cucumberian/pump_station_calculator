@@ -746,6 +746,21 @@ for (const id of ["sbFrom", "sbTo", "sbStep"]) {
 
 $c("globalN").addEventListener("input", computeCascade);
 
+const gnField = document.querySelector(".palette .global-n");
+$c("paletteToggle").addEventListener("click", () => {
+  $c("palette").classList.add("collapsed");
+  $c("nFloat").insertBefore(gnField, $c("paletteExpand").nextSibling);
+  $c("nFloat").hidden = false;
+});
+$c("paletteExpand").addEventListener("click", () => {
+  $c("palette").classList.remove("collapsed");
+  $c("gnSlot").appendChild(gnField);
+  $c("nFloat").hidden = true;
+});
+for (const ev of ["mousedown", "touchstart", "pointerdown", "click", "contextmenu"]) {
+  $c("nFloat").addEventListener(ev, e => e.stopPropagation());
+}
+
 $c("exportJson").addEventListener("click", () => {
   const payload = { n: getGlobalN(), scheme: editor.export() };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
