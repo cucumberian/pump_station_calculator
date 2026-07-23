@@ -15,6 +15,7 @@ const NODE_HTML = {
       <input class="q-range" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
       <div class="nf"><label>вне пика, %</label><input df-idle type="number" step="any" min="0" max="100"></div>
       <div class="node-summary">—</div>
+      <button class="mode-toggle" type="button" title="Численный режим расчёта">Σ</button>
     </div>`,
   delay: `
     <div class="node-box node-delay">
@@ -291,6 +292,8 @@ function updateSummaries(data = graphData()) {
       continue;
     }
     if (nd.name !== "pump") continue;
+    const mt = document.querySelector(`#node-${id} .mode-toggle`);
+    if (mt) mt.classList.toggle("active", (nd.data?.mode ?? "analytic") === "numeric");
     const r = results[id];
     const slider = document.querySelector(`#node-${id} .q-range`);
     if (slider && r) {
@@ -670,9 +673,20 @@ window.addEventListener("wheel", e => {
 
 for (const evName of ["mousedown", "touchstart", "pointerdown"]) {
   $c("drawflow").addEventListener(evName, e => {
-    if (e.target.classList?.contains("q-range")) e.stopPropagation();
+    if (e.target.classList?.contains("q-range") ||
+        e.target.classList?.contains("mode-toggle")) e.stopPropagation();
   }, true);
 }
+
+$c("drawflow").addEventListener("click", e => {
+  const mt = e.target.closest(".mode-toggle");
+  if (!mt) return;
+  e.stopPropagation();
+  const id = mt.closest(".drawflow-node").id.replace("node-", "");
+  const nd = editor.getNodeFromId(id);
+  if (!nd) return;
+  syncNodeParam(id, "mode", nd.data?.mode === "numeric" ? "analytic" : "numeric");
+}, true);
 
 $c("drawflow").addEventListener("input", e => {
   if (!e.target.classList?.contains("q-range")) return;

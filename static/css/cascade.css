@@ -149,8 +149,30 @@
 .sidebar .sb-pair .field { flex: 1; min-width: 0; }
 
 .node-box {
+  position: relative;
   min-width: 170px;
   font-size: 13px;
+}
+.mode-toggle {
+  position: absolute;
+  right: -9px;
+  bottom: -7px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #b9c4d0;
+  border-radius: 5px;
+  background: #fff;
+  color: #5a6572;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mode-toggle:hover { border-color: #12325e; color: #12325e; }
+.mode-toggle.active {
+  background: #12325e;
+  border-color: #12325e;
+  color: #fff;
 }
 .node-box .node-title {
   display: flex;
@@ -175,7 +197,7 @@
   white-space: nowrap;
 }
 .node-box .nf input {
-  width: 64px;
+  width: 80px;
   padding: 3px 6px;
   border: 1px solid #c4ccd4;
   border-radius: 4px;
@@ -192,6 +214,7 @@
   color: #12325e;
   line-height: 1.6;
 }
+.node-summary { padding-right: 30px; }
 .node-summary .warn { color: #b0341f; }
 .node-num { font-weight: 700; opacity: 0.55; }
 
@@ -204,10 +227,12 @@
 .drawflow .drawflow-node.pump {
   background: #f7fafd;
   border: 0.5px solid #c3d4ea;
+  width: 250px;
 }
 .drawflow .drawflow-node.delay {
   background: #fdfaf3;
   border: 0.5px solid #e6d7b4;
+  width: 190px;
 }
 .drawflow .drawflow-node.selected { border-color: #12325e; }
 .drawflow .drawflow-node.delay.selected { border-color: #b26a00; }
