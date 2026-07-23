@@ -50,6 +50,10 @@
   width: 26px;
   height: 26px;
   padding: 0;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #c6d3e4;
   border-radius: 6px;
   background: #fff;
@@ -58,6 +62,8 @@
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .palette-toggle:hover { background: #dbe6f5; }
 .n-float {
@@ -141,6 +147,10 @@
 .zoom-controls button {
   width: 36px;
   height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #c6d3e4;
   border-radius: 8px;
   background: #fff;
@@ -150,6 +160,8 @@
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(18, 50, 94, 0.15);
+  appearance: none;
+  -webkit-appearance: none;
 }
 .zoom-controls button:hover { background: #dbe6f5; }
 
@@ -224,6 +236,9 @@
   width: 24px;
   height: 24px;
   padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #b9c4d0;
   border-radius: 5px;
   background: #fff;
@@ -231,6 +246,8 @@
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .mode-toggle:hover { border-color: var(--pump-accent); color: var(--pump-accent); }
 .mode-toggle.active {
@@ -266,6 +283,8 @@
   color: #5a6572;
   line-height: 1;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .drawflow-node.delay .node-lock {right: -3px;}
 .node-lock:hover { border-color: var(--pump-accent); color: var(--pump-accent); }
@@ -337,6 +356,9 @@
   width: 24px;
   height: 24px;
   padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #b9c4d0;
   border-radius: 5px;
   background: #fff;
@@ -344,6 +366,8 @@
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .catch-info:hover { border-color: var(--catch-accent); color: var(--catch-accent); }
 .node-box input:disabled {
@@ -527,10 +551,11 @@
     border-bottom: 1px solid #dde1e6;
     flex-direction: row;
   }
-  .palette-toggle {position: relative; top: 0; right: 0; width: 26px; height: 26px;}
+  .palette-toggle {position: relative; top: 0; right: 0; width: 26px; height: 26px; flex-shrink: 0;}
   .palette > div {flex-direction: row; width: 100%;}
   .palette h2, .pal-hint { display: none; }
   .pal-node { margin-bottom: 0; flex: 1; padding: 6px 8px; }
+  .palette .btn { flex-shrink: 0; }
   .pal-node .addon { display: none; }
   .pal-node b { font-size: 12px; }
   .palette .global-n { margin-bottom: 0; width: 84px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }

@@ -62,7 +62,7 @@ const XMARK_HTML = `<svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" 
 
 const editor = new Drawflow($c("drawflow"));
 editor.force_first_input = true;
-editor.zoom_max = 1.5;
+editor.zoom_max = 5.0;
 editor.zoom_min = 0.1;
 editor.start();
 
