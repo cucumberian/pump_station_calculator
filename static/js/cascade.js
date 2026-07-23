@@ -37,17 +37,10 @@ const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#10
 
 const XMARK_HTML = `<svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg>`;
 
-const dfContextmenu = Drawflow.prototype.contextmenu;
-Drawflow.prototype.contextmenu = function (e) {
-  dfContextmenu.call(this, e);
-  const del = this.precanvas?.querySelector(".drawflow-delete");
-  if (del) del.innerHTML = XMARK_HTML;
-};
-
 const editor = new Drawflow($c("drawflow"));
 editor.force_first_input = true;
-editor.zoom_max = 2.5;
-editor.zoom_min = 0.25;
+editor.zoom_max = 1.5;
+editor.zoom_min = 0.1;
 editor.start();
 
 function applyTransform() {
@@ -788,14 +781,20 @@ $c("clearAll").addEventListener("click", () => {
 
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
-let ctxPos = null, ctxConn = null, ctxShownAt = 0, ctxFromTouch = false;
-function showCtxMenu(x, y, connEl, fromTouch = false) {
+let ctxPos = null, ctxConn = null, ctxNode = null, ctxShownAt = 0, ctxFromTouch = false;
+function showCtxMenu(x, y, { nodeEl = null, connEl = null, fromTouch = false } = {}) {
   ctxPos = [x, y];
   ctxConn = null;
+  ctxNode = null;
   ctxShownAt = Date.now();
   ctxFromTouch = fromTouch;
   const m = $c("ctxMenu");
-  if (connEl) {
+  if (nodeEl) {
+    ctxNode = nodeEl.id.replace("node-", "");
+    m.innerHTML = `
+      <button type="button" data-dupnode>Дублировать ноду</button>
+      <button type="button" data-delnode>${XMARK_HTML}Удалить ноду</button>`;
+  } else if (connEl) {
     const cls = [...connEl.classList];
     ctxConn = {
       outId: cls.find(c => c.startsWith("node_out_node-"))?.replace("node_out_node-", ""),
@@ -817,27 +816,34 @@ function hideCtxMenu() {
   $c("ctxMenu").hidden = true;
   ctxPos = null;
   ctxConn = null;
+  ctxNode = null;
 }
 
 $c("drawflow").addEventListener("contextmenu", e => {
-  if (e.target.closest(".drawflow-node")) return;
   e.preventDefault();
   e.stopPropagation();
   if (ctxFromTouch && Date.now() - ctxShownAt < 800) return;
-  showCtxMenu(e.clientX, e.clientY, e.target.closest(".connection"), false);
+  showCtxMenu(e.clientX, e.clientY, {
+    nodeEl: e.target.closest(".drawflow-node"),
+    connEl: e.target.closest(".connection"),
+  });
 }, true);
 
 let lpTimer = null, lpStart = null;
 $c("drawflow").addEventListener("touchstart", e => {
-  if (e.touches.length !== 1 || e.target.closest(".drawflow-node")) {
+  if (e.touches.length !== 1 || e.target.closest("input, button, select")) {
     clearTimeout(lpTimer);
     lpStart = null;
     return;
   }
   const t = e.touches[0];
-  const connEl = e.target.closest(".connection");
   lpStart = [t.clientX, t.clientY];
-  lpTimer = setTimeout(() => showCtxMenu(t.clientX, t.clientY, connEl, true), 550);
+  const opts = {
+    nodeEl: e.target.closest(".drawflow-node"),
+    connEl: e.target.closest(".connection"),
+    fromTouch: true,
+  };
+  lpTimer = setTimeout(() => showCtxMenu(t.clientX, t.clientY, opts), 550);
 });
 $c("drawflow").addEventListener("touchmove", e => {
   if (!lpStart) return;
@@ -858,6 +864,24 @@ $c("drawflow").addEventListener("touchcancel", () => {
 
 $c("ctxMenu").addEventListener("click", e => {
   if (ctxFromTouch && Date.now() - ctxShownAt < 300) return;
+  const delNodeBtn = e.target.closest("[data-delnode]");
+  if (delNodeBtn && ctxNode) {
+    editor.removeNodeId(`node-${ctxNode}`);
+    hideCtxMenu();
+    return;
+  }
+  const dupNodeBtn = e.target.closest("[data-dupnode]");
+  if (dupNodeBtn && ctxNode) {
+    const src = editor.getNodeFromId(ctxNode);
+    if (src && NODE_PORTS[src.name]) {
+      const [ni, no] = NODE_PORTS[src.name];
+      editor.addNode(src.name, ni, no, src.pos_x + 40, src.pos_y + 40,
+        src.name, { ...src.data }, NODE_HTML[src.name]);
+      computeCascade();
+    }
+    hideCtxMenu();
+    return;
+  }
   const delBtn = e.target.closest("[data-delconn]");
   if (delBtn && ctxConn) {
     if (ctxConn.outId && ctxConn.inId && ctxConn.outClass && ctxConn.inClass) {
