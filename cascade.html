@@ -21,7 +21,6 @@
   <header>
     <div>
       <h1>Каскад насосных станций</h1>
-      <p>Соединяйте насосные станции и задержки · клик по ноде КНС открывает её расчёт</p>
     </div>
 
     <button class="menu-toggle" id="menuToggle" type="button" aria-label="Меню">☰</button>
@@ -29,29 +28,32 @@
     <div class="header-btns" id="headerBtns">
       <button class="btn" id="exportJson" type="button" title="Скачать схему в JSON-файл">Экспорт</button>
       <button class="btn" id="importJson" type="button" title="Загрузить схему из JSON-файла">Импорт</button>
-      <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить</button>
       <a class="btn" href="index.html" title="Одиночный расчёт насосной станции">Одиночный расчёт</a>
     </div>
   </header>
 
   <div class="cascade-main">
     <aside class="palette">
-      <h2>Параметры схемы</h2>
-      <div class="field global-n" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности — общий для всей схемы">
-        <label for="globalN">n — климатический параметр</label>
-        <span class="n-short">n</span>
-        <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
+      <div>
+        <h2>Параметры схемы</h2>
+        <div class="field global-n" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности — общий для всей схемы">
+          <label for="globalN">n — климатический параметр</label>
+          <span class="n-short">n</span>
+          <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
+        </div>
+        <h2>Ноды</h2>
+        <div class="pal-node pal-pump" draggable="true" data-node="pump">
+          <b>Насосная станция</b>
+          <span>Qr, tr, Qнс</span>
+        </div>
+        <div class="pal-node pal-delay" draggable="true" data-node="delay">
+          <b>Время протекания</b>
+          <span>v, м/с · L, м</span>
+        </div>
+        <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к кругу входа. Каждая КНС имеет собственный дождевой сток (Qr, tr).</p>
       </div>
-      <h2>Ноды</h2>
-      <div class="pal-node pal-pump" draggable="true" data-node="pump">
-        <b>Насосная станция</b>
-        <span>Qr, tr, Qнс</span>
-      </div>
-      <div class="pal-node pal-delay" draggable="true" data-node="delay">
-        <b>Время протекания</b>
-        <span>v, м/с · L, м</span>
-      </div>
-      <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к кругу входа. Каждая КНС имеет собственный дождевой сток (Qr, tr).</p>
+
+      <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить</button>
     </aside>
 
     <div id="drawflow">
