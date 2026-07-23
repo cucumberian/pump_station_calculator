@@ -61,11 +61,6 @@ main {
   padding: 16px 24px;
   align-items: start;
 }
-.palette {
-  display: flex; flex-direction: column; justify-content: space-between;
-}
-.palette > div {display: flex; flex-direction: column; gap: 0.2rem;}
-.palette .pal-node{ max-width: 200px; }
 .right {
   display: grid;
   justify-content: center;
@@ -219,14 +214,25 @@ table.trace { font-size: 12px; }
 table.trace th, table.trace td { padding: 3px 8px; text-align: right; white-space: nowrap; }
 table.trace tr.bracket td { color: #5a6572; }
 .trace-res { margin-top: 6px; font-weight: 600; }
+.ic {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .modal-close {
   position: absolute;
   top: 8px;
   right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: none;
   background: none;
-  font-size: 22px;
-  line-height: 1;
   color: #5a6572;
   cursor: pointer;
 }
@@ -244,8 +250,6 @@ table.trace tr.bracket td { color: #5a6572; }
   main { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
   header { padding: 6px 16px; }
   header h1 { font-size: 17px; }
-  .palette {flex-direction: row;}
-  .palette > div {flex-direction: row; width: 100%;}
   .btn {font-size: 12px; padding: 5px 10px;}
   .header-btns {flex-direction: column; gap: 3px;}
   .panel { padding: 12px; }

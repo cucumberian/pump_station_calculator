@@ -6,12 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>КНС · п. 5.1 — Перекачка незарегулированного дождевого стока</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="static/css/style.css?v=4">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script defer src="hydro.js"></script>
-  <script defer src="calc-view.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="static/js/hydro.js"></script>
+  <script defer src="static/js/calc-view.js"></script>
+  <script defer src="static/js/app.js?v=2"></script>
 </head>
 
 <body>
@@ -72,7 +72,7 @@
 
       <div class="scheme" id="scheme">
         <h2 id="schemeToggle">График стока Q(T) <span class="scheme-arrow">▾</span></h2>
-        <img src="scheme-qt.png" alt="График дождевого стока Q(T): рабочий объём резервуара насосной станции Wнс">
+        <img src="static/img/scheme-qt.png" alt="График дождевого стока Q(T): рабочий объём резервуара насосной станции Wнс">
       </div>
     </section>
 
@@ -124,7 +124,7 @@
 
   <div id="modal" class="modal" hidden>
     <div class="modal-box">
-      <button id="modalClose" class="modal-close" type="button" aria-label="Закрыть">×</button>
+      <button id="modalClose" class="modal-close" type="button" aria-label="Закрыть"><svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg></button>
       <div id="modalBody"></div>
     </div>
   </div>

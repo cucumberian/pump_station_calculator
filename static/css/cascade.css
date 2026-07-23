@@ -13,6 +13,9 @@
 }
 
 .palette {
+  display: flex; 
+  flex-direction: column;
+  justify-content: space-between;
   width: 200px;
   flex-shrink: 0;
   background: #fff;
@@ -27,7 +30,7 @@
   color: #5a6572;
   margin: 0 0 10px;
 }
-
+.palette > div {display: flex; flex-direction: column; gap: 0.2rem;}
 .pal-node {
   border: 1px solid #c6d3e4;
   border-left: 4px solid #1f6feb;
@@ -37,8 +40,10 @@
   cursor: grab;
   background: #fafbfc;
   user-select: none;
+  max-width: 200px;
 }
-.pal-node b { display: block; font-size: 14px; }
+.palette .short {display: none;}
+.pal-node b { display: block; font-size: 14px;}
 .pal-node span { font-size: 12px; color: #5a6572; }
 .pal-node:active { cursor: grabbing; }
 .pal-rain { border-left-color: #0b7285; }
@@ -99,8 +104,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -14px -16px 8px;
-  padding: 14px 16px 8px;
+  margin: -14px -16px 6px;
+  padding: 8px 12px 4px;
   background: #f0f4fa;
   border-bottom: 1px solid #dde1e6;
   border-radius: 6px 6px 0 0;
@@ -148,6 +153,8 @@
   font-size: 13px;
 }
 .node-box .node-title {
+  display: flex;
+  justify-content: space-between;
   font-weight: 700;
   margin-bottom: 6px;
 }
@@ -263,6 +270,9 @@
 .ctx-menu button {
   border: none;
   background: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   text-align: left;
   padding: 9px 12px;
   font: inherit;
@@ -272,6 +282,24 @@
   color: #1a1a1a;
 }
 .ctx-menu button:hover { background: #eef3fa; }
+
+.drawflow-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.drawflow-delete .ic { width: 14px; height: 14px; }
+
+@media (pointer: coarse) {
+  #drawflow .drawflow-node .input,
+  #drawflow .drawflow-node .output {
+    width: 28px;
+    height: 28px;
+  }
+  #drawflow .drawflow-node .input { left: -31px; }
+  #drawflow .drawflow-node .output { right: 1px; }
+}
 
 @media (max-width: 900px) {
   .cascade-page header { position: relative; }
@@ -313,14 +341,22 @@
     padding: 8px 12px;
     border-right: none;
     border-bottom: 1px solid #dde1e6;
+    flex-direction: row;
   }
+  .palette > div {flex-direction: row; width: 100%;}
   .palette h2, .pal-hint { display: none; }
   .pal-node { margin-bottom: 0; flex: 1; padding: 6px 8px; }
-  .pal-node span { display: none; }
+  .pal-node .addon { display: none; }
   .pal-node b { font-size: 12px; }
   .palette .global-n { margin-bottom: 0; width: 84px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
   .palette .global-n label { display: none; }
   .palette .global-n .n-short { display: inline; font-size: 13px; color: #5a6572; }
   .palette .global-n input { padding: 4px 6px; font-size: 13px; }
   .sidebar .sb-pair .field label { font-size: 12px; }
+}
+@media (max-width: 460px) {
+  
+  .pal-node b {text-align: center; }
+  .palette .short {display: inline;}
+  .palette .full {display: none;}
 }

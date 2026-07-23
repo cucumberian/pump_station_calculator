@@ -34,7 +34,17 @@ const NODE_PORTS = { pump: [1, 1], delay: [1, 1] };
 const NODE_LABEL = { pump: "КНС", delay: "Протекание" };
 const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#1098ad"];
 
+const XMARK_HTML = `<svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg>`;
+
+const dfContextmenu = Drawflow.prototype.contextmenu;
+Drawflow.prototype.contextmenu = function (e) {
+  dfContextmenu.call(this, e);
+  const del = this.precanvas?.querySelector(".drawflow-delete");
+  if (del) del.innerHTML = XMARK_HTML;
+};
+
 const editor = new Drawflow($c("drawflow"));
+editor.force_first_input = true;
 editor.zoom_max = 2.5;
 editor.zoom_min = 0.25;
 editor.start();
@@ -772,7 +782,7 @@ function showCtxMenu(x, y, connEl, fromTouch = false) {
       outClass: cls.find(c => /^output_\d+$/.test(c)),
       inClass: cls.find(c => /^input_\d+$/.test(c)),
     };
-    m.innerHTML = `<button type="button" data-delconn>Удалить связь</button>`;
+    m.innerHTML = `<button type="button" data-delconn>${XMARK_HTML}Удалить связь</button>`;
   } else {
     m.innerHTML = `
       <button type="button" data-add="pump">Насосная станция</button>
