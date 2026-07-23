@@ -4,6 +4,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Каскад КНС — редактор схемы насосных станций</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
@@ -14,7 +17,7 @@
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script defer src="static/js/hydro.js?v=3"></script>
   <script defer src="static/js/calc-view.js?v=3"></script>
-  <script defer src="static/js/cascade.js?v=21"></script>
+  <script defer src="static/js/cascade.js?v=22"></script>
 </head>
 
 <body class="cascade-page">
@@ -26,6 +29,7 @@
     <button class="menu-toggle" id="menuToggle" type="button" aria-label="Меню">☰</button>
 
     <div class="header-btns" id="headerBtns">
+      <button class="btn" id="fullscreen" type="button" title="Полноэкранный режим — скрывает адресную строку браузера">Во весь экран</button>
       <button class="btn" id="exportJson" type="button" title="Скачать схему в JSON-файл">Экспорт</button>
       <button class="btn" id="importJson" type="button" title="Загрузить схему из JSON-файла">Импорт</button>
       <a class="btn" href="index.html" title="Одиночный расчёт насосной станции">Одиночный расчёт</a>

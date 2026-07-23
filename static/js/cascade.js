@@ -1233,5 +1233,29 @@ document.querySelectorAll("#headerBtns .btn").forEach(b => {
   b.addEventListener("click", () => $c("headerBtns").classList.remove("open"));
 });
 
+const fsBtn = $c("fullscreen");
+const fsRequest = document.documentElement.requestFullscreen
+  ? () => document.documentElement.requestFullscreen()
+  : document.documentElement.webkitRequestFullscreen
+    ? () => document.documentElement.webkitRequestFullscreen()
+    : null;
+if (!fsRequest) {
+  fsBtn.hidden = true;
+} else {
+  fsBtn.addEventListener("click", () => {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      fsRequest();
+    }
+  });
+  const fsSync = () => {
+    const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    fsBtn.textContent = on ? "Свернуть экран" : "Во весь экран";
+  };
+  document.addEventListener("fullscreenchange", fsSync);
+  document.addEventListener("webkitfullscreenchange", fsSync);
+}
+
 bindModal();
 loadInitial();
