@@ -336,7 +336,7 @@
   color: #12325e;
   line-height: 1.6;
 }
-.node-summary { padding-right: 30px; }
+.node-summary { padding-right: 30px; min-height: 38px; }
 .node-summary .warn { color: #b0341f; }
 .node-num { font-weight: 700; opacity: 0.55; }
 
@@ -380,8 +380,11 @@
   font-size: 11px;
   color: #b0341f;
   margin: 2px 0 0;
+  min-height: 14px;
+  line-height: 14px;
+  visibility: hidden;
 }
-.lock-note[hidden] { display: none; }
+.lock-note.on { visibility: visible; }
 .sidebar .seg-row { display: flex; gap: 4px; }
 .sidebar .seg-row input { width: 100%; min-width: 0; }
 .sidebar .catch-res { color: var(--catch-accent); }

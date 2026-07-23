@@ -18,7 +18,7 @@ const NODE_HTML = {
       <div class="nf"><label>Qнс, л/с</label><input df-q type="number" step="any" min="1"></div>
       <input class="q-range" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
       <div class="nf"><label>вне пика, %</label><input df-idle type="number" step="any" min="0" max="100"></div>
-      <div class="lock-note" hidden></div>
+      <div class="lock-note"></div>
       <div class="node-summary">—</div>
       <button class="mode-toggle" type="button" title="Численный режим расчёта">Σ</button>
     </div>`,
@@ -444,7 +444,7 @@ function updateSummaries(data = graphData()) {
     const locked = !!(r && r.lockId);
     const ln = document.querySelector(`#node-${id} .lock-note`);
     if (ln) {
-      ln.hidden = !locked;
+      ln.classList.toggle("on", locked);
       if (locked) ln.textContent = `Qr, tr ← Водосбор #${r.lockId}`;
     }
     for (const k of ["qr", "tr"]) {
