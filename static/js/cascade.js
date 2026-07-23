@@ -87,14 +87,13 @@ function setZoomAt(zNew, mx, my) {
 function fitView() {
   const nodes = [...document.querySelectorAll("#drawflow .drawflow-node")];
   if (!nodes.length) return;
-  const z = editor.zoom;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const nd of nodes) {
     const data = editor.getNodeFromId(nd.id.replace("node-", ""));
     minX = Math.min(minX, data.pos_x);
     minY = Math.min(minY, data.pos_y);
-    maxX = Math.max(maxX, data.pos_x + nd.offsetWidth / z);
-    maxY = Math.max(maxY, data.pos_y + nd.offsetHeight / z);
+    maxX = Math.max(maxX, data.pos_x + nd.offsetWidth);
+    maxY = Math.max(maxY, data.pos_y + nd.offsetHeight);
   }
   const rect = $c("drawflow").getBoundingClientRect();
   const pad = 60;
