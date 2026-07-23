@@ -95,7 +95,8 @@ $c("zoomIn").addEventListener("click", () => zoomStep(1));
 $c("zoomOut").addEventListener("click", () => zoomStep(-1));
 $c("zoomFit").addEventListener("click", fitView);
 window.addEventListener("wheel", e => {
-  if (!e.ctrlKey || !(e.target instanceof Element) || !e.target.closest("#drawflow")) return;
+  if (!(e.target instanceof Element) || !e.target.closest("#drawflow")) return;
+  if (e.target.closest("input")) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   const rect = $c("drawflow").getBoundingClientRect();
