@@ -18,7 +18,7 @@ const NODE_HTML = {
     </div>`,
   delay: `
     <div class="node-box node-delay">
-      <div class="node-title">Время протекания</div>
+      <div class="node-title">Время протекания <span class="node-num"></span></div>
       <div class="nf"><label>v, м/с</label><input df-v type="number" step="any" min="0.01"></div>
       <div class="nf"><label>L, м</label><input df-l type="number" step="any" min="0"></div>
       <div class="delay-out">Δt = —</div>
@@ -266,14 +266,14 @@ function computeCascade() {
 
 function updateSummaries(data = graphData()) {
   for (const [id, nd] of Object.entries(data)) {
+    const num = document.querySelector(`#node-${id} .node-num`);
+    if (num) num.textContent = `#${id}`;
     if (nd.name === "delay") {
       const out = document.querySelector(`#node-${id} .delay-out`);
       if (out) out.textContent = `Δt = ${fmt(delayDt(nd.data || {}), 1)} мин`;
       continue;
     }
     if (nd.name !== "pump") continue;
-    const num = document.querySelector(`#node-${id} .node-num`);
-    if (num) num.textContent = `#${id}`;
     const r = results[id];
     const slider = document.querySelector(`#node-${id} .q-range`);
     if (slider && r) {
@@ -757,11 +757,12 @@ $c("clearAll").addEventListener("click", () => {
 
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
-let ctxPos = null, ctxConn = null, ctxShownAt = 0;
-function showCtxMenu(x, y, connEl) {
+let ctxPos = null, ctxConn = null, ctxShownAt = 0, ctxFromTouch = false;
+function showCtxMenu(x, y, connEl, fromTouch = false) {
   ctxPos = [x, y];
   ctxConn = null;
   ctxShownAt = Date.now();
+  ctxFromTouch = fromTouch;
   const m = $c("ctxMenu");
   if (connEl) {
     const cls = [...connEl.classList];
@@ -791,7 +792,8 @@ $c("drawflow").addEventListener("contextmenu", e => {
   if (e.target.closest(".drawflow-node")) return;
   e.preventDefault();
   e.stopPropagation();
-  showCtxMenu(e.clientX, e.clientY, e.target.closest(".connection"));
+  if (ctxFromTouch && Date.now() - ctxShownAt < 800) return;
+  showCtxMenu(e.clientX, e.clientY, e.target.closest(".connection"), false);
 }, true);
 
 let lpTimer = null, lpStart = null;
@@ -804,7 +806,7 @@ $c("drawflow").addEventListener("touchstart", e => {
   const t = e.touches[0];
   const connEl = e.target.closest(".connection");
   lpStart = [t.clientX, t.clientY];
-  lpTimer = setTimeout(() => showCtxMenu(t.clientX, t.clientY, connEl), 550);
+  lpTimer = setTimeout(() => showCtxMenu(t.clientX, t.clientY, connEl, true), 550);
 });
 $c("drawflow").addEventListener("touchmove", e => {
   if (!lpStart) return;
@@ -824,7 +826,7 @@ $c("drawflow").addEventListener("touchcancel", () => {
 });
 
 $c("ctxMenu").addEventListener("click", e => {
-  if (Date.now() - ctxShownAt < 300) return;
+  if (ctxFromTouch && Date.now() - ctxShownAt < 300) return;
   const delBtn = e.target.closest("[data-delconn]");
   if (delBtn && ctxConn) {
     if (ctxConn.outId && ctxConn.inId && ctxConn.outClass && ctxConn.inClass) {
@@ -843,7 +845,7 @@ $c("ctxMenu").addEventListener("click", e => {
   hideCtxMenu();
 });
 document.addEventListener("click", e => {
-  if (Date.now() - ctxShownAt < 400) return;
+  if (ctxFromTouch && Date.now() - ctxShownAt < 400) return;
   if (!e.target.closest("#ctxMenu")) hideCtxMenu();
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") hideCtxMenu(); });
