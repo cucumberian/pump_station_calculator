@@ -519,8 +519,18 @@ function refreshSidebar() {
   renderSidebar();
 }
 
+function markSidebarNode() {
+  for (const el of document.querySelectorAll("#drawflow .drawflow-node.sb-active")) {
+    el.classList.remove("sb-active");
+  }
+  if (sbNodeId !== null) {
+    document.getElementById(`node-${sbNodeId}`)?.classList.add("sb-active");
+  }
+}
+
 function openSidebar(id) {
   sbNodeId = id;
+  markSidebarNode();
   $c("sidebar").hidden = false;
   const res = results[id];
   if (res && res.inflow) {
@@ -536,6 +546,7 @@ function openSidebar(id) {
 
 function closeSidebar() {
   sbNodeId = null;
+  markSidebarNode();
   $c("sidebar").hidden = true;
 }
 
@@ -747,17 +758,24 @@ for (const id of ["sbFrom", "sbTo", "sbStep"]) {
 
 $c("globalN").addEventListener("input", computeCascade);
 
+const LS_PALETTE = "kns-palette-collapsed";
 const gnField = document.querySelector(".palette .global-n");
-$c("paletteToggle").addEventListener("click", () => {
-  $c("palette").classList.add("collapsed");
-  $c("nFloat").insertBefore(gnField, $c("paletteExpand").nextSibling);
-  $c("nFloat").hidden = false;
-});
-$c("paletteExpand").addEventListener("click", () => {
-  $c("palette").classList.remove("collapsed");
-  $c("gnSlot").appendChild(gnField);
-  $c("nFloat").hidden = true;
-});
+function setPaletteCollapsed(collapsed) {
+  $c("palette").classList.toggle("collapsed", collapsed);
+  if (collapsed) {
+    $c("nFloat").insertBefore(gnField, $c("paletteExpand").nextSibling);
+    $c("nFloat").hidden = false;
+  } else {
+    $c("gnSlot").appendChild(gnField);
+    $c("nFloat").hidden = true;
+  }
+  try { localStorage.setItem(LS_PALETTE, collapsed ? "1" : "0"); } catch { /* приватный режим */ }
+}
+$c("paletteToggle").addEventListener("click", () => setPaletteCollapsed(true));
+$c("paletteExpand").addEventListener("click", () => setPaletteCollapsed(false));
+try {
+  if (localStorage.getItem(LS_PALETTE) === "1") setPaletteCollapsed(true);
+} catch { /* приватный режим */ }
 for (const ev of ["mousedown", "touchstart", "pointerdown", "click", "contextmenu"]) {
   $c("nFloat").addEventListener(ev, e => e.stopPropagation());
 }

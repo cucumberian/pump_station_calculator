@@ -294,7 +294,12 @@
 }
 .drawflow .drawflow-node.selected { border-color: var(--pump-accent); }
 .drawflow .drawflow-node.delay.selected { border-color: var(--delay-accent); }
-.drawflow .drawflow-node.selected { border-color: var(--pump-accent); }
+.drawflow .drawflow-node.sb-active {
+  box-shadow: 0 0 0 2px var(--pump-accent), 0 4px 14px rgba(18, 50, 94, 0.25);
+}
+.drawflow .drawflow-node.delay.sb-active {
+  box-shadow: 0 0 0 2px var(--delay-accent), 0 4px 14px rgba(138, 43, 74, 0.25);
+}
 .drawflow .drawflow-node .outputs { right: 8px; }
 .drawflow .drawflow-node .inputs { left: 8px; }
 .drawflow .drawflow-node .input,
