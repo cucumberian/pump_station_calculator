@@ -229,6 +229,8 @@
   min-width: 170px;
   font-size: 13px;
 }
+.delay .node-box { min-width: 130px; }
+.catch .node-box { min-width: 140px; }
 .mode-toggle {
   position: absolute;
   right: -9px;
@@ -403,12 +405,12 @@
 .drawflow .drawflow-node.delay {
   background: var(--delay-bg);
   border: 0.5px solid var(--delay-border);
-  width: 190px;
+  /* width: 190px; */
 }
 .drawflow .drawflow-node.catch {
   background: var(--catch-bg);
   border: 0.5px solid var(--catch-border);
-  width: 200px;
+  width: 180px;
 }
 .drawflow .drawflow-node.selected { border-color: var(--pump-accent); }
 .drawflow .drawflow-node.delay.selected { border-color: var(--delay-accent); }

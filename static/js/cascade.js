@@ -30,7 +30,7 @@ const NODE_HTML = {
       <div class="nf"><label>q₂₀, л/с·га</label><input df-q20 type="number" step="any" min="1"></div>
       <div class="nf"><label>P, лет</label><input df-P type="number" step="any" min="0.1"></div>
       <div class="nf"><label>tcon, мин</label><input df-tcon type="number" step="any" min="0"></div>
-      <div class="catch-out">Qr = — · tr = —</div>
+      <div class="catch-out">Qr = — <br> tr = —</div>
       <button class="catch-info" type="button" title="Формулы расчёта Qr и tr (п. 2.3.1)">?</button>
     </div>`,
   delay: `
@@ -428,9 +428,9 @@ function updateSummaries(data = graphData()) {
       const out = document.querySelector(`#node-${id} .catch-out`);
       if (!out) continue;
       const r = results[id];
-      out.textContent = r
-        ? `Qr = ${fmt(r.Qr, 1)} л/с · tr = ${fmt(r.tr, 1)} мин`
-        : "Qr = — · tr = —";
+      out.innerHTML = r
+        ? `Qr = ${fmt(r.Qr, 1)} л/с <br> tr = ${fmt(r.tr, 1)} мин`
+        : "Qr = — <br> tr = —";
       continue;
     }
     if (nd.name !== "pump") continue;
