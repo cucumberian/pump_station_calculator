@@ -8,6 +8,11 @@
   --delay-border: #e5c6d2;
   --delay-port: #d9aec0;
   --delay-pal: #b04a68;
+  --catch-accent: #0b7285;
+  --catch-bg: #f2fafb;
+  --catch-border: #b3dbe0;
+  --catch-port: #9ecfd6;
+  --catch-pal: #0b7285;
 }
 
 .cascade-page {
@@ -107,6 +112,7 @@
 .pal-rain { border-left-color: #0b7285; }
 .pal-pump { border-left-color: var(--pump-pal); }
 .pal-delay { border-left-color: var(--delay-pal); }
+.pal-catch { border-left-color: var(--catch-pal); }
 
 .pal-hint { font-size: 12px; color: #5a6572; }
 
@@ -232,15 +238,54 @@
   border-color: var(--pump-accent);
   color: #fff;
 }
+.mode-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.mode-toggle:disabled:hover {
+  border-color: #b9c4d0;
+  color: #5a6572;
+}
+.mode-toggle.active:disabled:hover {
+  border-color: var(--pump-accent);
+  color: #fff;
+}
+.node-lock {
+  position: absolute;
+  right: -9px;
+  top: -7px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b9c4d0;
+  border-radius: 5px;
+  background: #fff;
+  color: #5a6572;
+  line-height: 1;
+  cursor: pointer;
+}
+.drawflow-node.delay .node-lock {right: -3px;}
+.node-lock:hover { border-color: var(--pump-accent); color: var(--pump-accent); }
+.node-lock.active {
+  background: var(--pump-accent);
+  border-color: var(--pump-accent);
+  color: #fff;
+}
+.sb-head-btns { display: flex; align-items: center; gap: 6px; }
+.sb-head-btns .node-lock { position: static; }
 .node-box .node-title {
   display: flex;
-  justify-content: space-between;
+  gap: 0.2rem;
   font-weight: 700;
   margin-bottom: 6px;
 }
 .node-rain .node-title { color: #0b7285; }
 .node-pump .node-title { color: var(--pump-accent); }
 .node-delay .node-title { color: var(--delay-accent); }
+.node-catch .node-title { color: var(--catch-accent); }
 
 .node-box .nf {
   display: flex;
@@ -276,6 +321,47 @@
 .node-summary .warn { color: #b0341f; }
 .node-num { font-weight: 700; opacity: 0.55; }
 
+.catch-out {
+  margin-top: 6px;
+  padding: 6px 30px 0 0;
+  border-top: 1px dashed #dde1e6;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--catch-accent);
+  line-height: 1.6;
+}
+.catch-info {
+  position: absolute;
+  right: -9px;
+  bottom: -7px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #b9c4d0;
+  border-radius: 5px;
+  background: #fff;
+  color: #5a6572;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.catch-info:hover { border-color: var(--catch-accent); color: var(--catch-accent); }
+.node-box input:disabled {
+  background: #eef1f4;
+  border-color: #d5dbe1;
+  color: #8a929c;
+  cursor: not-allowed;
+}
+.lock-note {
+  font-size: 11px;
+  color: #b0341f;
+  margin: 2px 0 0;
+}
+.lock-note[hidden] { display: none; }
+.sidebar .seg-row { display: flex; gap: 4px; }
+.sidebar .seg-row input { width: 100%; min-width: 0; }
+.sidebar .catch-res { color: var(--catch-accent); }
+
 .drawflow .drawflow-node {
   border-radius: 8px;
   padding: 10px 12px;
@@ -292,13 +378,22 @@
   border: 0.5px solid var(--delay-border);
   width: 190px;
 }
+.drawflow .drawflow-node.catch {
+  background: var(--catch-bg);
+  border: 0.5px solid var(--catch-border);
+  width: 200px;
+}
 .drawflow .drawflow-node.selected { border-color: var(--pump-accent); }
 .drawflow .drawflow-node.delay.selected { border-color: var(--delay-accent); }
+.drawflow .drawflow-node.catch.selected { border-color: var(--catch-accent); }
 .drawflow .drawflow-node.sb-active {
   box-shadow: 0 0 0 2px var(--pump-accent), 0 4px 14px rgba(18, 50, 94, 0.25);
 }
 .drawflow .drawflow-node.delay.sb-active {
   box-shadow: 0 0 0 2px var(--delay-accent), 0 4px 14px rgba(138, 43, 74, 0.25);
+}
+.drawflow .drawflow-node.catch.sb-active {
+  box-shadow: 0 0 0 2px var(--catch-accent), 0 4px 14px rgba(11, 114, 133, 0.25);
 }
 .drawflow .drawflow-node .outputs { right: 8px; }
 .drawflow .drawflow-node .inputs { left: 8px; }
@@ -313,6 +408,7 @@
 .drawflow .drawflow-node .output { right: -7px; }
 .drawflow .drawflow-node.delay .input,
 .drawflow .drawflow-node.delay .output { border-color: var(--delay-port); }
+.drawflow .drawflow-node.catch .output { border-color: var(--catch-port); }
 .drawflow .drawflow-node .input:hover,
 .drawflow .drawflow-node .output:hover {
   background: #dbe6f5;
