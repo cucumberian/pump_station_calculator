@@ -132,12 +132,19 @@ $c("drawflow").addEventListener("touchmove", e => {
     e.stopPropagation();
     const [a, b] = e.touches;
     const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const cx = (a.clientX + b.clientX) / 2;
+    const cy = (a.clientY + b.clientY) / 2;
+    editor.canvas_x += cx - pinch.cx;
+    editor.canvas_y += cy - pinch.cy;
     if (pinch.dist > 0) {
       const rect = $c("drawflow").getBoundingClientRect();
-      setZoomAt(editor.zoom * dist / pinch.dist,
-        pinch.cx - rect.left, pinch.cy - rect.top);
+      setZoomAt(editor.zoom * dist / pinch.dist, cx - rect.left, cy - rect.top);
+    } else {
+      applyTransform();
     }
     pinch.dist = dist;
+    pinch.cx = cx;
+    pinch.cy = cy;
   }
 }, { capture: true, passive: false });
 $c("drawflow").addEventListener("touchend", e => {
