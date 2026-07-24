@@ -3,11 +3,11 @@
   --pump-bg: #f7fafd;
   --pump-border: #c3d4ea;
   --pump-pal: #1f6feb;
-  --delay-accent: #8a2b4a;
-  --delay-bg: #fcf6f8;
-  --delay-border: #e5c6d2;
-  --delay-port: #d9aec0;
-  --delay-pal: #b04a68;
+  --delay-accent: hsl(257, 24%, 47%);
+  --delay-bg: hsl(260, 24%, 97%);
+  --delay-border: hsl(264, 38%, 69%);
+  --delay-port: hsl(261, 26%, 71%);
+  --delay-pal: hsl(259, 25%, 55%);
   --catch-accent: #0b7285;
   --catch-bg: #f2fafb;
   --catch-border: #b3dbe0;

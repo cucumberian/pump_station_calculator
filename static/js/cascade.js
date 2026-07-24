@@ -4,6 +4,7 @@ const $c = id => document.getElementById(id);
 
 const LS_CASCADE = "kns-cascade";
 const LS_N = "kns-cascade-n";
+const LS_VIEW = "kns-cascade-view";
 
 const LOCK_OPEN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 .5" stroke="currentColor" stroke-width="1.5"/></svg>`;
 const LOCK_CLOSED_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.5"/></svg>`;
@@ -66,11 +67,18 @@ editor.zoom_max = 5.0;
 editor.zoom_min = 0.1;
 editor.start();
 
+let saveViewTimer = null;
+function scheduleSaveView() {
+  clearTimeout(saveViewTimer);
+  saveViewTimer = setTimeout(saveScheme, 300);
+}
+
 function applyTransform() {
   editor.zoom_last_value = editor.zoom;
   editor.precanvas.style.transform =
     `translate(${editor.canvas_x}px, ${editor.canvas_y}px) scale(${editor.zoom})`;
   editor.dispatch("zoom", editor.zoom);
+  scheduleSaveView();
 }
 
 function setZoomAt(zNew, mx, my) {
@@ -180,10 +188,19 @@ function getGlobalN() {
   return n > 0 && n < 1 ? n : 0.71;
 }
 
+let viewReady = false;
+
 function saveScheme() {
   try {
     localStorage.setItem(LS_CASCADE, JSON.stringify(editor.export()));
     localStorage.setItem(LS_N, $c("globalN").value);
+    if (viewReady) {
+      localStorage.setItem(LS_VIEW, JSON.stringify({
+        x: editor.canvas_x,
+        y: editor.canvas_y,
+        z: editor.zoom,
+      }));
+    }
   } catch { /* приватный режим */ }
 }
 
@@ -830,7 +847,18 @@ function loadInitial() {
   } else {
     addNodeOfType("pump", 320, 160);
   }
+  let view = null;
+  try { view = JSON.parse(localStorage.getItem(LS_VIEW) || "null"); } catch { view = null; }
+  if (view && typeof view.x === "number" && typeof view.y === "number" && typeof view.z === "number") {
+    editor.canvas_x = view.x;
+    editor.canvas_y = view.y;
+    editor.zoom = Math.min(editor.zoom_max, Math.max(editor.zoom_min, view.z));
+    applyTransform();
+  } else {
+    fitView();
+  }
   computeCascade();
+  viewReady = true;
 }
 
 for (const item of document.querySelectorAll(".pal-node")) {
@@ -855,6 +883,9 @@ $c("drawflow").addEventListener("drop", e => {
   addNodeOfType(type, (e.clientX - rect.x) / editor.zoom, (e.clientY - rect.y) / editor.zoom);
   computeCascade();
 });
+
+$c("drawflow").addEventListener("mouseup", scheduleSaveView);
+$c("drawflow").addEventListener("touchend", scheduleSaveView);
 
 let mouseDownPos = null;
 $c("drawflow").addEventListener("mousedown", e => { mouseDownPos = [e.clientX, e.clientY]; });
