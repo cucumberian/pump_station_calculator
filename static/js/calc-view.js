@@ -164,7 +164,7 @@ const EC_REGISTRY = [];
 function makeEChart(el, { slider = false, title = "", legend = false, toolbox = true } = {}) {
   const inst = echarts.init(el, null, { renderer: "canvas" });
   EC_REGISTRY.push(inst);
-  const legendH = legend ? 22 : 0;
+  const legendH = legend ? 18 : 0;
   const base = {
     animation: false,
     grid: {
@@ -173,7 +173,7 @@ function makeEChart(el, { slider = false, title = "", legend = false, toolbox = 
       bottom: (slider ? 48 : 36) + legendH, containLabel: false,
     },
     title: title ? { text: title, left: 4, top: 2, textStyle: { fontSize: 13, fontWeight: 600, color: "#12325e" } } : undefined,
-    legend: legend ? { left: 4, right: 4, bottom: slider ? 28 : 16, itemWidth: 14, itemHeight: 8, itemGap: 12, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
+    legend: legend ? { left: 4, right: 4, bottom: slider ? 24 : 8, itemWidth: 14, itemHeight: 8, itemGap: 12, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
     ...(toolbox ? { toolbox: {
       right: 4, top: 0, itemSize: 14,
       feature: {

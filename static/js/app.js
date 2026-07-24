@@ -145,10 +145,14 @@ selfCheck();
 bindModal();
 $("schemeToggle").addEventListener("click", () => $("scheme").classList.toggle("open"));
 $("resultsToggle").addEventListener("click", () => $("results").classList.toggle("open"));
-$("chartsToggle").addEventListener("click", () => $("charts").classList.toggle("open"));
+$("chartsToggle").addEventListener("click", () => {
+  $("charts").classList.toggle("open");
+  requestAnimationFrame(() => { EC_REGISTRY.forEach(ec => ec.resize()); });
+});
 if (window.matchMedia("(min-width: 901px)").matches) {
   $("results").classList.add("open");
   $("charts").classList.add("open");
+  requestAnimationFrame(() => { EC_REGISTRY.forEach(ec => ec.resize()); });
 }
 $("chartRangeFromTable").addEventListener("change", render);
 $("hydroHelp").addEventListener("click", () => {
