@@ -28,6 +28,22 @@ function hydro(T, Qr, tr, n) {
 
 const HYDRO_DT = 0.2;
 
+function hydroTailT(Qr, tr, n, frac = 0.02) {
+  const cap = Math.min(200 * tr, 2880);
+  const threshold = frac * Qr;
+  let lo = tr, hi = 4 * tr;
+  while (hydro(hi, Qr, tr, n) > threshold) {
+    lo = hi;
+    hi *= 2;
+    if (hi >= cap) return cap;
+  }
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (hydro(mid, Qr, tr, n) > threshold) lo = mid; else hi = mid;
+  }
+  return Math.min((lo + hi) / 2, cap);
+}
+
 function sampleHydro(Qr, tr, n, tMax, dt = HYDRO_DT) {
   const ts = [], qs = [];
   const N = Math.max(2, Math.ceil(tMax / dt));
@@ -94,7 +110,7 @@ function numericCalc(Q, s) {
     if (V > W) W = V;
   }
   if (tn === null) return { tn: 0, tk: 0, W: 0, dry: true };
-  return { tn, tk, W };
+  return { tn, tk, W, truncated: q[t.length - 2] > Q };
 }
 
 function pumpOutSeries(Q, r, tMax, dt = HYDRO_DT, idlePct = 50) {

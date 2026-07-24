@@ -46,6 +46,8 @@ function renderCatchSidebar(node) {
   $c("sbCOut").innerHTML = res
     ? `Q<sub>r</sub> = ${fmt(res.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(res.tr, 2)} мин`
     : "задайте корректные параметры";
+  $c("sbCatchChartWrap").hidden = !res;
+  if (res) catchChart.update(res.series, res.Qr, res.tr);
   applySidebarLock();
 }
 
@@ -118,7 +120,11 @@ function renderSidebar() {
   $c("sbQr").disabled = !!res.lockId;
   $c("sbTr").disabled = !!res.lockId;
   $c("sbLock").hidden = !res.lockId;
-  if (res.lockId) $c("sbLockSrc").textContent = `#${res.lockId}`;
+  if (res.lockId) {
+    const ids = (res.lockIds?.length ? res.lockIds : [res.lockId]).map(x => `#${x}`).join(", ");
+    $c("sbLockSrc").textContent = ids;
+    $c("sbLockMulti").hidden = !(res.lockIds?.length > 1);
+  }
   if (document.activeElement !== $c("sbQ")) $c("sbQ").value = res.Q;
   if (document.activeElement !== $c("sbQm3h")) $c("sbQm3h").value = +(res.Q * 3.6).toFixed(1);
   const qMax = seriesPeak(res.inflow).q;
@@ -130,14 +136,16 @@ function renderSidebar() {
     rb.checked = rb.value === res.mode;
   }
   $c("sbApprox").hidden = !res.approx;
+  $c("sbTrunc").hidden = !res.r.truncated;
 
   const data = graphData();
-  const comps = [{ label: res.lockId ? `Водосбор #${res.lockId}` : "Дождь (собственный)", series: res.ownRain }];
-  let lockSkipped = !res.lockId;
+  const ownLabel = res.lockIds?.length > 1
+    ? `Водосборы ${res.lockIds.map(x => `#${x}`).join(", ")}`
+    : res.lockId ? `Водосбор #${res.lockId}` : "Дождь (собственный)";
+  const comps = [{ label: ownLabel, series: res.ownRain }];
   for (const x of upstreamIds(sbNodeId, data)
     .map(u => ({ nd: data[u], r: results[u] }))
-    .filter(x => x.r)) {
-    if (!lockSkipped && x.r.fromCatch) { lockSkipped = true; continue; }
+    .filter(x => x.r && !x.r.fromCatch)) {
     comps.push({ label: `${NODE_LABEL[x.nd.name]} #${x.nd.id}`, series: x.r.series });
   }
   inflowChart.update(res.Q, res.r, res.inflow, comps, res.series);

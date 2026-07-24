@@ -1,119 +1,83 @@
 "use strict";
 
 const delayChart = (() => {
-  let chart = null;
+  let ec = null;
   return {
     update(dt, inSeries, outSeries) {
-      const ts = outSeries.t.map(t => +t.toFixed(2));
+      if (!ec) ec = makeEChart($c("sbDelayChart"), { slider: true, legend: true });
       const inEnd = inSeries.t[inSeries.t.length - 1];
       const inLast = inSeries.q[inSeries.q.length - 1];
-      const data = {
-        labels: ts,
-        datasets: [
-          { label: "вход, л/с", data: outSeries.t.map(t => +(t <= inEnd ? interpAt(inSeries, t) : inLast).toFixed(2)),
-            borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, stepped: true },
-          { label: `выход (сдвиг ${fmt(dt, 1)} мин), л/с`, data: outSeries.q.map(q => +q.toFixed(2)),
-            borderColor: "#f08c00", borderWidth: 2, borderDash: [6, 3], pointRadius: 0, stepped: true },
-          { label: "Δt", data: [{ x: dt, y: 0 }, { x: dt, y: seriesPeak(inSeries).q }],
-            borderColor: "#b26a00", borderWidth: 1, borderDash: [4, 4],
-            pointRadius: 3, backgroundColor: "#b26a00", showLine: true },
-        ],
-      };
-      if (chart) {
-        chart.data = data;
-        chart.update("none");
-      } else {
-        chart = new Chart($c("sbDelayChart"), {
-          type: "line", data,
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: "nearest", intersect: false },
-            scales: {
-              x: { type: "linear", title: { display: true, text: "T, мин" }, min: 0 },
-              y: { title: { display: true, text: "Q, л/с" }, beginAtZero: true },
-            },
-            plugins: {
-              legend: { labels: { filter: i => i.text !== "Δt", boxWidth: 14 } },
-              tooltip: {
-                callbacks: {
-                  title: c => c.length ? `T = ${fmt(c[0].parsed.x, 1)} мин` : "",
-                  label: c => `${c.dataset.label}: ${fmt(c.parsed.y, 1)} л/с`,
-                },
-              },
+      ec.update({
+        xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
+        yAxis: { type: "value", name: "Q, л/с", min: 0 },
+        tooltip: { formatter: ecAxisTip("л/с") },
+        series: [
+          { name: "вход, л/с", type: "line", showSymbol: false, step: "end",
+            data: outSeries.t.map(t => [+t.toFixed(2), +(t <= inEnd ? interpAt(inSeries, t) : inLast).toFixed(2)]),
+            lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" },
+            markLine: {
+              symbol: "none", silent: true, animation: false,
+              data: [{ name: "Δt", xAxis: dt, lineStyle: { color: "#b26a00", type: "dashed" },
+                label: { formatter: `Δt = ${fmt(dt, 1)} мин`, position: "insideEndTop" } }],
             },
           },
-        });
-      }
+          { name: `выход (сдвиг ${fmt(dt, 1)} мин), л/с`, type: "line", showSymbol: false, step: "end",
+            data: outSeries.t.map((t, i) => [+t.toFixed(2), +outSeries.q[i].toFixed(2)]),
+            lineStyle: { color: "#f08c00", width: 2, type: "dashed" }, itemStyle: { color: "#f08c00" } },
+        ],
+      });
     },
   };
 })();
 
 const inflowChart = (() => {
-  let chart = null;
+  let ec = null;
   return {
     update(Q, r, combined, comps, outSeries) {
-      const ts = combined.t.map(t => +t.toFixed(2));
-      const qs = combined.q.map(q => +q.toFixed(2));
-      const ds = [];
-      comps.forEach((c, i) => {
-        ds.push({
-          label: c.label,
-          data: combined.t.map(t => +interpAt(c.series, t).toFixed(2)),
-          borderColor: COMP_COLORS[i % COMP_COLORS.length],
-          borderWidth: 1, borderDash: [4, 3], pointRadius: 0,
-        });
-      });
-      ds.push({ label: "Σ вход, л/с", data: qs, borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, tension: 0.15 });
-      ds.push({
-        label: "Wнс (площадь)",
-        data: combined.t.map((t, i) => (!r.dry && t >= r.tn && t <= r.tk && qs[i] > Q ? qs[i] : null)),
-        borderWidth: 0, pointRadius: 0, spanGaps: false,
-        fill: { value: Q }, backgroundColor: "rgba(31, 111, 235, 0.18)",
-      });
-      ds.push({
-        label: `Qнс = ${fmt(Q)} л/с`, data: combined.t.map(() => Q),
-        borderColor: "#d6336c", borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0,
-      });
-      if (outSeries) {
-        ds.push({
-          label: "выход КНС, л/с", data: combined.t.map(t => +interpAt(outSeries, t).toFixed(2)),
-          borderColor: "#2b8a3e", borderWidth: 1.5, pointRadius: 0, stepped: true,
-        });
-      }
-      const marker = (t, label) => ({
-        label, data: [{ x: t, y: 0 }, { x: t, y: interpAt(combined, t) }],
-        borderColor: "#8a929c", borderWidth: 1, borderDash: [4, 4],
-        pointRadius: 3, backgroundColor: "#8a929c", showLine: true,
-      });
-      if (!r.dry) ds.push(marker(r.tn, "Tн"), marker(r.tk, "Tк"));
-      const data = { labels: ts, datasets: ds };
-      if (chart) {
-        chart.data = data;
-        chart.update("none");
-      } else {
-        chart = new Chart($c("sbInflow"), {
-          type: "line", data,
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: "nearest", intersect: false },
-            scales: {
-              x: { type: "linear", title: { display: true, text: "T, мин" }, min: 0 },
-              y: { title: { display: true, text: "Q, л/с" }, beginAtZero: true },
-            },
-            plugins: {
-              legend: { labels: { filter: i => !["Tн", "Tк"].includes(i.text), boxWidth: 14 } },
-              tooltip: {
-                callbacks: {
-                  title: c => c.length ? `T = ${fmt(c[0].parsed.x, 1)} мин` : "",
-                  label: c => `${c.dataset.label}: ${fmt(c.parsed.y, 1)} л/с`,
-                },
-              },
-            },
+      if (!ec) ec = makeEChart($c("sbInflow"), { slider: true, legend: true });
+      const ts = combined.t;
+      const qs = combined.q;
+      const compSeries = comps.map((c, i) => ({
+        name: c.label, type: "line", showSymbol: false,
+        data: ts.map(t => [+t.toFixed(2), +interpAt(c.series, t).toFixed(2)]),
+        lineStyle: { color: COMP_COLORS[i % COMP_COLORS.length], width: 1, type: "dashed" },
+        itemStyle: { color: COMP_COLORS[i % COMP_COLORS.length] },
+      }));
+      const series = [
+        ...compSeries,
+        { name: "Σ вход, л/с", type: "line", showSymbol: false,
+          data: ts.map((t, i) => [+t.toFixed(2), +qs[i].toFixed(2)]),
+          lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" }, smooth: 0.15,
+          markLine: {
+            symbol: "none", silent: true, animation: false,
+            data: [
+              ...(!r.dry ? [
+                { name: "Tн", xAxis: r.tn, lineStyle: { color: "#8a929c", type: "dashed" }, label: { formatter: "Tн", position: "insideEndTop" } },
+                { name: "Tк", xAxis: r.tk, lineStyle: { color: "#8a929c", type: "dashed" }, label: { formatter: "Tк", position: "insideEndTop" } },
+              ] : []),
+              { name: "Qнс", yAxis: Q, lineStyle: { color: "#d6336c", type: "dashed", width: 1.5 },
+                label: { formatter: `Qнс = ${fmt(Q)} л/с`, position: "insideStartTop" } },
+            ],
           },
+        },
+        { name: "Wнс (площадь)", type: "line", showSymbol: false,
+          data: ts.map((t, i) => [+t.toFixed(2), (!r.dry && t >= r.tn && t <= r.tk && qs[i] > Q ? +qs[i].toFixed(2) : null)]),
+          lineStyle: { width: 0 }, areaStyle: { origin: Q, color: "rgba(31, 111, 235, 0.18)" } },
+      ];
+      if (outSeries) {
+        series.push({
+          name: "выход КНС, л/с", type: "line", showSymbol: false, step: "end",
+          data: ts.map(t => [+t.toFixed(2), +interpAt(outSeries, t).toFixed(2)]),
+          lineStyle: { color: "#2b8a3e", width: 1.5 }, itemStyle: { color: "#2b8a3e" },
         });
       }
+      ec.update({
+        xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
+        yAxis: { type: "value", name: "Q, л/с", min: 0 },
+        tooltip: { formatter: ecAxisTip("л/с") },
+        legend: { data: [...comps.map(c => c.label), "Σ вход, л/с", ...(outSeries ? ["выход КНС, л/с"] : [])] },
+        series,
+      });
     },
   };
 })();
@@ -126,3 +90,34 @@ function sbCalcFn(res) {
     ? q => numericCalc(q, res.inflow)
     : q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
 }
+
+const catchChart = (() => {
+  let ec = null;
+  return {
+    update(series, Qr, tr) {
+      if (!ec) ec = makeEChart($c("sbCatchChart"), { slider: true, legend: true });
+      ec.update({
+        xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
+        yAxis: { type: "value", name: "Q, л/с", min: 0 },
+        tooltip: { formatter: ecAxisTip("л/с") },
+        series: [
+          { name: "Q, л/с", type: "line", showSymbol: false, smooth: 0.15,
+            data: series.t.map((t, i) => [+t.toFixed(2), +series.q[i].toFixed(2)]),
+            lineStyle: { color: "#1098ad", width: 2 }, itemStyle: { color: "#1098ad" },
+            areaStyle: { color: "rgba(16, 152, 173, 0.12)" },
+            markLine: {
+              symbol: "none", silent: true, animation: false,
+              data: [
+                { name: "Qr", yAxis: Qr, lineStyle: { color: "#0b7285", type: "dashed" },
+                  label: { formatter: `Qr = ${fmt(Qr, 1)} л/с`, position: "insideStartTop" } },
+                { name: "tr", xAxis: tr, lineStyle: { color: "#8a929c", type: "dashed" },
+                  label: { formatter: `tr = ${fmt(tr, 1)} мин`, position: "insideEndTop" } },
+              ],
+            },
+          },
+        ],
+        legend: { data: ["Q, л/с"] },
+      });
+    },
+  };
+})();

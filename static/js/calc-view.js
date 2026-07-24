@@ -160,8 +160,62 @@ function buildCards(cardsEl, Q, Qr, tr, n, r, numeric) {
   }
 }
 
-function makeWQChart(canvas) {
-  let chart = null;
+const EC_REGISTRY = [];
+function makeEChart(el, { slider = false, title = "", legend = false } = {}) {
+  const inst = echarts.init(el, null, { renderer: "canvas" });
+  EC_REGISTRY.push(inst);
+  const base = {
+    animation: false,
+    grid: {
+      left: 64, right: 16,
+      top: (title ? 26 : 12) + (legend ? 22 : 0),
+      bottom: slider ? 48 : 36, containLabel: false,
+    },
+    title: title ? { text: title, left: 4, top: 2, textStyle: { fontSize: 13, fontWeight: 600, color: "#12325e" } } : undefined,
+    legend: legend ? { left: 4, top: title ? 24 : 2, itemWidth: 16, itemHeight: 9, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
+    toolbox: {
+      right: 4, top: 0, itemSize: 15,
+      feature: {
+        dataZoom: { yAxisIndex: "none", title: { zoom: "Зум рамкой", back: "Зум назад" } },
+        restore: { title: "Сбросить зум" },
+        saveAsImage: { title: "Сохранить PNG", name: "kns-chart", pixelRatio: 2 },
+      },
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "cross", label: { backgroundColor: "#12325e", formatter: p => Number.isFinite(+p.value) ? fmt(+p.value, 1) : p.value } },
+      confine: true,
+    },
+    dataZoom: [
+      { type: "inside", xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true, moveOnMouseWheel: false },
+      ...(slider ? [{ type: "slider", xAxisIndex: 0, height: 20, bottom: 6, brushSelect: false }] : []),
+    ],
+  };
+  return {
+    inst,
+    update(option) {
+      const merged = { ...base, ...option };
+      for (const k of ["title", "legend", "tooltip", "toolbox"]) {
+        if (base[k] && option[k]) merged[k] = { ...base[k], ...option[k] };
+      }
+      inst.setOption(merged, { notMerge: true, lazyUpdate: true });
+    },
+  };
+}
+window.addEventListener("resize", () => { for (const c of EC_REGISTRY) c.resize(); });
+
+function ecAxisTip(unit) {
+  return params => {
+    const pts = params.filter(p => p.value && Number.isFinite(p.value[1]));
+    if (!pts.length) return "";
+    const lines = [`T = ${fmt(pts[0].value[0], 1)} мин`];
+    for (const p of pts) lines.push(`${p.marker}${p.seriesName}: <b>${fmt(p.value[1], 1)}</b> ${unit}`);
+    return lines.join("<br>");
+  };
+}
+
+function makeWQChart(el) {
+  const ec = makeEChart(el, { title: "Рабочий объём резервуара Wнс от производительности Qнс", legend: true });
   return {
     update(Q, Qr, tr, n, { rangePts = [], calcFn = null } = {}) {
       const qFrom = Qr * 0.02, qTo = Qr;
@@ -172,57 +226,41 @@ function makeWQChart(canvas) {
       const qs = [...qSet].sort((a, b) => a - b);
       const fn = calcFn || (q => calc(q, Qr, tr, n));
       const ws = qs.map(q => +fn(q).W.toFixed(2));
-      const marker = qs.map(() => null);
-      const mi = qs.indexOf(+Q.toFixed(2));
-      if (mi >= 0) marker[mi] = ws[mi];
-      const data = {
-        labels: qs,
-        datasets: [
-          { label: "Wнс, м³", data: ws, borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, tension: 0.2 },
-          { label: `Qнс = ${fmt(Q)} л/с`, data: marker,
-            borderColor: "#d6336c", backgroundColor: "#d6336c", pointRadius: 6, pointHoverRadius: 7, showLine: false },
-          { label: "Варианты из таблицы", data: rangePts,
-            borderColor: "#f08c00", backgroundColor: "#f08c00", pointRadius: 4, pointHoverRadius: 6, showLine: false },
-        ],
-      };
-      if (chart) {
-        chart.data = data;
-        chart.update("none");
-      } else {
-        chart = new Chart(canvas, {
-          type: "line", data,
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: "nearest", intersect: false },
-            scales: {
-              x: { type: "linear", title: { display: true, text: "Qнс, л/с" } },
-              y: { title: { display: true, text: "Wнс, м³" }, beginAtZero: true },
-            },
-            plugins: {
-              title: { display: true, text: "Рабочий объём резервуара Wнс от производительности Qнс" },
-              tooltip: {
-                callbacks: {
-                  title: c => c.length ? `Qнс = ${fmt(c[0].parsed.x, 0)} л/с` : "",
-                  label: c => c.datasetIndex === 0
-                    ? `Wнс = ${fmt(c.parsed.y, 1)} м³, наполнение ${fmt((v => v.tk - v.tn)(fn(c.parsed.x)), 1)} мин`
-                    : c.datasetIndex === 1
-                      ? `выбрано: Qнс = ${fmt(Q)} л/с`
-                      : `вариант: Wнс = ${fmt(c.parsed.y, 1)} м³`,
-                },
-              },
-            },
+      ec.update({
+        xAxis: { type: "value", name: "Qнс, л/с", nameLocation: "middle", nameGap: 24, min: "dataMin" },
+        yAxis: { type: "value", name: "Wнс, м³", min: 0 },
+        tooltip: {
+          formatter: params => {
+            const p = params.find(p => p.seriesName === "Wнс, м³");
+            if (!p) return "";
+            const x = p.value[0];
+            const v = fn(x);
+            const lines = [`Qнс = <b>${fmt(x, 0)} л/с</b>`, `Wнс = <b>${fmt(p.value[1], 1)} м³</b>, наполнение ${fmt(v.tk - v.tn, 1)} мин`];
+            const vp = params.find(p => p.seriesName === "Варианты из таблицы");
+            if (vp) lines.push(`вариант: Wнс = ${fmt(vp.value[1], 1)} м³`);
+            return lines.join("<br>");
           },
-        });
-      }
+        },
+        series: [
+          { name: "Wнс, м³", type: "line", showSymbol: false, data: qs.map((q, i) => [q, ws[i]]),
+            lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" }, smooth: 0.2 },
+          { name: "Qнс выбранное", type: "scatter", data: [[+Q.toFixed(2), fn(+Q.toFixed(2)).W]],
+            symbolSize: 10, itemStyle: { color: "#d6336c" }, z: 5 },
+          { name: "Варианты из таблицы", type: "scatter", data: rangePts.map(p => [p.x, p.y]),
+            symbolSize: 7, itemStyle: { color: "#f08c00" } },
+        ],
+        legend: { data: ["Wнс, м³", "Qнс выбранное", "Варианты из таблицы"] },
+      });
     },
   };
 }
 
-function makeQTChart(canvas, { onHelp = null } = {}) {
-  let chart = null;
+function makeQTChart(el, { onHelp = null } = {}) {
+  const ec = makeEChart(el, { slider: true, legend: true, title: "Гидрограф дождевого стока Q(T)" });
+  let lastTitle = "";
   return {
     update(Q, Qr, tr, n, r, { extra = [], hydroFn = null, title = "Гидрограф дождевого стока Q(T)" } = {}) {
+      lastTitle = title;
       const hf = hydroFn || (t => hydro(t, Qr, tr, n));
       const tMax = Math.max(1.5 * r.tk, 2 * tr);
       const tSet = new Set();
@@ -234,54 +272,38 @@ function makeQTChart(canvas, { onHelp = null } = {}) {
       tSet.add(tr);
       const ts = [...tSet].sort((a, b) => a - b);
       const qs = ts.map(t => +hf(t).toFixed(2));
-      const fill = ts.map((t, i) => (t >= r.tn && t <= r.tk ? qs[i] : null));
-      const marker = (t, label, qv) => ({
-        label, data: [{ x: t, y: 0 }, { x: t, y: qv }],
-        borderColor: "#8a929c", borderWidth: 1, borderDash: [4, 4],
-        pointRadius: 3, backgroundColor: "#8a929c", showLine: true,
-      });
-      const data = {
-        labels: ts,
-        datasets: [
-          { label: "Q(T), л/с", data: qs, borderColor: "#1f6feb", borderWidth: 2, pointRadius: 0, tension: 0.2 },
-          ...extra,
-          { label: "Wнс (площадь), м³", data: fill, borderWidth: 0, pointRadius: 0,
-            fill: { value: Q }, backgroundColor: "rgba(31, 111, 235, 0.18)" },
-          { label: "Qнс, л/с", data: ts.map(() => Q), borderColor: "#d6336c", borderWidth: 1.5,
-            borderDash: [6, 4], pointRadius: 0 },
-          marker(r.tn, "Tн", hf(r.tn)), marker(tr, "tr", hf(tr)), marker(r.tk, "Tк", hf(r.tk)),
-        ],
-      };
-      if (chart) {
-        chart.data = data;
-        chart.update("none");
-      } else {
-        chart = new Chart(canvas, {
-          type: "line", data,
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: "nearest", intersect: false },
-            scales: {
-              x: { type: "linear", title: { display: true, text: "T, мин" }, min: 0 },
-              y: { title: { display: true, text: "Q, л/с" }, beginAtZero: true },
-            },
-            plugins: {
-              title: { display: true, text: title },
-              legend: { labels: { filter: i => !["Tн", "tr", "Tк"].includes(i.text) } },
-              tooltip: {
-                filter: c => c.datasetIndex < 2 + extra.length,
-                callbacks: {
-                  title: c => c.length ? `T = ${fmt(c[0].parsed.x, 1)} мин` : "",
-                  label: c => c.dataset.parsing === false
-                    ? `${c.dataset.label}: Q = ${fmt(c.parsed.y, 1)} л/с`
-                    : `Q = ${fmt(c.parsed.y, 1)} л/с`,
-                },
-              },
+      const fill = ts.map((t, i) => (t >= r.tn && t <= r.tk ? [t, qs[i]] : [t, null]));
+      const extraSeries = extra.map(ds => ({
+        name: ds.label, type: "line", showSymbol: false,
+        data: ds.data.map((y, i) => [ts[i], y]),
+        lineStyle: { color: ds.borderColor, width: ds.borderWidth || 1, type: ds.borderDash ? "dashed" : "solid" },
+        itemStyle: { color: ds.borderColor },
+      }));
+      ec.update({
+        title: { text: lastTitle },
+        xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
+        yAxis: { type: "value", name: "Q, л/с", min: 0 },
+        tooltip: { formatter: ecAxisTip("л/с") },
+        legend: { data: ["Q(T), л/с", ...extra.map(d => d.label), "Wнс (площадь)"] },
+        series: [
+          { name: "Q(T), л/с", type: "line", showSymbol: false, data: ts.map((t, i) => [t, qs[i]]),
+            lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" }, smooth: 0.2,
+            markLine: {
+              symbol: "none", silent: true, animation: false,
+              data: [
+                { name: "Tн", xAxis: r.tn, lineStyle: { color: "#8a929c", type: "dashed" }, label: { formatter: "Tн", position: "insideEndTop" } },
+                { name: "tr", xAxis: tr, lineStyle: { color: "#8a929c", type: "dashed" }, label: { formatter: "tr", position: "insideEndTop" } },
+                { name: "Tк", xAxis: r.tk, lineStyle: { color: "#8a929c", type: "dashed" }, label: { formatter: "Tк", position: "insideEndTop" } },
+                { name: "Qнс", yAxis: Q, lineStyle: { color: "#d6336c", type: "dashed", width: 1.5 }, label: { formatter: `Qнс = ${fmt(Q)} л/с`, position: "insideStartTop" } },
+              ],
             },
           },
-        });
-      }
+          ...extraSeries,
+          { name: "Wнс (площадь)", type: "line", showSymbol: false, data: fill,
+            lineStyle: { width: 0 }, areaStyle: { origin: Q, color: "rgba(31, 111, 235, 0.18)" },
+            tooltip: { show: false } },
+        ],
+      });
     },
   };
 }

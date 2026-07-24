@@ -86,7 +86,7 @@ function computeCascade() {
       const p = catchParams(d, nGlob);
       if (!(p.Qr > 0 && p.tr > 0)) { res[id] = null; continue; }
       res[id] = {
-        series: sampleHydro(p.Qr, p.tr, nGlob, 4 * p.tr + totalDelay + 30),
+        series: sampleHydro(p.Qr, p.tr, nGlob, hydroTailT(p.Qr, p.tr, nGlob) + totalDelay + 30),
         Qr: p.Qr, tr: p.tr, params: p, fromCatch: true,
       };
     } else if (nd.name === "delay") {
@@ -102,23 +102,28 @@ function computeCascade() {
       const ups = upstreamIds(id, data).map(u => ({ id: u, r: res[u] })).filter(x => x.r);
       const catchUps = ups.filter(x => x.r.fromCatch);
       const flowUps = ups.filter(x => !x.r.fromCatch);
-      let Qr = parseFloat(d.qr), tr = parseFloat(d.tr), lockId = null, ownRain = null;
+      let Qr = parseFloat(d.qr), tr = parseFloat(d.tr), lockIds = [], ownRain = null;
       if (catchUps.length) {
-        const c = catchUps[0].r;
-        Qr = c.Qr;
-        tr = c.tr;
-        lockId = catchUps[0].id;
-        ownRain = c.series;
-        flowUps.push(...catchUps.slice(1));
+        lockIds = catchUps.map(x => x.id);
+        if (catchUps.length === 1) {
+          Qr = catchUps[0].r.Qr;
+          tr = catchUps[0].r.tr;
+          ownRain = catchUps[0].r.series;
+        } else {
+          ownRain = combineSeries(catchUps.map(x => x.r.series));
+          const ownPeak = seriesPeak(ownRain);
+          Qr = ownPeak.q;
+          tr = Math.max(ownPeak.t, 0.5);
+        }
         editor.updateNodeDataFromId(id, { ...editor.getNodeFromId(id).data, qr: Qr, tr });
       }
       if (!(Qr > 0 && tr > 0 && Q > 0)) { res[id] = null; continue; }
       let idle = parseFloat(d.idle);
       if (!(idle >= 0)) idle = 50;
       idle = Math.min(idle, 100);
-      ownRain = ownRain || sampleHydro(Qr, tr, nGlob, 4 * tr + totalDelay + 30);
+      ownRain = ownRain || sampleHydro(Qr, tr, nGlob, hydroTailT(Qr, tr, nGlob) + totalDelay + 30);
       const inflow = combineSeries([ownRain, ...flowUps.map(x => x.r.series)]);
-      const pureRain = flowUps.length === 0;
+      const pureRain = flowUps.length === 0 && catchUps.length <= 1;
       const mode = d.mode === "numeric" ? "numeric" : "analytic";
       let r, eq = null;
       if (mode === "analytic") {
@@ -135,7 +140,7 @@ function computeCascade() {
       }
       res[id] = {
         series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1] + totalDelay, HYDRO_DT, idle),
-        ownRain, inflow, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob, lockId,
+        ownRain, inflow, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
         approx: mode === "analytic" && !pureRain,
       };
     }
@@ -191,7 +196,10 @@ function updateSummaries(data = graphData()) {
     const ln = document.querySelector(`#node-${id} .lock-note`);
     if (ln) {
       ln.classList.toggle("on", locked);
-      if (locked) ln.innerHTML = `Q<sub>r</sub>, t<sub>r</sub> ← Водосбор #${r.lockId}`;
+      if (locked) {
+        const ids = (r.lockIds?.length ? r.lockIds : [r.lockId]).map(x => `#${x}`).join(", ");
+        ln.innerHTML = `Q<sub>r</sub>, t<sub>r</sub> ← ${r.lockIds?.length > 1 ? "Водосборы" : "Водосбор"} ${ids}`;
+      }
     }
     for (const k of ["qr", "tr"]) {
       const inp = document.querySelector(`#node-${id} input[df-${k}]`);
@@ -215,7 +223,8 @@ function updateSummaries(data = graphData()) {
     } else {
       el.innerHTML =
         `T<sub>н</sub> = ${fmt(r.r.tn)} мин, T<sub>к</sub> = ${fmt(r.r.tk)} мин<br>` +
-        `W<sub>нс</sub> = <b>${fmt(r.r.W, 1)} м³</b>`;
+        `W<sub>нс</sub> = <b>${fmt(r.r.W, 1)} м³</b>` +
+        (r.r.truncated ? `<br><span class="warn">окно расчёта обрезано — W может быть занижен</span>` : "");
     }
   }
 }

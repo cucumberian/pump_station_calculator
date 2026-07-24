@@ -9,11 +9,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>КНС · п. 5.1 — Перекачка незарегулированного дождевого стока</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-  <link rel="stylesheet" href="static/css/style.css?v=5">
+  <link rel="stylesheet" href="static/css/style.css?v=6">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="static/js/hydro.js"></script>
-  <script defer src="static/js/calc-view.js"></script>
+  <script defer src="static/js/calc-view.js?v=6"></script>
   <script defer src="static/js/app.js?v=2"></script>
 </head>
 
@@ -89,8 +89,8 @@
         <h2 id="chartsToggle">Графики <span class="scheme-arrow">▾</span></h2>
         <div class="charts-body">
           <label class="chart-opt"><input id="chartRangeFromTable" type="checkbox"> Диапазон оси Qнс — из таблицы вариантов</label>
-          <div class="chart-wrap"><canvas id="chart"></canvas></div>
-          <div class="chart-wrap"><canvas id="chartQT"></canvas><button class="help-btn" id="hydroHelp"
+          <div class="chart-wrap"><div id="chart" class="echart"></div></div>
+          <div class="chart-wrap"><div id="chartQT" class="echart"></div><button class="help-btn" id="hydroHelp"
               type="button" title="Как строится гидрограф Q(T)">?</button></div>
         </div>
       </section>

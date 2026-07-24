@@ -149,6 +149,7 @@ main {
 .card .value .katex { font-weight: 700; }
 
 .chart-wrap { height: 340px; position: relative; }
+.echart { width: 100%; height: 100%; }
 .chart-wrap + .chart-wrap { margin-top: 16px; }
 
 .table-wrap { overflow-x: auto; }

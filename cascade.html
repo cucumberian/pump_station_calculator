@@ -10,20 +10,20 @@
   <title>Каскад КНС — редактор схемы насосных станций</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
-  <link rel="stylesheet" href="static/css/style.css?v=5">
+  <link rel="stylesheet" href="static/css/style.css?v=6">
   <link rel="stylesheet" href="static/css/cascade.css?v=23">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
-  <script defer src="static/js/hydro.js?v=3"></script>
-  <script defer src="static/js/calc-view.js?v=3"></script>
+  <script defer src="static/js/hydro.js?v=4"></script>
+  <script defer src="static/js/calc-view.js?v=6"></script>
   <script defer src="static/js/cascade-nodes.js?v=1"></script>
   <script defer src="static/js/cascade-catch.js?v=1"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
-  <script defer src="static/js/cascade-charts.js?v=1"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=2"></script>
+  <script defer src="static/js/cascade-charts.js?v=3"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=5"></script>
   <script defer src="static/js/cascade-io.js?v=2"></script>
-  <script defer src="static/js/cascade.js?v=28"></script>
+  <script defer src="static/js/cascade.js?v=30"></script>
 </head>
 
 <body class="cascade-page">
@@ -124,7 +124,7 @@
           </div>
           <p class="sb-dt" id="sbDt"></p>
           <h3 class="sb-h">Гидрограф до и после сдвига</h3>
-          <div class="chart-wrap" id="sbDelayChartWrap"><canvas id="sbDelayChart"></canvas></div>
+          <div class="chart-wrap" id="sbDelayChartWrap"><div id="sbDelayChart" class="echart"></div></div>
           <p class="sb-empty" id="sbDelayEmpty" hidden>Подключите вход к ноде участка сети.</p>
         </div>
         <div id="sbCatch" hidden>
@@ -205,6 +205,8 @@
             </div>
           </div>
           <p class="sb-dt catch-res" id="sbCOut"></p>
+          <h3 class="sb-h">Гидрограф стока</h3>
+          <div class="chart-wrap" id="sbCatchChartWrap"><div id="sbCatchChart" class="echart"></div></div>
           <button class="btn" id="sbCHelp" type="button" title="Все формулы с подставленными значениями">Формулы и расчёт</button>
         </div>
         <p class="sb-empty" id="sbEmpty">Задайте Q<sub>r</sub>, t<sub>r</sub> и Q<sub>нс</sub> на ноде станции.</p>
@@ -225,7 +227,7 @@
               </div>
             </div>
           </div>
-          <p class="approx-note sb-lock" id="sbLock" hidden>Q<sub>r</sub> и t<sub>r</sub> заданы нодой «Водосбор» <span id="sbLockSrc"></span> — изменяйте их там.</p>
+          <p class="approx-note sb-lock" id="sbLock" hidden>Q<sub>r</sub> и t<sub>r</sub> заданы водосбором <span id="sbLockSrc"></span> — изменяйте их там.<span id="sbLockMulti" hidden> Несколько водосборов: Q<sub>r</sub>*, t<sub>r</sub>* — эквивалентная пара суммарного гидрографа (приближение в аналитическом режиме; численный режим точный).</span></p>
           <div class="field" title="максимальная производительность насосов в насосной станции, л/с">
             <label for="sbQ">Q<sub>нс</sub> — производительность насосной станции</label>
             <div class="dual">
@@ -250,12 +252,13 @@
             <label><input type="radio" name="sbMode" value="numeric"> численный</label>
           </div>
           <p class="approx-note" id="sbApprox" hidden>Вход — не чистый дождевой гидрограф: аналитический режим использует эквивалентные Q<sub>r</sub>*, t<sub>r</sub>* (пик суммарного гидрографа) — это приближение. Для точного результата включите численный режим.</p>
+          <p class="approx-note" id="sbTrunc" hidden>Приток на конце расчётного окна всё ещё превышает откачку — резервуар продолжает наполняться, W<sub>нс</sub> может быть занижен. Увеличьте Q<sub>нс</sub> или проверьте конфигурацию каскада.</p>
           <h3 class="sb-h">Входной гидрограф (суммарный)<button class="help-btn sb-help" id="sbHydroHelp" type="button" title="Методика расчёта каскада">?</button></h3>
-          <div class="chart-wrap"><canvas id="sbInflow"></canvas></div>
+          <div class="chart-wrap"><div id="sbInflow" class="echart"></div></div>
           <h3 class="sb-h">Результаты</h3>
           <div id="sbCards" class="cards"></div>
           <h3 class="sb-h">W<sub>нс</sub> от Q<sub>нс</sub></h3>
-          <div class="chart-wrap"><canvas id="sbChart"></canvas></div>
+          <div class="chart-wrap"><div id="sbChart" class="echart"></div></div>
           <h3 class="sb-h">Таблица вариантов</h3>
           <div class="range-controls">
             <div class="field"><label for="sbFrom">Q<sub>нс</sub> от, л/с</label><input id="sbFrom" type="number" step="any" min="1"></div>
