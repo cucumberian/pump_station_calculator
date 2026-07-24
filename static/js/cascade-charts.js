@@ -4,7 +4,7 @@ const delayChart = (() => {
   let ec = null;
   return {
     update(dt, inSeries, outSeries) {
-      if (!ec) ec = makeEChart($c("sbDelayChart"), { slider: true, legend: true });
+      if (!ec) ec = makeEChart($c("sbDelayChart"), { slider: true, legend: true, toolbox: false });
       const inEnd = inSeries.t[inSeries.t.length - 1];
       const inLast = inSeries.q[inSeries.q.length - 1];
       ec.update({
@@ -34,7 +34,7 @@ const inflowChart = (() => {
   let ec = null;
   return {
     update(Q, r, combined, comps, outSeries) {
-      if (!ec) ec = makeEChart($c("sbInflow"), { slider: true, legend: true });
+      if (!ec) ec = makeEChart($c("sbInflow"), { slider: true, legend: true, toolbox: false });
       const ts = combined.t;
       const qs = combined.q;
       const compSeries = comps.map((c, i) => ({
@@ -95,7 +95,7 @@ const catchChart = (() => {
   let ec = null;
   return {
     update(series, Qr, tr) {
-      if (!ec) ec = makeEChart($c("sbCatchChart"), { slider: true, legend: true });
+      if (!ec) ec = makeEChart($c("sbCatchChart"), { slider: true, legend: true, toolbox: false });
       ec.update({
         xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
         yAxis: { type: "value", name: "Q, л/с", min: 0 },

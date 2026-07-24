@@ -191,7 +191,7 @@
 .sidebar-head .modal-close { position: static; }
 
 .sidebar .cards { grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
-.sidebar .chart-wrap { height: 280px; margin-bottom: 16px; }
+.sidebar .chart-wrap { height: 340px; margin-bottom: 16px; }
 .sidebar .mode-row {
   display: flex;
   gap: 14px;

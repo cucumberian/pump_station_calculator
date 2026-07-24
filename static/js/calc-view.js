@@ -161,26 +161,26 @@ function buildCards(cardsEl, Q, Qr, tr, n, r, numeric) {
 }
 
 const EC_REGISTRY = [];
-function makeEChart(el, { slider = false, title = "", legend = false } = {}) {
+function makeEChart(el, { slider = false, title = "", legend = false, toolbox = true } = {}) {
   const inst = echarts.init(el, null, { renderer: "canvas" });
   EC_REGISTRY.push(inst);
+  const legendH = legend ? 22 : 0;
   const base = {
     animation: false,
     grid: {
       left: 64, right: 16,
-      top: (title ? 26 : 12) + (legend ? 22 : 0),
-      bottom: slider ? 48 : 36, containLabel: false,
+      top: title ? 32 : 12,
+      bottom: (slider ? 48 : 36) + legendH, containLabel: false,
     },
     title: title ? { text: title, left: 4, top: 2, textStyle: { fontSize: 13, fontWeight: 600, color: "#12325e" } } : undefined,
-    legend: legend ? { left: 4, top: title ? 24 : 2, itemWidth: 16, itemHeight: 9, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
-    toolbox: {
-      right: 4, top: 0, itemSize: 15,
+    legend: legend ? { left: 4, right: 4, bottom: slider ? 28 : 16, itemWidth: 14, itemHeight: 8, itemGap: 12, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
+    ...(toolbox ? { toolbox: {
+      right: 4, top: 0, itemSize: 14,
       feature: {
-        dataZoom: { yAxisIndex: "none", title: { zoom: "Зум рамкой", back: "Зум назад" } },
-        restore: { title: "Сбросить зум" },
+        dataZoom: { yAxisIndex: "none", title: { zoom: "Зум рамкой" } },
         saveAsImage: { title: "Сохранить PNG", name: "kns-chart", pixelRatio: 2 },
       },
-    },
+    } } : {}),
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "cross", label: { backgroundColor: "#12325e", formatter: p => Number.isFinite(+p.value) ? fmt(+p.value, 1) : p.value } },
@@ -197,7 +197,18 @@ function makeEChart(el, { slider = false, title = "", legend = false } = {}) {
       const merged = { ...base, ...option };
       for (const k of ["title", "legend", "tooltip", "toolbox"]) {
         if (base[k] && option[k]) merged[k] = { ...base[k], ...option[k] };
+        else if (!base[k] && k === "toolbox") delete merged[k];
       }
+      try {
+        const prev = inst.getOption();
+        if (prev && Array.isArray(prev.dataZoom) && prev.dataZoom.length) {
+          merged.dataZoom = merged.dataZoom.map((dz, i) => ({
+            ...dz,
+            start: prev.dataZoom[i]?.start ?? dz.start,
+            end: prev.dataZoom[i]?.end ?? dz.end,
+          }));
+        }
+      } catch (_) { /* first render — no zoom to preserve */ }
       inst.setOption(merged, { notMerge: true, lazyUpdate: true });
     },
   };
