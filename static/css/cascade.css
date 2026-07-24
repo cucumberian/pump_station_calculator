@@ -219,6 +219,7 @@
   color: #5a6572;
   margin: 18px 0 8px;
 }
+.sidebar h3.sb-h span { text-transform: none; }
 .sidebar .sb-empty { color: #5a6572; font-size: 14px; }
 .sidebar .sb-dt { font-size: 14px; font-weight: 600; color: var(--delay-accent); margin: 8px 0 4px; }
 .sidebar .sb-pair { display: flex; gap: 10px; }
@@ -347,7 +348,6 @@
   padding: 6px 30px 0 0;
   border-top: 1px dashed #dde1e6;
   font-size: 12px;
-  font-weight: 600;
   color: var(--catch-accent);
   line-height: 1.6;
 }

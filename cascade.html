@@ -11,13 +11,13 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=5">
-  <link rel="stylesheet" href="static/css/cascade.css?v=21">
+  <link rel="stylesheet" href="static/css/cascade.css?v=22">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script defer src="static/js/hydro.js?v=3"></script>
   <script defer src="static/js/calc-view.js?v=3"></script>
-  <script defer src="static/js/cascade.js?v=23"></script>
+  <script defer src="static/js/cascade.js?v=25"></script>
 </head>
 
 <body class="cascade-page">
@@ -50,17 +50,17 @@
         <h2>Ноды</h2>
         <div class="pal-node pal-catch" draggable="true" data-node="catch">
           <b><span class="full">Водосбор</span><span class="short">ВД</span></b>
-          <span class="addon">F, q₂₀, P → Qr, tr</span>
+          <span class="addon">F, q₂₀, P → Q<sub>r</sub>, t<sub>r</sub></span>
         </div>
         <div class="pal-node pal-pump" draggable="true" data-node="pump">
           <b><span class="full">Насосная станция</span><span class="short">НС</span></b>
-          <span class="addon">Qr, tr, Qнс</span>
+          <span class="addon">Q<sub>r</sub>, t<sub>r</sub>, Q<sub>нс</sub></span>
         </div>
         <div class="pal-node pal-delay" draggable="true" data-node="delay">
           <b><span class="full">Участок сети</span><span class="short">Участок</span></b>
-          <span class="addon">v, м/с · L, м</span>
+          <span class="addon">v, L</span>
         </div>
-        <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к кругу входа. Каждая КНС имеет собственный дождевой сток (Qr, tr) — его можно задать вручную или нодой «Водосбор» (подключается только напрямую к КНС).</p>
+        <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к ноде входа.<br>Каждая КНС имеет собственный дождевой сток (Q<sub>r</sub>, t<sub>r</sub>) — его можно задать вручную или нодой «Водосбор» (подключается только напрямую к КНС).</p>
       </div>
 
       <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить</button>
@@ -135,7 +135,7 @@
               </div>
             </div>
             <div class="field" title="среднее количество дождей за год (таблица Приложения 3)">
-              <label for="sbCMr">mr — дождей за год</label>
+              <label for="sbCMr">m<sub>r</sub> — дождей за год</label>
               <input id="sbCMr" type="number" step="any" min="1">
             </div>
             <div class="field" title="показатель степени (таблица Приложения 3)">
@@ -150,25 +150,25 @@
           </div>
           <div class="sb-pair">
             <div class="field" title="средневзвешенный коэффициент, характеризующий вид поверхности бассейна водосбора (коэффициент покрова), таблицы 11–12">
-              <label for="sbCZ">z mid — коэффициент покрова</label>
+              <label for="sbCZ">z<sub>mid</sub> — коэффициент покрова</label>
               <input id="sbCZ" type="number" step="any" min="0.001">
             </div>
             <div class="field" title="средневзвешенный постоянный коэффициент стока (таблица 11)">
-              <label for="sbCPsi">Ψmid — коэффициент стока</label>
+              <label for="sbCPsi">Ψ<sub>mid</sub> — коэффициент стока</label>
               <input id="sbCPsi" type="number" step="any" min="0.001">
             </div>
           </div>
-          <h3 class="sb-h">Расчётная продолжительность дождя tr</h3>
+          <h3 class="sb-h">Расчётная продолжительность дождя <span>t<sub>r</sub></span></h3>
           <div class="sb-pair">
             <div class="field" title="продолжительность протекания дождевых вод до уличного лотка (время поверхностной концентрации), мин">
-              <label for="sbCTcon">tcon — поверхн. концентрация</label>
+              <label for="sbCTcon">t<sub>con</sub> — поверхн. концентрация</label>
               <div class="dual">
                 <input id="sbCTcon" type="number" step="any" min="0">
                 <span class="dual-unit">мин</span>
               </div>
             </div>
             <div class="field" title="продолжительность протекания дождевых вод по уличным лоткам до дождеприёмника, мин">
-              <label for="sbCTcan">tcan — по лоткам</label>
+              <label for="sbCTcan">t<sub>can</sub> — по лоткам</label>
               <div class="dual">
                 <input id="sbCTcan" type="number" step="any" min="0">
                 <span class="dual-unit">мин</span>
@@ -189,27 +189,27 @@
           <p class="sb-dt catch-res" id="sbCOut"></p>
           <button class="btn" id="sbCHelp" type="button" title="Все формулы с подставленными значениями">Формулы и расчёт</button>
         </div>
-        <p class="sb-empty" id="sbEmpty">Задайте Qr, tr и Qнс на ноде станции.</p>
+        <p class="sb-empty" id="sbEmpty">Задайте Q<sub>r</sub>, t<sub>r</sub> и Q<sub>нс</sub> на ноде станции.</p>
         <div id="sbContent">
           <div class="sb-pair">
             <div class="field" title="максимальный расчётный расход дождевых вод для этой станции, л/с">
-              <label for="sbQr">Qr — макс. расход дождевого стока</label>
+              <label for="sbQr">Q<sub>r</sub> — макс. расход дождевого стока</label>
               <div class="dual">
                 <input id="sbQr" type="number" step="any" min="1">
                 <span class="dual-unit">л/с</span>
               </div>
             </div>
             <div class="field" title="расчётная продолжительность дождя для этой станции, мин">
-              <label for="sbTr">tr — расчётная продолжительность дождя</label>
+              <label for="sbTr">t<sub>r</sub> — расчётная продолжительность дождя</label>
               <div class="dual">
                 <input id="sbTr" type="number" step="any" min="1">
                 <span class="dual-unit">мин</span>
               </div>
             </div>
           </div>
-          <p class="approx-note sb-lock" id="sbLock" hidden>Qr и tr заданы нодой «Водосбор» <span id="sbLockSrc"></span> — изменяйте их там.</p>
+          <p class="approx-note sb-lock" id="sbLock" hidden>Q<sub>r</sub> и t<sub>r</sub> заданы нодой «Водосбор» <span id="sbLockSrc"></span> — изменяйте их там.</p>
           <div class="field" title="максимальная производительность насосов в насосной станции, л/с">
-            <label for="sbQ">Qнс — производительность насосной станции</label>
+            <label for="sbQ">Q<sub>нс</sub> — производительность насосной станции</label>
             <div class="dual">
               <input id="sbQ" type="number" step="any" min="1">
               <span class="dual-unit">л/с</span>
@@ -223,7 +223,7 @@
             <label for="sbIdle">Работа вне пика</label>
             <div class="dual">
               <input id="sbIdle" type="number" step="any" min="0" max="100">
-              <span class="dual-unit">% от Qнс</span>
+              <span class="dual-unit">% от Q<sub>нс</sub></span>
             </div>
           </div>
           <div class="mode-row">
@@ -231,16 +231,16 @@
             <label><input type="radio" name="sbMode" value="analytic" checked> аналитический</label>
             <label><input type="radio" name="sbMode" value="numeric"> численный</label>
           </div>
-          <p class="approx-note" id="sbApprox" hidden>Вход — не чистый дождевой гидрограф: аналитический режим использует эквивалентные Qr*, tr* (пик суммарного гидрографа) — это приближение. Для точного результата включите численный режим.</p>
+          <p class="approx-note" id="sbApprox" hidden>Вход — не чистый дождевой гидрограф: аналитический режим использует эквивалентные Q<sub>r</sub>*, t<sub>r</sub>* (пик суммарного гидрографа) — это приближение. Для точного результата включите численный режим.</p>
           <h3 class="sb-h">Входной гидрограф (суммарный)<button class="help-btn sb-help" id="sbHydroHelp" type="button" title="Методика расчёта каскада">?</button></h3>
           <div class="chart-wrap"><canvas id="sbInflow"></canvas></div>
           <h3 class="sb-h">Результаты</h3>
           <div id="sbCards" class="cards"></div>
-          <h3 class="sb-h">Wнс от Qнс</h3>
+          <h3 class="sb-h">W<sub>нс</sub> от Q<sub>нс</sub></h3>
           <div class="chart-wrap"><canvas id="sbChart"></canvas></div>
           <h3 class="sb-h">Таблица вариантов</h3>
           <div class="range-controls">
-            <div class="field"><label for="sbFrom">Qнс от, л/с</label><input id="sbFrom" type="number" step="any" min="1"></div>
+            <div class="field"><label for="sbFrom">Q<sub>нс</sub> от, л/с</label><input id="sbFrom" type="number" step="any" min="1"></div>
             <div class="field"><label for="sbTo">до, л/с</label><input id="sbTo" type="number" step="any" min="1"></div>
             <div class="field"><label for="sbStep">шаг, л/с</label><input id="sbStep" type="number" step="any" min="0.5"></div>
           </div>
@@ -248,11 +248,11 @@
             <table id="sbVariants">
               <thead>
                 <tr>
-                  <th>Qнс, л/с</th>
-                  <th>Qнс, м³/ч</th>
-                  <th>Tн, мин</th>
-                  <th>Tк, мин</th>
-                  <th>Wнс, м³</th>
+                  <th>Q<sub>нс</sub>, л/с</th>
+                  <th>Q<sub>нс</sub>, м³/ч</th>
+                  <th>T<sub>н</sub>, мин</th>
+                  <th>T<sub>к</sub>, мин</th>
+                  <th>W<sub>нс</sub>, м³</th>
                 </tr>
               </thead>
               <tbody></tbody>

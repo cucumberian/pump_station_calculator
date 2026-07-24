@@ -14,9 +14,9 @@ const NODE_HTML = {
     <div class="node-box node-pump">
       <div class="node-title"><span class="node-num"></span> Насосная станция</div>
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
-      <div class="nf"><label>Qr, л/с</label><input df-qr type="number" step="any" min="1"></div>
-      <div class="nf"><label>tr, мин</label><input df-tr type="number" step="any" min="1"></div>
-      <div class="nf"><label>Qнс, л/с</label><input df-q type="number" step="any" min="1"></div>
+      <div class="nf"><label>Q<sub>r</sub>, л/с</label><input df-qr type="number" step="any" min="1"></div>
+      <div class="nf"><label>t<sub>r</sub>, мин</label><input df-tr type="number" step="any" min="1"></div>
+      <div class="nf"><label>Q<sub>нс</sub>, л/с</label><input df-q type="number" step="any" min="1"></div>
       <input class="q-range" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
       <div class="nf"><label>вне пика, %</label><input df-idle type="number" step="any" min="0" max="100"></div>
       <div class="lock-note"></div>
@@ -30,8 +30,8 @@ const NODE_HTML = {
       <div class="nf"><label>F, га</label><input df-F type="number" step="any" min="0.01"></div>
       <div class="nf"><label>q₂₀, л/с·га</label><input df-q20 type="number" step="any" min="1"></div>
       <div class="nf"><label>P, лет</label><input df-P type="number" step="any" min="0.1"></div>
-      <div class="nf"><label>tcon, мин</label><input df-tcon type="number" step="any" min="0"></div>
-      <div class="catch-out">Qr = — <br> tr = —</div>
+      <div class="nf"><label>t<sub>con</sub>, мин</label><input df-tcon type="number" step="any" min="0"></div>
+      <div class="catch-out">Q<sub>r</sub> = — <br> t<sub>r</sub> = —</div>
       <button class="catch-info" type="button" title="Формулы расчёта Qr и tr (п. 2.3.1)">?</button>
     </div>`,
   delay: `
@@ -383,6 +383,7 @@ function computeCascade() {
         lockId = catchUps[0].id;
         ownRain = c.series;
         flowUps.push(...catchUps.slice(1));
+        editor.updateNodeDataFromId(id, { ...editor.getNodeFromId(id).data, qr: Qr, tr });
       }
       if (!(Qr > 0 && tr > 0 && Q > 0)) { res[id] = null; continue; }
       let idle = parseFloat(d.idle);
@@ -446,8 +447,8 @@ function updateSummaries(data = graphData()) {
       if (!out) continue;
       const r = results[id];
       out.innerHTML = r
-        ? `Qr = ${fmt(r.Qr, 1)} л/с <br> tr = ${fmt(r.tr, 1)} мин`
-        : "Qr = — <br> tr = —";
+        ? `Q<sub>r</sub> = <b>${fmt(r.Qr, 2)} л/с</b> <br> t<sub>r</sub> = <b>${fmt(r.tr, 2)} мин</b>`
+        : "Q<sub>r</sub> = — <br> t<sub>r</sub> = —";
       continue;
     }
     if (nd.name !== "pump") continue;
@@ -461,7 +462,7 @@ function updateSummaries(data = graphData()) {
     const ln = document.querySelector(`#node-${id} .lock-note`);
     if (ln) {
       ln.classList.toggle("on", locked);
-      if (locked) ln.textContent = `Qr, tr ← Водосбор #${r.lockId}`;
+      if (locked) ln.innerHTML = `Q<sub>r</sub>, t<sub>r</sub> ← Водосбор #${r.lockId}`;
     }
     for (const k of ["qr", "tr"]) {
       const inp = document.querySelector(`#node-${id} input[df-${k}]`);
@@ -479,13 +480,13 @@ function updateSummaries(data = graphData()) {
     const el = document.querySelector(`#node-${id} .node-summary`);
     if (!el) continue;
     if (!r) {
-      el.innerHTML = `<span class="warn">задайте Qr, tr, Qнс</span>`;
+      el.innerHTML = `<span class="warn">задайте Q<sub>r</sub>, t<sub>r</sub>, Q<sub>нс/sub></span>`;
     } else if (r.r.dry) {
-      el.innerHTML = `<span class="warn">Qнс ≥ притока — регулирование не требуется</span>`;
+      el.innerHTML = `<span class="warn">Q<sub>нс</sub> ≥ притока — регулирование не требуется</span>`;
     } else {
       el.innerHTML =
-        `Tн = ${fmt(r.r.tn)} мин · Tк = ${fmt(r.r.tk)} мин<br>` +
-        `Wнс = <b>${fmt(r.r.W, 1)} м³</b>`;
+        `T<sub>н</sub> = ${fmt(r.r.tn)} мин, T<sub>к</sub> = ${fmt(r.r.tk)} мин<br>` +
+        `W<sub>нс</sub> = <b>${fmt(r.r.W, 1)} м³</b>`;
     }
   }
 }
@@ -638,8 +639,8 @@ function renderCatchSidebar(node) {
     rb.checked = rb.value === (d.coeffMode === "const" ? "const" : "variable");
   }
   const res = results[sbNodeId];
-  $c("sbCOut").textContent = res
-    ? `Qr = ${fmt(res.Qr, 1)} л/с · tr = ${fmt(res.tr, 1)} мин`
+  $c("sbCOut").innerHTML = res
+    ? `Q<sub>r</sub> = ${fmt(res.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(res.tr, 2)} мин`
     : "задайте корректные параметры";
   applySidebarLock();
 }
@@ -707,8 +708,8 @@ function renderSidebar() {
   $c("sbEmpty").hidden = true;
   $c("sbContent").hidden = false;
 
-  if (document.activeElement !== $c("sbQr")) $c("sbQr").value = res.Qr;
-  if (document.activeElement !== $c("sbTr")) $c("sbTr").value = res.tr;
+  if (document.activeElement !== $c("sbQr")) $c("sbQr").value = Number(res.Qr).toFixed(2);
+  if (document.activeElement !== $c("sbTr")) $c("sbTr").value = Number(res.tr).toFixed(2);
   $c("sbQr").disabled = !!res.lockId;
   $c("sbTr").disabled = !!res.lockId;
   $c("sbLock").hidden = !res.lockId;
