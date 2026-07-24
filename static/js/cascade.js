@@ -90,11 +90,12 @@ function computeCascade() {
         Qr: p.Qr, tr: p.tr, params: p, fromCatch: true,
       };
     } else if (nd.name === "delay") {
-      const src = res[upstreamIds(id, data)[0]];
-      if (!src) { res[id] = null; continue; }
+      const srcs = upstreamIds(id, data).map(u => res[u]).filter(Boolean);
+      if (!srcs.length) { res[id] = null; continue; }
+      const combined = srcs.length === 1 ? srcs[0].series : combineSeries(srcs.map(s => s.series));
       res[id] = {
-        series: shiftSeries(src.series, delayDt(d)),
-        fromCatch: !!src.fromCatch, Qr: src.Qr, tr: src.tr,
+        series: shiftSeries(combined, delayDt(d)),
+        fromCatch: srcs.every(s => s.fromCatch), Qr: srcs[0].Qr, tr: srcs[0].tr,
       };
     } else if (nd.name === "pump") {
       const Q = parseFloat(d.q);
@@ -335,7 +336,9 @@ $c("drawflow").addEventListener("input", e => {
 editor.on("connectionCreated", conn => {
   const outNode = editor.getNodeFromId(conn.output_id);
   const inNode = editor.getNodeFromId(conn.input_id);
-  if (wouldCycle(conn.output_id, conn.input_id) ||
+  const outConns = outNode?.outputs?.[conn.output_class]?.connections || [];
+  if (outConns.length > 1 ||
+      wouldCycle(conn.output_id, conn.input_id) ||
       (outNode?.name === "catch" && inNode?.name === "delay")) {
     editor.removeSingleConnection(conn.output_id, conn.input_id, conn.output_class, conn.input_class);
     return;

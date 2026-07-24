@@ -21,9 +21,9 @@
   <script defer src="static/js/cascade-catch.js?v=1"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=1"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=1"></script>
-  <script defer src="static/js/cascade-io.js?v=1"></script>
-  <script defer src="static/js/cascade.js?v=26"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=2"></script>
+  <script defer src="static/js/cascade-io.js?v=2"></script>
+  <script defer src="static/js/cascade.js?v=28"></script>
 </head>
 
 <body class="cascade-page">
@@ -67,7 +67,7 @@
           <b><span class="full">Участок сети</span><span class="short">Участок</span></b>
           <span class="addon">v, L</span>
         </div>
-        <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к ноде входа.<br>Каждая КНС имеет собственный дождевой сток (Q<sub>r</sub>, t<sub>r</sub>) — его можно задать вручную или нодой «Водосбор» (подключается только напрямую к КНС).</p>
+        <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к ноде входа.<br>От одной ноды — только одна исходящая связь (разделение потока не поддерживается); входящих связей может быть несколько — потоки суммируются.<br>Каждая КНС имеет собственный дождевой сток (Q<sub>r</sub>, t<sub>r</sub>) — его можно задать вручную или нодой «Водосбор» (подключается только напрямую к КНС).</p>
       </div>
 
       <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить</button>

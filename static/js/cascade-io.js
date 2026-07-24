@@ -91,12 +91,15 @@ function rebuildScheme(payload) {
       map[nd.id] = editor.addNode(nd.type, ni, no, nd.x, nd.y, nd.type,
         migrateNodeData(nd.type, nd.data), NODE_HTML[nd.type]);
     }
+    const usedOut = new Set();
     for (const c of payload.connections || []) {
       if (map[c.from] === undefined || map[c.to] === undefined) continue;
+      if (usedOut.has(c.from)) continue;
       const fromType = payload.nodes.find(n => n.id === c.from)?.type;
       const toType = payload.nodes.find(n => n.id === c.to)?.type;
       if (fromType === "catch" && toType === "delay") continue;
       editor.addConnection(map[c.from], map[c.to], "output_1", "input_1");
+      usedOut.add(c.from);
     }
   } else {
     const data = payload.drawflow?.Home?.data || {};
@@ -106,13 +109,16 @@ function rebuildScheme(payload) {
       map[oldId] = editor.addNode(nd.name, ni, no, nd.pos_x, nd.pos_y, nd.name,
         migrateNodeData(nd.name, nd.data), NODE_HTML[nd.name]);
     }
+    const usedOut = new Set();
     for (const [oldId, nd] of Object.entries(data)) {
       if (!map[oldId]) continue;
       for (const out of Object.values(nd.outputs || {})) {
         for (const conn of out.connections) {
           if (!map[conn.node]) continue;
+          if (usedOut.has(oldId)) continue;
           if (nd.name === "catch" && data[conn.node]?.name === "delay") continue;
           editor.addConnection(map[oldId], map[conn.node], "output_1", "input_1");
+          usedOut.add(oldId);
         }
       }
     }

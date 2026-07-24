@@ -82,13 +82,15 @@ function renderDelaySidebar(node) {
   if (document.activeElement !== $c("sbL")) $c("sbL").value = d.l;
   const dt = delayDt(d);
   $c("sbDt").textContent = `Δt = L / (60·v) = ${fmt(dt, 1)} мин`;
-  const srcId = upstreamIds(sbNodeId, graphData())[0];
-  const src = srcId && results[srcId];
+  const srcs = upstreamIds(sbNodeId, graphData()).map(u => results[u]).filter(Boolean);
   const out = results[sbNodeId];
-  const has = !!(src && out);
+  const has = !!(srcs.length && out);
   $c("sbDelayChartWrap").hidden = !has;
   $c("sbDelayEmpty").hidden = has;
-  if (has) delayChart.update(dt, src.series, out.series);
+  if (has) {
+    const inSeries = srcs.length === 1 ? srcs[0].series : combineSeries(srcs.map(s => s.series));
+    delayChart.update(dt, inSeries, out.series);
+  }
   applySidebarLock();
 }
 
