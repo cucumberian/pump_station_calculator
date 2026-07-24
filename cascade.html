@@ -11,13 +11,19 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=5">
-  <link rel="stylesheet" href="static/css/cascade.css?v=22">
+  <link rel="stylesheet" href="static/css/cascade.css?v=23">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script defer src="static/js/hydro.js?v=3"></script>
   <script defer src="static/js/calc-view.js?v=3"></script>
-  <script defer src="static/js/cascade.js?v=25"></script>
+  <script defer src="static/js/cascade-nodes.js?v=1"></script>
+  <script defer src="static/js/cascade-catch.js?v=1"></script>
+  <script defer src="static/js/cascade-view.js?v=1"></script>
+  <script defer src="static/js/cascade-charts.js?v=1"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=1"></script>
+  <script defer src="static/js/cascade-io.js?v=1"></script>
+  <script defer src="static/js/cascade.js?v=26"></script>
 </head>
 
 <body class="cascade-page">
@@ -30,6 +36,7 @@
 
     <div class="header-btns" id="headerBtns">
       <button class="btn" id="fullscreen" type="button" title="Полноэкранный режим — скрывает адресную строку браузера">Во весь экран</button>
+      <button class="btn" id="metaBtn" type="button" title="Сведения об объекте, авторе и произвольные поля — включаются в экспорт">Сведения</button>
       <button class="btn" id="exportJson" type="button" title="Скачать схему в JSON-файл">Экспорт</button>
       <button class="btn" id="importJson" type="button" title="Загрузить схему из JSON-файла">Импорт</button>
       <a class="btn" href="index.html" title="Одиночный расчёт насосной станции">Одиночный расчёт</a>
@@ -87,6 +94,17 @@
         </div>
       </div>
       <div id="sbBody">
+        <div id="sbNodeMeta">
+          <div class="field" title="собственное имя ноды — отображается на ноде и используется в отчётах">
+            <label for="sbName">Имя</label>
+            <input id="sbName" type="text" maxlength="80">
+          </div>
+          <p class="sb-name-warn" id="sbNameWarn" hidden>Такое имя уже используется другой насосной станцией</p>
+          <div class="field" title="произвольное описание ноды — включается в экспорт">
+            <label for="sbDesc">Описание</label>
+            <textarea id="sbDesc" rows="2"></textarea>
+          </div>
+        </div>
         <div id="sbDelay" hidden>
           <div class="range-controls">
             <div class="field" title="скорость протекания жидкости в коллекторе, м/с">
@@ -277,6 +295,25 @@
     <div class="modal-box">
       <button id="modalClose" class="modal-close" type="button" aria-label="Закрыть"><svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg></button>
       <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="metaModal" class="modal" hidden>
+    <div class="modal-box meta-box">
+      <button id="metaClose" class="modal-close" type="button" aria-label="Закрыть"><svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg></button>
+      <h2 class="meta-h">Сведения о схеме</h2>
+      <div class="meta-grid">
+        <div class="field" title="название объекта расчёта"><label for="metaTitle">Название объекта</label><input id="metaTitle" type="text"></div>
+        <div class="field" title="автор(ы) расчёта"><label for="metaAuthor">Автор(ы)</label><input id="metaAuthor" type="text"></div>
+        <div class="field" title="контактный email"><label for="metaEmail">Email</label><input id="metaEmail" type="email"></div>
+        <div class="field" title="организация"><label for="metaOrg">Организация</label><input id="metaOrg" type="text"></div>
+        <div class="field" title="сведения об объекте: адрес, марка, номер"><label for="metaObject">Объект</label><input id="metaObject" type="text"></div>
+        <div class="field" title="дата расчёта"><label for="metaDate">Дата</label><input id="metaDate" type="date"></div>
+      </div>
+      <div class="field" title="примечание к расчёту"><label for="metaDesc">Примечание</label><textarea id="metaDesc" rows="3"></textarea></div>
+      <h3 class="meta-h3">Произвольные поля</h3>
+      <div id="metaCustom"></div>
+      <button class="btn" id="metaAddCustom" type="button">+ Добавить поле</button>
     </div>
   </div>
 </body>
