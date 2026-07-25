@@ -255,6 +255,24 @@ $c("drawflow").addEventListener("drop", e => {
 $c("drawflow").addEventListener("mouseup", scheduleSaveView);
 $c("drawflow").addEventListener("touchend", scheduleSaveView);
 
+function resetDragIfStuck(clientX, clientY) {
+  if (editor.editor_selected) {
+    editor.canvas_x += -(editor.pos_x - clientX);
+    editor.canvas_y += -(editor.pos_y - clientY);
+    editor.editor_selected = false;
+    editor.precanvas.style.transform =
+      "translate(" + editor.canvas_x + "px, " + editor.canvas_y + "px) scale(" + editor.zoom + ")";
+    scheduleSaveView();
+  }
+  if (editor.drag) {
+    editor.drag = false;
+    scheduleSaveView();
+  }
+}
+document.addEventListener("mouseup", e => resetDragIfStuck(e.clientX, e.clientY));
+document.addEventListener("touchend", () => resetDragIfStuck(editor.mouse_x, editor.mouse_y));
+document.addEventListener("pointercancel", e => resetDragIfStuck(e.clientX, e.clientY));
+
 let mouseDownPos = null;
 $c("drawflow").addEventListener("mousedown", e => { mouseDownPos = [e.clientX, e.clientY]; });
 $c("drawflow").addEventListener("click", e => {

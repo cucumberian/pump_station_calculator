@@ -129,6 +129,8 @@
   position: relative;
   touch-action: none;
   -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
   background: #f4f5f7;
   background-image: radial-gradient(#d3dae2 1px, transparent 1px);
   background-size: 20px 20px;
@@ -228,7 +230,6 @@
 
 .node-box {
   position: relative;
-  min-width: 170px;
   font-size: 13px;
 }
 .delay .node-box { min-width: 130px; }
@@ -398,6 +399,8 @@
   border-radius: 8px;
   padding: 10px 12px;
   width: auto;
+  -webkit-user-drag: none;
+  user-select: none;
   box-shadow: 0 1px 3px rgba(18, 50, 94, 0.08);
 }
 .drawflow .drawflow-node.pump {
@@ -408,7 +411,7 @@
 .drawflow .drawflow-node.delay {
   background: var(--delay-bg);
   border: 0.5px solid var(--delay-border);
-  /* width: 190px; */
+  width: 190px;
 }
 .drawflow .drawflow-node.catch {
   background: var(--catch-bg);
