@@ -173,7 +173,7 @@ function updateSummaries(data = graphData()) {
     }
     if (nd.name === "delay") {
       const out = document.querySelector(`#node-${id} .delay-out`);
-      if (out) out.textContent = `Δt = ${fmt(delayDt(nd.data || {}), 1)} мин`;
+      if (out) out.innerHTML = `Δt = <b>${fmt(delayDt(nd.data || {}), 1)} мин</b>`;
       continue;
     }
     if (nd.name === "catch") {

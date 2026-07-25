@@ -78,6 +78,7 @@
   border: 1px solid #dde1e6;
   border-radius: 8px;
   padding: 6px 8px;
+  user-select: none;
   box-shadow: 0 1px 4px rgba(18, 50, 94, 0.15);
 }
 .n-float[hidden] { display: none; }
@@ -303,6 +304,8 @@
   gap: 0.2rem;
   font-weight: 700;
   margin-bottom: 6px;
+  position: relative;
+  top: -2px;
 }
 .node-rain .node-title { color: #0b7285; }
 .node-pump .node-title { color: var(--pump-accent); }
