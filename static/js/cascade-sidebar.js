@@ -190,6 +190,7 @@ function openSidebar(id) {
   sbNodeId = id;
   markSidebarNode();
   $c("sidebar").hidden = false;
+  requestAnimationFrame(() => EC_REGISTRY.forEach(c => c.resize()));
   const res = results[id];
   if (res && res.inflow) {
     const qMax = seriesPeak(res.inflow).q;
