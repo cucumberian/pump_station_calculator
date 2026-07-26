@@ -172,7 +172,12 @@ function renderSidebar() {
   }
   if (document.activeElement !== $c("sbQ")) $c("sbQ").value = res.Q;
   if (document.activeElement !== $c("sbQm3h")) $c("sbQm3h").value = +(res.Q * 3.6).toFixed(1);
-  const inflowSeries = inflowFromResult(res);
+  let inflowSeries = inflowFromResult(res);
+  if (res.approx) {
+    inflowSeries = sampleHydro(res.eq.Qr, res.eq.tr, res.eq.n,
+      Math.max(inflowSeries.t[inflowSeries.t.length - 1],
+        hydroTailT(res.eq.Qr, res.eq.tr, res.eq.n)));
+  }
   const qMax = seriesPeak(inflowSeries).q;
   const rg = $c("sbQrange");
   rg.max = Math.ceil(qMax);
@@ -195,7 +200,7 @@ function renderSidebar() {
     .filter(x => x.r && !x.r.fromCatch)) {
     comps.push({ label: `${NODE_LABEL[x.nd.name]} #${x.nd.id}`, series: seriesFromResult(x.r) });
   }
-  inflowChart.update(res.Q, res.r, inflowSeries, comps, seriesFromResult(res));
+  inflowChart.update(res.Q, res.r, inflowSeries, comps, seriesFromResult(res), !!res.approx);
 
   const numeric = res.mode === "numeric";
   if (numeric) {

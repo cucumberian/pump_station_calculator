@@ -10,7 +10,7 @@ return {
   shiftSeries, interpAt, combineSeries, numericCalc,
   pumpOutSeries, seriesPeak,
   makeHydroGF, makePiecewiseGF, shiftGF, evalGF, peakGF, durationGF, toDense, combineGF,
-  extendSeries,
+  extendSeries, extendSeriesZero,
   HYDRO_DT
 };
 `);
@@ -388,6 +388,56 @@ test("toDense: если уже dense — возвращает тот же объ
   const s = { t: [0, 1, 2], q: [10, 20, 30] };
   const d = H.toDense(s);
   if (d !== s) throw new Error("должен вернуть тот же объект");
+});
+
+// ============================================================
+// toDense — адаптивная сетка для гидрографов
+// ============================================================
+
+test("toDense adaptive: пик в tr не теряется", () => {
+  const gf = H.makeHydroGF(342.3, 10, 0.71, 0);
+  const d = H.toDense(gf, H.HYDRO_DT);
+  const idx = Math.round(10 / H.HYDRO_DT);
+  approx(d.q[idx], 342.3, 2);
+});
+
+test("toDense adaptive: хвост гладкий после fineEnd (нет всплесков)", () => {
+  const n = 0.41;
+  const gf = H.makeHydroGF(100, 10, n, 0);
+  const d = H.toDense(gf, H.HYDRO_DT, 2000);
+  const fineEnd = 3 * 10;
+  const tStartCheck = Math.ceil(fineEnd / H.HYDRO_DT) + 1;
+  let prevQ = d.q[tStartCheck];
+  for (let i = tStartCheck + 1; i < d.t.length; i++) {
+    const q = d.q[i];
+    if (q > prevQ + 0.01) throw new Error(`всплеск в хвосте: t=${d.t[i].toFixed(1)}, q=${q.toFixed(3)} > ${prevQ.toFixed(3)}`);
+    prevQ = q;
+  }
+});
+
+test("toDense adaptive: piecewise — равномерный шаг без адаптации", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 50, tStart: 0, tEnd: 10 },
+    { q: 200, tStart: 10, tEnd: 100 },
+    { q: 50, tStart: 100, tEnd: 300 },
+  ], 0);
+  const dt = 1;
+  const d = H.toDense(gf, dt, 300);
+  for (let i = 1; i < d.t.length; i++) {
+    const gap = d.t[i] - d.t[i - 1];
+    if (Math.abs(gap - dt) > 1e-10) throw new Error(`шаг ${gap} ≠ dt=${dt} в точке ${i}`);
+  }
+});
+
+test("toDense adaptive: короткий гидрограф — равномерный шаг", () => {
+  const gf = H.makeHydroGF(100, 1, 0.71, 0);
+  const end = H.durationGF(gf);
+  const dt = 1;
+  const d = H.toDense(gf, dt, end);
+  for (let i = 1; i < d.t.length; i++) {
+    const gap = d.t[i] - d.t[i - 1];
+    if (Math.abs(gap - dt) > 1e-10) throw new Error(`шаг ${gap} ≠ dt=${dt} в точке ${i}`);
+  }
 });
 
 // ============================================================
@@ -801,6 +851,137 @@ test("numericCalc: пересчёт с продлённым притоком и�
   const r = H.numericCalc(50, fullInflow);
   if (r.dry) throw new Error("peak=200 > Q=50 → dry=false");
   if (r.truncated) throw new Error("полный хвост → truncated=false");
+});
+
+test("extendSeriesZero: продлевает нулями, а не последним значением", () => {
+  const s = { t: [0, 1, 2], q: [10, 5, 2] };
+  const ext = H.extendSeriesZero(s, 5, 1);
+  if (ext.t.length !== 6) throw new Error(`ожидалось 6 точек, получено ${ext.t.length}`);
+  // точки после lastT (=2) должны быть 0
+  for (let i = 3; i < ext.t.length; i++) {
+    if (ext.q[i] !== 0) throw new Error(`точка ${i}: ожидался 0, получено ${ext.q[i]}`);
+  }
+});
+
+test("combineSeries: нет ступеньки при разной длине рядов (два водосбора со сдвигом)", () => {
+  const n = 0.71;
+  const dt = 1;
+  const tail1 = Math.ceil(H.hydroTailT(100, 10, n) + 30);
+  const s1 = H.sampleHydro(100, 10, n, tail1, dt);
+  const delay = 30;
+  const s2 = H.shiftSeries(H.sampleHydro(100, 10, n, tail1, dt), delay);
+  const combinedEnd = Math.max(s1.t[s1.t.length - 1], s2.t[s2.t.length - 1]);
+  const ext1 = H.extendSeriesZero(s1, combinedEnd, dt);
+  const ext2 = H.extendSeriesZero(s2, combinedEnd, dt);
+  const combined = H.combineSeries([ext1, ext2], dt);
+  // после завершения s1 — ищем максимальный перепад между соседними точками
+  const s1End = s1.t[s1.t.length - 1];
+  let maxDrop = 0;
+  for (let i = 1; i < combined.t.length; i++) {
+    if (combined.t[i] > s1End) {
+      const drop = Math.abs(combined.q[i] - combined.q[i - 1]);
+      if (drop > maxDrop) maxDrop = drop;
+    }
+  }
+  // s1 хвост ≤ 2% от 100 = 2, после подъёма s2 — не более 2.5
+  if (maxDrop > 2.5) throw new Error(`ступенька после завершения s1: ${maxDrop} л/с (ожидалось ≤ 2.5)`);
+});
+
+test("combineSeries с extendSeriesZero: хвост плавно уходит в 0", () => {
+  const s = { t: [0, 10, 20], q: [100, 50, 2] };
+  const ext = H.extendSeriesZero(s, 30, 1);
+  const combined = H.combineSeries([ext], 1);
+  const lastQ = combined.q[combined.q.length - 1];
+  if (lastQ !== 0) throw new Error(`хвост не в 0: ${lastQ}`);
+  // нет точек выше 2 (последнее значение s) после 20
+  const after20 = combined.t.map((t, i) => ({ t, q: combined.q[i] })).filter(x => x.t > 20);
+  for (const p of after20) {
+    if (p.q > 2.1) throw new Error(`точка t=${p.t}: q=${p.q} > 2`);
+  }
+});
+
+// ============================================================
+// Два водосбора с разным tcon → ступенька в суммарном гидрографе
+// ============================================================
+
+test("combineGF: два гидрографа с разным tr — нет ступеньки в хвосте при общем tMax", () => {
+  const n = 0.41;
+  const dt = 0.2; // как в реальном коде (HYDRO_DT)
+  // Водосбор 1: tr=10 (tcon=97 мин)
+  const gf1 = H.makeHydroGF(100, 10, n, 0);
+  // Водосбор 2: tr=3 (tcon=3 мин)
+  const gf2 = H.makeHydroGF(80, 3, n, 0);
+  // Общий tMax = максимум из hydroTailT
+  const dur1 = H.durationGF(gf1);
+  const dur2 = H.durationGF(gf2);
+  const tMax = Math.max(dur1, dur2);
+  // Комбинируем с общим tMax
+  const combined = H.combineGF([gf1, gf2], dt, tMax);
+  // Проверяем хвост: после 2*max(tr) — только плавное затухание
+  const checkFrom = 2 * Math.max(gf1.tr, gf2.tr);
+  let maxDrop = 0;
+  for (let i = 1; i < combined.t.length; i++) {
+    if (combined.t[i] <= checkFrom) continue;
+    const drop = Math.abs(combined.q[i] - combined.q[i - 1]);
+    if (drop > maxDrop) maxDrop = drop;
+  }
+  // При корректном tMax хвост плавно затухает — перепад < 0.5 л/с
+  if (maxDrop > 0.5) throw new Error(`ступенька ${maxDrop.toFixed(2)} л/с при общем tMax=${tMax.toFixed(0)} (ожидалось ≤ 0.5)`);
+});
+
+test("combineGF: два гидрографа с разным tr — СТУПЕНЬКА в хвосте без tMax (демонстрация бага)", () => {
+  const n = 0.41;
+  const dt = 0.2;
+  const gf1 = H.makeHydroGF(100, 10, n, 0);
+  const gf2 = H.makeHydroGF(80, 3, n, 0);
+  // Комбинируем БЕЗ tMax (старое поведение)
+  const combined = H.combineGF([gf1, gf2], dt);
+  const checkFrom = 2 * Math.max(gf1.tr, gf2.tr);
+  // Находим ступеньку в хвосте: максимальный перепад
+  let maxDrop = 0;
+  for (let i = 1; i < combined.t.length; i++) {
+    if (combined.t[i] <= checkFrom) continue;
+    const drop = Math.abs(combined.q[i] - combined.q[i - 1]);
+    if (drop > maxDrop) maxDrop = drop;
+  }
+  // Без tMax: shorter hydro (tr=3) обрезается на hydroTailT, перепад значительный
+  if (maxDrop < 1.0) throw new Error(`ожидалась ступенька > 1.0 л/с в хвосте, получено ${maxDrop.toFixed(2)}`);
+});
+
+test("combineGF: три гидрографа с разным tr — нет ступеньки в хвосте", () => {
+  const n = 0.41;
+  const dt = 0.2;
+  const gf1 = H.makeHydroGF(100, 10, n, 0);
+  const gf2 = H.makeHydroGF(80, 3, n, 0);
+  const gf3 = H.makeHydroGF(50, 20, n, 0);
+  const tMax = Math.max(H.durationGF(gf1), H.durationGF(gf2), H.durationGF(gf3));
+  const combined = H.combineGF([gf1, gf2, gf3], dt, tMax);
+  const checkFrom = 2 * Math.max(gf1.tr, gf2.tr, gf3.tr);
+  let maxDrop = 0;
+  for (let i = 1; i < combined.t.length; i++) {
+    if (combined.t[i] <= checkFrom) continue;
+    const drop = Math.abs(combined.q[i] - combined.q[i - 1]);
+    if (drop > maxDrop) maxDrop = drop;
+  }
+  if (maxDrop > 0.5) throw new Error(`ступенька ${maxDrop.toFixed(2)} л/с (ожидалось ≤ 0.5)`);
+});
+
+test("combineGF: один гидрограф короче другого — хвост плавно уходит в 0", () => {
+  const n = 0.41;
+  const dt = 1;
+  const gfShort = H.makeHydroGF(80, 3, n, 0);
+  const gfLong = H.makeHydroGF(100, 10, n, 0);
+  const tMax = Math.max(H.durationGF(gfShort), H.durationGF(gfLong));
+  const combined = H.combineGF([gfShort, gfLong], dt, tMax);
+  // После завершения короткого гидрографа хвост плавно уходит в 0
+  const shortDur = H.durationGF(gfShort);
+  let maxDropAfterShort = 0;
+  for (let i = 1; i < combined.t.length; i++) {
+    if (combined.t[i] <= shortDur) continue;
+    const drop = Math.abs(combined.q[i] - combined.q[i - 1]);
+    if (drop > maxDropAfterShort) maxDropAfterShort = drop;
+  }
+  if (maxDropAfterShort > 0.5) throw new Error(`ступенька после короткого: ${maxDropAfterShort.toFixed(2)} л/с`);
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);

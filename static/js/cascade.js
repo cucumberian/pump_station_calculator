@@ -112,7 +112,8 @@ function computeCascade() {
           fromCatch: srcs.every(s => s.fromCatch), Qr: srcs[0].Qr, tr: srcs[0].tr,
         };
         if (!res[id].gf) {
-          const combined = combineGF(srcGFs);
+          const srcMax = Math.max(...srcGFs.map(gf => durationGF(gf)));
+          const combined = combineGF(srcGFs, HYDRO_DT, srcMax);
           res[id].gf = { type: "dense", ...shiftSeries(combined, dt) };
         }
       } else {
@@ -137,7 +138,8 @@ function computeCascade() {
           ownRain = catchUps[0].r.series;
         } else {
           if (declarative) {
-            ownRainGF = { type: "dense", ...combineGF(catchUps.map(x => x.r.gf)) };
+            const catchMax = Math.max(...catchUps.map(x => durationGF(x.r.gf)));
+            ownRainGF = { type: "dense", ...combineGF(catchUps.map(x => x.r.gf), HYDRO_DT, catchMax) };
             const ownPeak = peakGF(ownRainGF);
             Qr = ownPeak.q;
             tr = Math.max(ownPeak.t, 0.5);
@@ -165,7 +167,8 @@ function computeCascade() {
         if (flowGFs.length === 0) {
           inflowGF = ownRainGF;
         } else {
-          inflowGF = { type: "dense", ...combineGF([ownRainGF, ...flowGFs]) };
+          const inflowMax = Math.max(durationGF(ownRainGF), ...flowGFs.map(gf => durationGF(gf)));
+          inflowGF = { type: "dense", ...combineGF([ownRainGF, ...flowGFs], HYDRO_DT, inflowMax) };
         }
         if (mode === "analytic") {
           if (pureRain) {
@@ -212,8 +215,8 @@ function computeCascade() {
             ...flowUps.map(x => x.r.series.t[x.r.series.t.length - 1]));
           if (numEnd > inflow.t[inflow.t.length - 1]) {
             inflow = combineSeries([
-              extendSeries(ownRain, numEnd),
-              ...flowUps.map(x => extendSeries(x.r.series, numEnd)),
+              extendSeriesZero(ownRain, numEnd),
+              ...flowUps.map(x => extendSeriesZero(x.r.series, numEnd)),
             ]);
           }
           r = numericCalc(Q, inflow);

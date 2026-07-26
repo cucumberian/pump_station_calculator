@@ -33,7 +33,7 @@ const delayChart = (() => {
 const inflowChart = (() => {
   let ec = null;
   return {
-    update(Q, r, combined, comps, outSeries) {
+    update(Q, r, combined, comps, outSeries, approx) {
       if (!ec) ec = makeEChart($c("sbInflow"), { slider: true, legend: true, toolbox: false });
       const ts = combined.t;
       const qs = combined.q;
@@ -45,7 +45,7 @@ const inflowChart = (() => {
       }));
       const series = [
         ...compSeries,
-        { name: "Σ вход, л/с", type: "line", showSymbol: false,
+        { name: approx ? "Σ вход (эквив.), л/с" : "Σ вход, л/с", type: "line", showSymbol: false,
           data: ts.map((t, i) => [+t.toFixed(2), +qs[i].toFixed(2)]),
           lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" }, smooth: 0.15,
           markLine: {
@@ -75,7 +75,7 @@ const inflowChart = (() => {
         xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
         yAxis: { type: "value", name: "Q, л/с", min: 0 },
         tooltip: { formatter: ecAxisTip("л/с") },
-        legend: { data: [...comps.map(c => c.label), "Σ вход, л/с", ...(outSeries ? ["выход КНС, л/с"] : [])] },
+        legend: { data: [...comps.map(c => c.label), approx ? "Σ вход (эквив.), л/с" : "Σ вход, л/с", ...(outSeries ? ["выход КНС, л/с"] : [])] },
         series,
       });
     },

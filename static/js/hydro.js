@@ -189,12 +189,45 @@ function durationGF(gf) {
 function toDense(gf, dt = HYDRO_DT, tMax) {
   if (gf.t && gf.q) return gf;
   const end = tMax != null ? tMax : durationGF(gf);
+  if (end <= 0) return { t: [0], q: [evalGF(gf, 0)] };
+  const isAdaptive = gf.type === "hydrograph" && end > 200 * dt;
+  if (!isAdaptive) {
+    const N = Math.max(2, Math.ceil(end / dt));
+    const ts = [], qs = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i * dt;
+      ts.push(t);
+      qs.push(evalGF(gf, t));
+    }
+    return { t: ts, q: qs };
+  }
+  const tr = gf.tr;
+  const fineEnd = Math.min(end, Math.max(3 * tr, 20 * dt));
+  const fineN = Math.max(2, Math.ceil(fineEnd / dt));
+  const adaptTs = [0];
+  for (let i = 1; i <= fineN; i++) adaptTs.push(Math.min(i * dt, fineEnd));
+  if (fineEnd < end) {
+    let t = fineEnd, step = dt * 5;
+    while (t < end) {
+      t = Math.min(t + step, end);
+      adaptTs.push(t);
+      step = Math.min(step * 1.5, Math.max(dt * 10, (end - t) * 0.1));
+    }
+  }
+  const adaptQs = adaptTs.map(t => evalGF(gf, t));
   const N = Math.max(2, Math.ceil(end / dt));
   const ts = [], qs = [];
+  let ai = 0;
   for (let i = 0; i <= N; i++) {
     const t = i * dt;
     ts.push(t);
-    qs.push(evalGF(gf, t));
+    while (ai < adaptTs.length - 1 && adaptTs[ai + 1] <= t) ai++;
+    if (ai >= adaptTs.length - 1) {
+      qs.push(adaptQs[adaptQs.length - 1]);
+    } else {
+      const f = (t - adaptTs[ai]) / (adaptTs[ai + 1] - adaptTs[ai]);
+      qs.push(adaptQs[ai] + f * (adaptQs[ai + 1] - adaptQs[ai]));
+    }
   }
   return { t: ts, q: qs };
 }
@@ -208,6 +241,18 @@ function extendSeries(s, tMax, dt = HYDRO_DT) {
   for (let i = 1; i <= N; i++) {
     ts.push(lastT + i * dt);
     qs.push(lastQ);
+  }
+  return { t: ts, q: qs };
+}
+
+function extendSeriesZero(s, tMax, dt = HYDRO_DT) {
+  const lastT = s.t[s.t.length - 1];
+  if (tMax <= lastT) return s;
+  const ts = s.t.slice(), qs = s.q.slice();
+  const N = Math.ceil((tMax - lastT) / dt);
+  for (let i = 1; i <= N; i++) {
+    ts.push(lastT + i * dt);
+    qs.push(0);
   }
   return { t: ts, q: qs };
 }
