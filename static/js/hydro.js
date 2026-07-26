@@ -177,6 +177,9 @@ function durationGF(gf) {
     const last = gf.segments[gf.segments.length - 1];
     return (gf.delay || 0) + last.tEnd;
   }
+  if (gf.t && gf.t.length) {
+    return gf.t[gf.t.length - 1] + (gf.delay || 0);
+  }
   return 0;
 }
 
