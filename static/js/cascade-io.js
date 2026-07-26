@@ -32,7 +32,7 @@ function saveScheme() {
   try {
     localStorage.setItem(LS_CASCADE, JSON.stringify(serializeScheme()));
     localStorage.setItem(LS_N, $c("globalN").value);
-    localStorage.setItem("kns-cascade-mode", $c("cascadeMode")?.value || "grid");
+    localStorage.setItem("kns-cascade-mode", $c("cascadeMode")?.value || "declarative");
     localStorage.setItem(LS_META, JSON.stringify(cascadeMeta));
     if (viewReady) {
       localStorage.setItem(LS_VIEW, JSON.stringify({
@@ -59,7 +59,7 @@ function serializeScheme() {
     version: FORMAT_VERSION,
     meta: cascadeMeta,
     n: getGlobalN(),
-    cascadeMode: $c("cascadeMode")?.value || "grid",
+    cascadeMode: $c("cascadeMode")?.value || "declarative",
     nodes,
     connections,
   };
@@ -160,7 +160,10 @@ function applyPayload(payload) {
     if (!Array.isArray(cascadeMeta.custom)) cascadeMeta.custom = [];
   }
   if (payload.n > 0 && payload.n < 1) $c("globalN").value = payload.n;
-  if (payload.cascadeMode && $c("cascadeMode")) $c("cascadeMode").value = payload.cascadeMode;
+  if (payload.cascadeMode && $c("cascadeMode")) {
+    $c("cascadeMode").value = payload.cascadeMode;
+    if (typeof syncModeBtn === "function") syncModeBtn();
+  }
   closeSidebar();
   rebuildScheme(payload.scheme && !payload.nodes ? payload.scheme : payload);
   computeCascade();

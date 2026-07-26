@@ -14,6 +14,12 @@ function inflowFromResult(res) {
   return seriesFromResult(res);
 }
 
+function setTitle(typeLabel) {
+  const node = editor.getNodeFromId(sbNodeId);
+  const name = node?.data?.name?.trim();
+  $c("sbTitle").textContent = name ? `${name} · ${typeLabel}` : typeLabel;
+}
+
 const SB_CATCH_MAP = {
   sbCF: "F", sbCQ20: "q20", sbCP: "P", sbCMr: "mr", sbCGamma: "gamma",
   sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan",
@@ -43,7 +49,7 @@ function checkNameDuplicate(node) {
 }
 
 function renderCatchSidebar(node) {
-  $c("sbTitle").textContent = `Водосбор · нода #${sbNodeId}`;
+  setTitle(`Водосбор · нода #${sbNodeId}`);
   $c("sbCatch").hidden = false;
   $c("sbDelay").hidden = true;
   $c("sbEmpty").hidden = true;
@@ -109,7 +115,7 @@ function hidePumpSections() {
 }
 
 function renderDelaySidebar(node) {
-  $c("sbTitle").textContent = `Участок сети · нода #${sbNodeId}`;
+  setTitle(`Участок сети · нода #${sbNodeId}`);
   $c("sbDelay").hidden = false;
   $c("sbCatch").hidden = true;
   $c("sbEmpty").hidden = true;
@@ -143,7 +149,7 @@ function renderSidebar() {
   $c("sbDelay").hidden = true;
   $c("sbCatch").hidden = true;
   const res = results[sbNodeId];
-  $c("sbTitle").textContent = `Насосная станция · нода #${sbNodeId}`;
+  setTitle(`Насосная станция · нода #${sbNodeId}`);
   if (!node || !res) {
     $c("sbEmpty").hidden = false;
     $c("sbContent").hidden = true;
@@ -270,6 +276,12 @@ $c("sbLockBtn").addEventListener("click", () => {
 });
 $c("sbDisableBtn").addEventListener("click", () => {
   if (sbNodeId !== null) syncNodeParam(sbNodeId, "disabled", !nodeDisabled(sbNodeId));
+});
+$c("sbMetaToggle").addEventListener("click", () => {
+  $c("sbNodeMeta").classList.toggle("open");
+});
+$c("sbMetaToggle").addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $c("sbNodeMeta").classList.toggle("open"); }
 });
 $c("sbClose").addEventListener("click", closeSidebar);
 $c("sbName").addEventListener("input", () => {

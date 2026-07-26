@@ -533,6 +533,39 @@ editor.on("nodeMoved", () => saveScheme());
 
 $c("globalN").addEventListener("input", computeCascade);
 $c("cascadeMode").addEventListener("change", computeCascade);
+function syncModeBtn() {
+  const sel = $c("cascadeMode"), btn = $c("cascadeModeBtn");
+  if (!sel || !btn) return;
+  const grid = sel.value === "grid";
+  btn.textContent = grid ? "∑" : "ƒ";
+  btn.title = grid
+    ? "Сетка точек — нажмите для декларативного режима"
+    : "Декларативный — нажмите для режима сетки точек";
+}
+$c("cascadeModeBtn").addEventListener("click", () => {
+  const sel = $c("cascadeMode");
+  sel.value = sel.value === "grid" ? "declarative" : "grid";
+  sel.dispatchEvent(new Event("change"));
+  syncModeBtn();
+});
+$c("modeHelpBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  const popup = $c("modeHelpPopup");
+  const hidden = popup.hidden;
+  document.querySelectorAll(".mode-help-popup").forEach(p => p.hidden = true);
+  if (hidden) {
+    popup.hidden = false;
+    const rect = e.currentTarget.getBoundingClientRect();
+    popup.style.left = Math.min(rect.left, window.innerWidth - popup.offsetWidth - 8) + "px";
+    popup.style.top = (rect.bottom + 4) + "px";
+  }
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".mode-field, #modeHelpPopup")) {
+    document.querySelectorAll(".mode-help-popup").forEach(p => p.hidden = true);
+  }
+});
+syncModeBtn();
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
 const LS_PALETTE = "kns-palette-collapsed";
@@ -721,3 +754,4 @@ if (!fsRequest) {
 bindModal();
 bindMetaModal();
 loadInitial();
+syncModeBtn();

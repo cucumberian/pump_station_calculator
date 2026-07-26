@@ -53,12 +53,13 @@
             <span class="n-short">n</span>
             <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
           </div>
-          <div class="field" title="Режим передачи данных между нодами: сетка точек (плотная дискретизация) или декларативное описание (параметры функций).">
-            <label for="cascadeMode">Данные между нодами</label>
-            <select id="cascadeMode">
-              <option value="grid" selected>Сетка точек</option>
-              <option value="declarative">Декларативные</option>
+          <div class="field mode-field" title="Режим передачи данных между нодами: сетка точек (плотная дискретизация) или декларативное описание (параметры функций).">
+            <label for="cascadeMode">Данные между нодами <button class="help-btn mode-help-btn" id="modeHelpBtn" type="button" title="О режимах передачи данных">?</button></label>
+            <select id="cascadeMode" hidden>
+              <option value="declarative" selected>Декларативные</option>
+              <option value="grid">Сетка точек</option>
             </select>
+            <button class="mode-switch-btn" id="cascadeModeBtn" type="button" title="Декларативный">ƒ</button>
           </div>
         </div>
         <h2>Ноды</h2>
@@ -71,15 +72,20 @@
           <span class="addon">Q<sub>r</sub>, t<sub>r</sub>, Q<sub>нс</sub></span>
         </div>
         <div class="pal-node pal-delay" draggable="true" data-node="delay">
-          <b><span class="full">Участок сети</span><span class="short">Участок</span></b>
+          <b><span class="full">Участок сети</span><span class="short">Δt</span></b>
           <span class="addon">v, L</span>
         </div>
         <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к ноде входа.<br>От одной ноды — только одна исходящая связь (разделение потока не поддерживается); входящих связей может быть несколько — потоки суммируются.<br>Каждая КНС имеет собственный дождевой сток (Q<sub>r</sub>, t<sub>r</sub>) — его можно задать вручную или нодой «Водосбор» (подключается только напрямую к КНС).</p>
       </div>
 
-      <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи">Очистить схему</button>
+      <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи"><span class="full">Очистить схему</span><span class="short">Очистить</span></button>
       <button class="palette-toggle" id="paletteToggle" type="button" aria-label="Свернуть панель" title="Свернуть панель">‹</button>
     </aside>
+
+    <div class="mode-help-popup" id="modeHelpPopup" hidden>
+      <b>Сетка точек</b> — гидрограф передаётся между нодами как массив {t, Q} с фиксированным шагом Δt. Промежуточные значения — линейная интерполяция между точками ряда. При суммировании входов на КНС ряды ресамплятся на общую сетку — из-за линейной интерполяции резкие перегибы (выход КНС: холостой ход ↔ Q<sub>нс</sub>) сглаживаются. Точность зависит от шага Δt.<br>
+      <b>Декларативный</b> — гидрограф передаётся как функциональное описание: для дождевого стока — параметры дождевой формулы (Q<sub>r</sub>, t<sub>r</sub>, n), для выхода КНС — кусочно-постоянная функция с точными границами участков (t<sub>н</sub><sup>нс</sup>, t<sub>к</sub><sup>нс</sup>) и значениями (Q<sub>нс</sub>, Q<sub>idle</sub>). Участок сети просто увеличивает внутренний сдвиг функции на Δt — форма гидрографа не меняется. В плотный массив (ресамплинг с Δt) функция преобразуется только один раз — при численном расчёте КНС (чтобы промоделировать работу резервуара пошагово). Благодаря этому резкие перегибы графика сохраняются на всём каскаде точнее, чем в режиме сетки точек.
+    </div>
 
     <div id="drawflow">
       <div class="n-float" id="nFloat" hidden>
@@ -104,14 +110,20 @@
       </div>
       <div id="sbBody">
         <div id="sbNodeMeta">
-          <div class="field" title="собственное имя ноды — отображается на ноде и используется в отчётах">
-            <label for="sbName">Имя</label>
-            <input id="sbName" type="text" maxlength="80">
+          <div class="spoiler-head" id="sbMetaToggle" tabindex="0">
+            <svg class="ic ic-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none"aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M4.47 5.47a.75.75 0 0 1 1.06 0L8 7.94l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg>
+            <span>Имя и описание</span>
           </div>
-          <p class="sb-name-warn" id="sbNameWarn" hidden>Такое имя уже используется другой насосной станцией</p>
-          <div class="field" title="произвольное описание ноды — включается в экспорт">
-            <label for="sbDesc">Описание</label>
-            <textarea id="sbDesc" rows="2"></textarea>
+          <div class="spoiler-body">
+            <div class="field" title="собственное имя ноды — отображается на ноде и используется в отчётах">
+              <label for="sbName">Имя</label>
+              <input id="sbName" type="text" maxlength="80">
+            </div>
+            <p class="sb-name-warn" id="sbNameWarn" hidden>Такое имя уже используется другой насосной станцией</p>
+            <div class="field" title="произвольное описание ноды — включается в экспорт">
+              <label for="sbDesc">Описание</label>
+              <textarea id="sbDesc" rows="2"></textarea>
+            </div>
           </div>
         </div>
         <section id="sbDelay" hidden>
