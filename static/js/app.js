@@ -60,18 +60,19 @@ function render() {
   buildCards($("cards"), Q, Qr, tr, n, r, false);
 
   let rangePts = [];
-  if ($("chartRangeFromTable").checked) {
-    const rc = clampRange(Qr);
-    if (rc) {
-      for (let q = rc.from, i = 0; q <= rc.to + 1e-9 && i < 51; q += rc.step) {
-        rangePts.push({ x: +q.toFixed(2), y: +calc(q, Qr, tr, n).W.toFixed(2) });
-      }
+  const rc = clampRange(Qr);
+  if (rc) {
+    for (let q = rc.from, i = 0; q <= rc.to + 1e-9 && i < 51; q += rc.step) {
+      rangePts.push({ x: +q.toFixed(2), y: +calc(q, Qr, tr, n).W.toFixed(2) });
     }
   }
   wqChart.update(Q, Qr, tr, n, { rangePts });
+  if ($("chartFitAxis").classList.contains("active") && rc) {
+    const pad = (rc.to - rc.from) * 0.1;
+    wqChart.setXRange(Math.max(0, rc.from - pad), rc.to + pad);
+  }
   qtChart.update(Q, Qr, tr, n, r);
 
-  const rc = clampRange(Qr);
   if (!rc) return;
   fillVariants($("variants").querySelector("tbody"), Q, rc.from, rc.to, rc.step,
     q => calc(q, Qr, tr, n));
@@ -154,7 +155,11 @@ if (window.matchMedia("(min-width: 901px)").matches) {
   $("charts").classList.add("open");
   requestAnimationFrame(() => { EC_REGISTRY.forEach(ec => ec.resize()); });
 }
-$("chartRangeFromTable").addEventListener("change", render);
+$("chartFitAxis").addEventListener("click", e => {
+  e.stopPropagation();
+  $("chartFitAxis").classList.toggle("active");
+  render();
+});
 $("hydroHelp").addEventListener("click", () => {
   openHelp(HYDRO_HELP, {
     Q: parseFloat($("Q").value), Qr: parseFloat($("Qr").value),

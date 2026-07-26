@@ -172,7 +172,7 @@ function makeEChart(el, { slider = false, title = "", legend = false, toolbox = 
       top: title ? 32 : 12,
       bottom: (slider ? 48 : 36) + legendH, containLabel: false,
     },
-    title: title ? { text: title, left: 4, top: 2, textStyle: { fontSize: 13, fontWeight: 600, color: "#12325e" } } : undefined,
+    title: title ? { text: title, left: 4, top: 2, right: 0, textStyle: { fontSize: 13, fontWeight: 600, color: "#12325e", overflow: "truncate", width: 300 } } : undefined,
     legend: legend ? { left: 4, right: 4, bottom: slider ? 24 : 8, itemWidth: 14, itemHeight: 8, itemGap: 12, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
     ...(toolbox ? { toolbox: {
       right: 4, top: 0, itemSize: 14,
@@ -228,6 +228,9 @@ function ecAxisTip(unit) {
 function makeWQChart(el) {
   const ec = makeEChart(el, { title: "Рабочий объём резервуара Wнс от производительности Qнс", legend: true });
   return {
+    setXRange(min, max) {
+      ec.inst.setOption({ xAxis: { min, max } });
+    },
     update(Q, Qr, tr, n, { rangePts = [], calcFn = null } = {}) {
       const qFrom = Qr * 0.02, qTo = Qr;
       const qSet = new Set();
@@ -238,7 +241,7 @@ function makeWQChart(el) {
       const fn = calcFn || (q => calc(q, Qr, tr, n));
       const ws = qs.map(q => +fn(q).W.toFixed(2));
       ec.update({
-        xAxis: { type: "value", name: "Qнс, л/с", nameLocation: "middle", nameGap: 24, min: "dataMin" },
+        xAxis: { type: "value", name: "Qнс, л/с", nameLocation: "middle", nameGap: 24, min: "dataMin", axisLabel: { formatter: v => +v.toFixed(2) } },
         yAxis: { type: "value", name: "Wнс, м³", min: 0 },
         tooltip: {
           formatter: params => {

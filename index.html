@@ -86,9 +86,10 @@
       </section>
 
       <section class="chart-panel" id="charts">
-        <h2 id="chartsToggle">Графики <span class="scheme-arrow">▾</span></h2>
+        <h2 id="chartsToggle" style="display:flex;justify-content:space-between;align-items:center;"><span>Графики <span class="scheme-arrow">▾</span></span>
+          <button class="btn" id="chartFitAxis" type="button" title="Масштаб оси Qнс по таблице вариантов" style="font-size:11px;padding:2px 8px;">Масштаб по таблице</button>
+        </h2>
         <div class="charts-body">
-          <label class="chart-opt"><input id="chartRangeFromTable" type="checkbox"> Диапазон оси Qнс — из таблицы вариантов</label>
           <div class="chart-wrap"><div id="chart" class="echart"></div></div>
           <div class="chart-wrap"><div id="chartQT" class="echart"></div><button class="help-btn" id="hydroHelp"
               type="button" title="Как строится гидрограф Q(T)">?</button></div>

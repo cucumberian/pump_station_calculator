@@ -34,6 +34,7 @@ function renderCatchSidebar(node) {
   $c("sbDelay").hidden = true;
   $c("sbEmpty").hidden = true;
   $c("sbContent").hidden = true;
+  hidePumpSections();
   const d = node.data || {};
   for (const [elId, key] of Object.entries(SB_CATCH_MAP)) {
     const el = $c(elId);
@@ -73,12 +74,24 @@ function applySidebarLock() {
   }
 }
 
+function showPumpSections() {
+  for (const id of ["sbParams", "sbInflowSection", "sbResultsSection", "sbWqSection", "sbVariantsSection"]) {
+    $c(id).hidden = false;
+  }
+}
+function hidePumpSections() {
+  for (const id of ["sbParams", "sbInflowSection", "sbResultsSection", "sbWqSection", "sbVariantsSection"]) {
+    $c(id).hidden = true;
+  }
+}
+
 function renderDelaySidebar(node) {
   $c("sbTitle").textContent = `Участок сети · нода #${sbNodeId}`;
   $c("sbDelay").hidden = false;
   $c("sbCatch").hidden = true;
   $c("sbEmpty").hidden = true;
   $c("sbContent").hidden = true;
+  hidePumpSections();
   const d = node.data || {};
   if (document.activeElement !== $c("sbV")) $c("sbV").value = d.v;
   if (document.activeElement !== $c("sbL")) $c("sbL").value = d.l;
@@ -110,10 +123,12 @@ function renderSidebar() {
   if (!node || !res) {
     $c("sbEmpty").hidden = false;
     $c("sbContent").hidden = true;
+    hidePumpSections();
     return;
   }
   $c("sbEmpty").hidden = true;
   $c("sbContent").hidden = false;
+  showPumpSections();
 
   if (document.activeElement !== $c("sbQr")) $c("sbQr").value = Number(res.Qr).toFixed(2);
   if (document.activeElement !== $c("sbTr")) $c("sbTr").value = Number(res.tr).toFixed(2);
@@ -167,6 +182,10 @@ function renderSidebar() {
     }
   }
   sbWqChart.inner.update(res.Q, qMax, 0, 0, { rangePts, calcFn: fn });
+  if ($c("sbFitAxis").classList.contains("active") && from > 0 && to > from) {
+    const pad = (to - from) * 0.1;
+    sbWqChart.inner.setXRange(Math.max(0, from - pad), to + pad);
+  }
   fillVariants($c("sbVariants").querySelector("tbody"), res.Q, from, to, step, fn);
   applySidebarLock();
 }
@@ -292,3 +311,7 @@ $c("sbCHelp").addEventListener("click", () => {
 for (const id of ["sbFrom", "sbTo", "sbStep"]) {
   $c(id).addEventListener("input", renderSidebar);
 }
+$c("sbFitAxis").addEventListener("click", () => {
+  $c("sbFitAxis").classList.toggle("active");
+  renderSidebar();
+});

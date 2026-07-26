@@ -105,78 +105,85 @@
             <textarea id="sbDesc" rows="2"></textarea>
           </div>
         </div>
-        <div id="sbDelay" hidden>
-          <div class="range-controls">
-            <div class="field" title="скорость протекания жидкости в коллекторе, м/с">
-              <label for="sbV">v — скорость</label>
-              <div class="dual">
-                <input id="sbV" type="number" step="any" min="0.01">
-                <span class="dual-unit">м/с</span>
+        <section id="sbDelay" hidden>
+          <section id="sbDelayParams">
+            <div class="range-controls">
+              <div class="field" title="скорость протекания жидкости в коллекторе, м/с">
+                <label for="sbV">v — скорость</label>
+                <div class="dual">
+                  <input id="sbV" type="number" step="any" min="0.01">
+                  <span class="dual-unit">м/с</span>
+                </div>
+              </div>
+              <div class="field" title="длина участка коллектора, м">
+                <label for="sbL">L — длина</label>
+                <div class="dual">
+                  <input id="sbL" type="number" step="any" min="0">
+                  <span class="dual-unit">м</span>
+                </div>
               </div>
             </div>
-            <div class="field" title="длина участка коллектора, м">
-              <label for="sbL">L — длина</label>
-              <div class="dual">
-                <input id="sbL" type="number" step="any" min="0">
-                <span class="dual-unit">м</span>
+            <p class="sb-dt" id="sbDt"></p>
+          </section>
+          <section id="sbDelayChartSection">
+            <h3 class="sb-h">Гидрограф до и после сдвига</h3>
+            <div class="chart-wrap" id="sbDelayChartWrap"><div id="sbDelayChart" class="echart"></div></div>
+            <p class="sb-empty" id="sbDelayEmpty" hidden>Подключите вход к ноде участка сети.</p>
+          </section>
+        </section>
+        <section id="sbCatch" hidden>
+          <section id="sbCatchParams">
+            <div class="sb-pair">
+              <div class="field" title="расчётная площадь стока (водосбора), га">
+                <label for="sbCF">F — площадь водосбора</label>
+                <div class="dual">
+                  <input id="sbCF" type="number" step="any" min="0.01">
+                  <span class="dual-unit">га</span>
+                </div>
+              </div>
+              <div class="field" title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
+                <label for="sbCQ20">q₂₀ — интенсивность дождя</label>
+                <div class="dual">
+                  <input id="sbCQ20" type="number" step="any" min="1">
+                  <span class="dual-unit">л/с с га</span>
+                </div>
               </div>
             </div>
-          </div>
-          <p class="sb-dt" id="sbDt"></p>
-          <h3 class="sb-h">Гидрограф до и после сдвига</h3>
-          <div class="chart-wrap" id="sbDelayChartWrap"><div id="sbDelayChart" class="echart"></div></div>
-          <p class="sb-empty" id="sbDelayEmpty" hidden>Подключите вход к ноде участка сети.</p>
-        </div>
-        <div id="sbCatch" hidden>
-          <div class="sb-pair">
-            <div class="field" title="расчётная площадь стока (водосбора), га">
-              <label for="sbCF">F — площадь водосбора</label>
-              <div class="dual">
-                <input id="sbCF" type="number" step="any" min="0.01">
-                <span class="dual-unit">га</span>
+            <div class="sb-pair">
+              <div class="field" title="период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3)">
+                <label for="sbCP">P — период превышения</label>
+                <div class="dual">
+                  <input id="sbCP" type="number" step="any" min="0.1">
+                  <span class="dual-unit">лет</span>
+                </div>
+              </div>
+              <div class="field" title="среднее количество дождей за год (таблица Приложения 3)">
+                <label for="sbCMr">m<sub>r</sub> — дождей за год</label>
+                <input id="sbCMr" type="number" step="any" min="1">
+              </div>
+              <div class="field" title="показатель степени (таблица Приложения 3)">
+                <label for="sbCGamma">γ — показатель степени</label>
+                <input id="sbCGamma" type="number" step="any" min="0.1">
               </div>
             </div>
-            <div class="field" title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
-              <label for="sbCQ20">q₂₀ — интенсивность дождя</label>
-              <div class="dual">
-                <input id="sbCQ20" type="number" step="any" min="1">
-                <span class="dual-unit">л/с с га</span>
+            <div class="mode-row">
+              <span>Коэффициент стока:</span>
+              <label><input type="radio" name="sbCCoeff" value="variable" checked> переменный z (ф. 20)</label>
+              <label><input type="radio" name="sbCCoeff" value="const"> постоянный Ψ (ф. 12)</label>
+            </div>
+            <div class="sb-pair">
+              <div class="field" title="средневзвешенный коэффициент, характеризующий вид поверхности бассейна водосбора (коэффициент покрова), таблицы 11–12">
+                <label for="sbCZ">z<sub>mid</sub> — коэффициент покрова</label>
+                <input id="sbCZ" type="number" step="any" min="0.001">
+              </div>
+              <div class="field" title="средневзвешенный постоянный коэффициент стока (таблица 11)">
+                <label for="sbCPsi">Ψ<sub>mid</sub> — коэффициент стока</label>
+                <input id="sbCPsi" type="number" step="any" min="0.001">
               </div>
             </div>
-          </div>
-          <div class="sb-pair">
-            <div class="field" title="период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3)">
-              <label for="sbCP">P — период превышения</label>
-              <div class="dual">
-                <input id="sbCP" type="number" step="any" min="0.1">
-                <span class="dual-unit">лет</span>
-              </div>
-            </div>
-            <div class="field" title="среднее количество дождей за год (таблица Приложения 3)">
-              <label for="sbCMr">m<sub>r</sub> — дождей за год</label>
-              <input id="sbCMr" type="number" step="any" min="1">
-            </div>
-            <div class="field" title="показатель степени (таблица Приложения 3)">
-              <label for="sbCGamma">γ — показатель степени</label>
-              <input id="sbCGamma" type="number" step="any" min="0.1">
-            </div>
-          </div>
-          <div class="mode-row">
-            <span>Коэффициент стока:</span>
-            <label><input type="radio" name="sbCCoeff" value="variable" checked> переменный z (ф. 20)</label>
-            <label><input type="radio" name="sbCCoeff" value="const"> постоянный Ψ (ф. 12)</label>
-          </div>
-          <div class="sb-pair">
-            <div class="field" title="средневзвешенный коэффициент, характеризующий вид поверхности бассейна водосбора (коэффициент покрова), таблицы 11–12">
-              <label for="sbCZ">z<sub>mid</sub> — коэффициент покрова</label>
-              <input id="sbCZ" type="number" step="any" min="0.001">
-            </div>
-            <div class="field" title="средневзвешенный постоянный коэффициент стока (таблица 11)">
-              <label for="sbCPsi">Ψ<sub>mid</sub> — коэффициент стока</label>
-              <input id="sbCPsi" type="number" step="any" min="0.001">
-            </div>
-          </div>
-          <h3 class="sb-h">Расчётная продолжительность дождя <span>t<sub>r</sub></span></h3>
+          </section>
+          <section id="sbCatchRainSection">
+            <h3 class="sb-h">Расчётная продолжительность дождя <span>t<sub>r</sub></span></h3>
           <div class="sb-pair">
             <div class="field" title="продолжительность протекания дождевых вод до уличного лотка (время поверхностной концентрации), мин">
               <label for="sbCTcon">t<sub>con</sub> — поверхн. концентрация</label>
@@ -205,80 +212,95 @@
             </div>
           </div>
           <p class="sb-dt catch-res" id="sbCOut"></p>
-          <h3 class="sb-h">Гидрограф стока</h3>
-          <div class="chart-wrap" id="sbCatchChartWrap"><div id="sbCatchChart" class="echart"></div></div>
-          <button class="btn" id="sbCHelp" type="button" title="Все формулы с подставленными значениями">Формулы и расчёт</button>
-        </div>
+          </section>
+          <section id="sbCatchChartSection">
+            <h3 class="sb-h">Гидрограф стока</h3>
+            <div class="chart-wrap" id="sbCatchChartWrap"><div id="sbCatchChart" class="echart"></div></div>
+            <button class="btn" id="sbCHelp" type="button" title="Все формулы с подставленными значениями">Формулы и расчёт</button>
+          </section>
+        </section>
         <p class="sb-empty" id="sbEmpty">Задайте Q<sub>r</sub>, t<sub>r</sub> и Q<sub>нс</sub> на ноде станции.</p>
         <div id="sbContent">
-          <div class="sb-pair">
-            <div class="field" title="максимальный расчётный расход дождевых вод для этой станции, л/с">
-              <label for="sbQr">Q<sub>r</sub> — макс. расход дождевого стока</label>
+          <section id="sbParams">
+            <div class="sb-pair">
+              <div class="field" title="максимальный расчётный расход дождевых вод для этой станции, л/с">
+                <label for="sbQr">Q<sub>r</sub> — макс. расход дождевого стока</label>
+                <div class="dual">
+                  <input id="sbQr" type="number" step="any" min="1">
+                  <span class="dual-unit">л/с</span>
+                </div>
+              </div>
+              <div class="field" title="расчётная продолжительность дождя для этой станции, мин">
+                <label for="sbTr">t<sub>r</sub> — расчётная продолжительность дождя</label>
+                <div class="dual">
+                  <input id="sbTr" type="number" step="any" min="1">
+                  <span class="dual-unit">мин</span>
+                </div>
+              </div>
+            </div>
+            <p class="approx-note sb-lock" id="sbLock" hidden>Q<sub>r</sub> и t<sub>r</sub> заданы водосбором <span id="sbLockSrc"></span> — изменяйте их там.<span id="sbLockMulti" hidden> Несколько водосборов: Q<sub>r</sub>*, t<sub>r</sub>* — эквивалентная пара суммарного гидрографа (приближение в аналитическом режиме; численный режим точный).</span></p>
+            <div class="field" title="максимальная производительность насосов в насосной станции, л/с">
+              <label for="sbQ">Q<sub>нс</sub> — производительность насосной станции</label>
               <div class="dual">
-                <input id="sbQr" type="number" step="any" min="1">
+                <input id="sbQ" type="number" step="any" min="1">
                 <span class="dual-unit">л/с</span>
+                <span class="dual-eq">=</span>
+                <input id="sbQm3h" type="number" step="any" min="3.6">
+                <span class="dual-unit">м³/ч</span>
               </div>
+              <input id="sbQrange" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
             </div>
-            <div class="field" title="расчётная продолжительность дождя для этой станции, мин">
-              <label for="sbTr">t<sub>r</sub> — расчётная продолжительность дождя</label>
+            <div class="field" title="процент производительности, с которой станция работает вне пикового периода [Tн; Tк]">
+              <label for="sbIdle">Работа вне пика</label>
               <div class="dual">
-                <input id="sbTr" type="number" step="any" min="1">
-                <span class="dual-unit">мин</span>
+                <input id="sbIdle" type="number" step="any" min="0" max="100">
+                <span class="dual-unit">% от Q<sub>нс</sub></span>
               </div>
             </div>
-          </div>
-          <p class="approx-note sb-lock" id="sbLock" hidden>Q<sub>r</sub> и t<sub>r</sub> заданы водосбором <span id="sbLockSrc"></span> — изменяйте их там.<span id="sbLockMulti" hidden> Несколько водосборов: Q<sub>r</sub>*, t<sub>r</sub>* — эквивалентная пара суммарного гидрографа (приближение в аналитическом режиме; численный режим точный).</span></p>
-          <div class="field" title="максимальная производительность насосов в насосной станции, л/с">
-            <label for="sbQ">Q<sub>нс</sub> — производительность насосной станции</label>
-            <div class="dual">
-              <input id="sbQ" type="number" step="any" min="1">
-              <span class="dual-unit">л/с</span>
-              <span class="dual-eq">=</span>
-              <input id="sbQm3h" type="number" step="any" min="3.6">
-              <span class="dual-unit">м³/ч</span>
+            <div class="mode-row">
+              <span>Режим расчёта:</span>
+              <label><input type="radio" name="sbMode" value="analytic" checked> аналитический</label>
+              <label><input type="radio" name="sbMode" value="numeric"> численный</label>
             </div>
-            <input id="sbQrange" type="range" step="0.5" min="1" title="Qнс — производительность, л/с">
-          </div>
-          <div class="field" title="процент производительности, с которой станция работает вне пикового периода [Tн; Tк]">
-            <label for="sbIdle">Работа вне пика</label>
-            <div class="dual">
-              <input id="sbIdle" type="number" step="any" min="0" max="100">
-              <span class="dual-unit">% от Q<sub>нс</sub></span>
+            <p class="approx-note" id="sbApprox" hidden>Вход — не чистый дождевой гидрограф: аналитический режим использует эквивалентные Q<sub>r</sub>*, t<sub>r</sub>* (пик суммарного гидрографа) — это приближение. Для точного результата включите численный режим.</p>
+            <p class="approx-note" id="sbTrunc" hidden>Приток на конце расчётного окна всё ещё превышает откачку — резервуар продолжает наполняться, W<sub>нс</sub> может быть занижен. Увеличьте Q<sub>нс</sub> или проверьте конфигурацию каскада.</p>
+          </section>
+          <section id="sbInflowSection">
+            <h3 class="sb-h">Входной гидрограф (суммарный)<button class="help-btn sb-help" id="sbHydroHelp" type="button" title="Методика расчёта каскада">?</button></h3>
+            <div class="chart-wrap"><div id="sbInflow" class="echart"></div></div>
+          </section>
+          <section id="sbResultsSection">
+            <h3 class="sb-h">Результаты</h3>
+            <div id="sbCards" class="cards"></div>
+          </section>
+          <section id="sbWqSection">
+            <h3 class="sb-h" style="display:flex;justify-content:space-between;align-items:center;"><span>График W<sub>нс</sub> от Q<sub>нс</sub></span>
+              <button class="btn" id="sbFitAxis" type="button" title="Масштаб оси Qнс по таблице вариантов" style="font-size:11px;padding:2px 8px;">Масштаб по таблице</button>
+            </h3>
+            <div class="chart-wrap"><div id="sbChart" class="echart"></div></div>
+          </section>
+          <section id="sbVariantsSection">
+            <h3 class="sb-h">Таблица вариантов</h3>
+            <div class="range-controls">
+              <div class="field"><label for="sbFrom">Q<sub>нс</sub> от, л/с</label><input id="sbFrom" type="number" step="any" min="1"></div>
+              <div class="field"><label for="sbTo">до, л/с</label><input id="sbTo" type="number" step="any" min="1"></div>
+              <div class="field"><label for="sbStep">шаг, л/с</label><input id="sbStep" type="number" step="any" min="0.5"></div>
             </div>
-          </div>
-          <div class="mode-row">
-            <span>Режим расчёта:</span>
-            <label><input type="radio" name="sbMode" value="analytic" checked> аналитический</label>
-            <label><input type="radio" name="sbMode" value="numeric"> численный</label>
-          </div>
-          <p class="approx-note" id="sbApprox" hidden>Вход — не чистый дождевой гидрограф: аналитический режим использует эквивалентные Q<sub>r</sub>*, t<sub>r</sub>* (пик суммарного гидрографа) — это приближение. Для точного результата включите численный режим.</p>
-          <p class="approx-note" id="sbTrunc" hidden>Приток на конце расчётного окна всё ещё превышает откачку — резервуар продолжает наполняться, W<sub>нс</sub> может быть занижен. Увеличьте Q<sub>нс</sub> или проверьте конфигурацию каскада.</p>
-          <h3 class="sb-h">Входной гидрограф (суммарный)<button class="help-btn sb-help" id="sbHydroHelp" type="button" title="Методика расчёта каскада">?</button></h3>
-          <div class="chart-wrap"><div id="sbInflow" class="echart"></div></div>
-          <h3 class="sb-h">Результаты</h3>
-          <div id="sbCards" class="cards"></div>
-          <h3 class="sb-h">W<sub>нс</sub> от Q<sub>нс</sub></h3>
-          <div class="chart-wrap"><div id="sbChart" class="echart"></div></div>
-          <h3 class="sb-h">Таблица вариантов</h3>
-          <div class="range-controls">
-            <div class="field"><label for="sbFrom">Q<sub>нс</sub> от, л/с</label><input id="sbFrom" type="number" step="any" min="1"></div>
-            <div class="field"><label for="sbTo">до, л/с</label><input id="sbTo" type="number" step="any" min="1"></div>
-            <div class="field"><label for="sbStep">шаг, л/с</label><input id="sbStep" type="number" step="any" min="0.5"></div>
-          </div>
-          <div class="table-wrap">
-            <table id="sbVariants">
-              <thead>
-                <tr>
-                  <th>Q<sub>нс</sub>, л/с</th>
-                  <th>Q<sub>нс</sub>, м³/ч</th>
-                  <th>T<sub>н</sub>, мин</th>
-                  <th>T<sub>к</sub>, мин</th>
-                  <th>W<sub>нс</sub>, м³</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
+            <div class="table-wrap">
+              <table id="sbVariants">
+                <thead>
+                  <tr>
+                    <th>Q<sub>нс</sub>, л/с</th>
+                    <th>Q<sub>нс</sub>, м³/ч</th>
+                    <th>T<sub>н</sub>, мин</th>
+                    <th>T<sub>к</sub>, мин</th>
+                    <th>W<sub>нс</sub>, м³</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
     </aside>

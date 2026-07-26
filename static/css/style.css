@@ -117,6 +117,8 @@ main {
 .chart-panel.open .scheme-arrow { transform: rotate(180deg); }
 #chartsToggle { cursor: pointer; user-select: none; }
 #chartsToggle .scheme-arrow { display: inline-block; transition: transform 0.15s; }
+#chartsToggle .btn { border: 1px solid #c6d3e4; }
+#chartsToggle .btn.active { background: #12325e; color: #fff; border-color: #12325e; }
 .chart-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 8px; cursor: pointer; }
 
 .cards {
