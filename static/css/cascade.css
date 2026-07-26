@@ -310,6 +310,39 @@
   border-color: var(--pump-accent);
   color: #fff;
 }
+.node-disable {
+  position: absolute;
+  right: 17px;
+  top: -7px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b9c4d0;
+  border-radius: 5px;
+  background: #fff;
+  color: #5a6572;
+  line-height: 1;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.drawflow-node.delay .node-disable { right: 23px; }
+.node-disable:hover { border-color: #e8590c; color: #e8590c; }
+.node-disable.active {
+  background: #e8590c;
+  border-color: #e8590c;
+  color: #fff;
+}
+.node-box.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.node-box.disabled .node-disable {
+  pointer-events: auto;
+}
 .sb-head-btns { display: flex; align-items: center; gap: 6px; }
 .sb-head-btns .node-lock { position: static; }
 .node-box .node-title {

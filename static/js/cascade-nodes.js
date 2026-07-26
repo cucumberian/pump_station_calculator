@@ -4,6 +4,8 @@ const $c = id => document.getElementById(id);
 
 const LOCK_OPEN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 .5" stroke="currentColor" stroke-width="1.5"/></svg>`;
 const LOCK_CLOSED_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.5"/></svg>`;
+const DISABLE_ON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><line x1="2.5" y1="13.5" x2="13.5" y2="2.5" stroke="currentColor" stroke-width="1.5"/></svg>`;
+const DISABLE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/></svg>`;
 
 const XMARK_HTML = `<svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg>`;
 
@@ -11,6 +13,7 @@ const NODE_HTML = {
   pump: `
     <div class="node-box node-pump">
       <div class="node-title"><span class="node-num"></span> <span class="node-name">Насосная станция</span></div>
+      <button class="node-disable" type="button" title="Отключить ноду"></button>
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
       <div class="nf"><label>Q<sub>r</sub>, л/с</label><input df-qr type="number" step="any" min="1"></div>
       <div class="nf"><label>t<sub>r</sub>, мин</label><input df-tr type="number" step="any" min="1"></div>
@@ -24,6 +27,7 @@ const NODE_HTML = {
   catch: `
     <div class="node-box node-catch">
       <div class="node-title"><span class="node-num"></span> <span class="node-name">Водосбор</span></div>
+      <button class="node-disable" type="button" title="Отключить ноду"></button>
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
       <div class="nf"><label>F, га</label><input df-F type="number" step="any" min="0.01"></div>
       <div class="nf"><label>q₂₀, л/с·га</label><input df-q20 type="number" step="any" min="1"></div>
@@ -35,6 +39,7 @@ const NODE_HTML = {
   delay: `
     <div class="node-box node-delay">
       <div class="node-title"><span class="node-num"></span> <span class="node-name">Участок сети</span></div>
+      <button class="node-disable" type="button" title="Отключить ноду"></button>
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
       <div class="nf"><label>v, м/с</label><input df-v type="number" step="any" min="0.01"></div>
       <div class="nf"><label>L, м</label><input df-l type="number" step="any" min="0"></div>

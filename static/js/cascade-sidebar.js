@@ -50,6 +50,7 @@ function renderCatchSidebar(node) {
   $c("sbCatchChartWrap").hidden = !res;
   if (res) catchChart.update(res.series, res.Qr, res.tr);
   applySidebarLock();
+  applySidebarDisable();
 }
 
 function applySidebarLock() {
@@ -72,6 +73,14 @@ function applySidebarLock() {
       $c("sbTr").disabled = true;
     }
   }
+}
+
+function applySidebarDisable() {
+  const isDisabled = sbNodeId !== null && nodeDisabled(sbNodeId);
+  const btn = $c("sbDisableBtn");
+  btn.classList.toggle("active", isDisabled);
+  btn.innerHTML = isDisabled ? DISABLE_ON_SVG : DISABLE_OFF_SVG;
+  btn.title = isDisabled ? "Включить ноду" : "Отключить ноду";
 }
 
 function showPumpSections() {
@@ -107,6 +116,7 @@ function renderDelaySidebar(node) {
     delayChart.update(dt, inSeries, out.series);
   }
   applySidebarLock();
+  applySidebarDisable();
 }
 
 function renderSidebar() {
@@ -188,6 +198,7 @@ function renderSidebar() {
   }
   fillVariants($c("sbVariants").querySelector("tbody"), res.Q, from, to, step, fn);
   applySidebarLock();
+  applySidebarDisable();
 }
 
 function refreshSidebar() {
@@ -239,6 +250,9 @@ function syncNodeParam(id, key, value) {
 
 $c("sbLockBtn").addEventListener("click", () => {
   if (sbNodeId !== null) syncNodeParam(sbNodeId, "locked", !nodeLocked(sbNodeId));
+});
+$c("sbDisableBtn").addEventListener("click", () => {
+  if (sbNodeId !== null) syncNodeParam(sbNodeId, "disabled", !nodeDisabled(sbNodeId));
 });
 $c("sbClose").addEventListener("click", closeSidebar);
 $c("sbName").addEventListener("input", () => {

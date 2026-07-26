@@ -82,6 +82,7 @@ function computeCascade() {
   for (const id of topoOrder(data)) {
     const nd = data[id];
     const d = nd.data || {};
+    if (d.disabled) { res[id] = null; continue; }
     if (nd.name === "catch") {
       const p = catchParams(d, nGlob);
       if (!(p.Qr > 0 && p.tr > 0)) { res[id] = null; continue; }
@@ -155,6 +156,10 @@ function nodeLocked(id) {
   return !!editor.getNodeFromId(id)?.data?.locked;
 }
 
+function nodeDisabled(id) {
+  return !!editor.getNodeFromId(id)?.data?.disabled;
+}
+
 function updateSummaries(data = graphData()) {
   for (const [id, nd] of Object.entries(data)) {
     const numEl = document.querySelector(`#node-${id} .node-num`);
@@ -162,12 +167,21 @@ function updateSummaries(data = graphData()) {
     const nameEl = document.querySelector(`#node-${id} .node-name`);
     if (nameEl) nameEl.textContent = (nd.data?.name || "").trim() || NODE_TYPE_LABEL[nd.name];
     const isLocked = !!nd.data?.locked;
+    const isDisabled = !!nd.data?.disabled;
     const lockBtn = document.querySelector(`#node-${id} .node-lock`);
     if (lockBtn) {
       lockBtn.classList.toggle("active", isLocked);
       lockBtn.innerHTML = isLocked ? LOCK_CLOSED_SVG : LOCK_OPEN_SVG;
       lockBtn.title = isLocked ? "Разблокировать параметры" : "Заблокировать параметры";
     }
+    const disBtn = document.querySelector(`#node-${id} .node-disable`);
+    if (disBtn) {
+      disBtn.classList.toggle("active", isDisabled);
+      disBtn.innerHTML = isDisabled ? DISABLE_ON_SVG : DISABLE_OFF_SVG;
+      disBtn.title = isDisabled ? "Включить ноду" : "Отключить ноду";
+    }
+    const boxEl = document.querySelector(`#node-${id} .node-box`);
+    if (boxEl) boxEl.classList.toggle("disabled", isDisabled);
     for (const inp of document.querySelectorAll(`#node-${id} input`)) {
       inp.disabled = isLocked;
     }
@@ -343,6 +357,14 @@ $c("drawflow").addEventListener("click", e => {
   e.stopPropagation();
   const id = lb.closest(".drawflow-node").id.replace("node-", "");
   syncNodeParam(id, "locked", !nodeLocked(id));
+}, true);
+
+$c("drawflow").addEventListener("click", e => {
+  const db = e.target.closest(".node-disable");
+  if (!db) return;
+  e.stopPropagation();
+  const id = db.closest(".drawflow-node").id.replace("node-", "");
+  syncNodeParam(id, "disabled", !nodeDisabled(id));
 }, true);
 
 $c("drawflow").addEventListener("click", e => {
