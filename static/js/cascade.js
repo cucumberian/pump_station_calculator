@@ -7,6 +7,7 @@ editor.zoom_min = 0.1;
 editor.start();
 
 let results = {};
+let globalTMax = 0;
 let sbNodeId = null;
 
 function graphData() {
@@ -74,6 +75,7 @@ function topoOrder(data) {
 function computeCascade() {
   const data = graphData();
   const nGlob = getGlobalN();
+  const declarative = $c("cascadeMode")?.value === "declarative";
   const totalDelay = Object.values(data)
     .filter(nd => nd.name === "delay")
     .reduce((s, nd) => s + delayDt(nd.data || {}), 0);
@@ -86,35 +88,65 @@ function computeCascade() {
     if (nd.name === "catch") {
       const p = catchParams(d, nGlob);
       if (!(p.Qr > 0 && p.tr > 0)) { res[id] = null; continue; }
-      res[id] = {
-        series: sampleHydro(p.Qr, p.tr, nGlob, hydroTailT(p.Qr, p.tr, nGlob) + totalDelay + 30),
-        Qr: p.Qr, tr: p.tr, params: p, fromCatch: true,
-      };
+      if (declarative) {
+        res[id] = {
+          gf: makeHydroGF(p.Qr, p.tr, nGlob, 0),
+          series: sampleHydro(p.Qr, p.tr, nGlob, hydroTailT(p.Qr, p.tr, nGlob) + totalDelay + 30),
+          Qr: p.Qr, tr: p.tr, params: p, fromCatch: true,
+        };
+      } else {
+        res[id] = {
+          series: sampleHydro(p.Qr, p.tr, nGlob, hydroTailT(p.Qr, p.tr, nGlob) + totalDelay + 30),
+          Qr: p.Qr, tr: p.tr, params: p, fromCatch: true,
+        };
+      }
     } else if (nd.name === "delay") {
       const srcs = upstreamIds(id, data).map(u => res[u]).filter(Boolean);
       if (!srcs.length) { res[id] = null; continue; }
-      const combined = srcs.length === 1 ? srcs[0].series : combineSeries(srcs.map(s => s.series));
-      res[id] = {
-        series: shiftSeries(combined, delayDt(d)),
-        fromCatch: srcs.every(s => s.fromCatch), Qr: srcs[0].Qr, tr: srcs[0].tr,
-      };
+      if (declarative) {
+        const dt = delayDt(d);
+        const srcGFs = srcs.map(s => s.gf);
+        const combinedGF = srcGFs.length === 1 ? srcGFs[0] : null;
+        res[id] = {
+          gf: combinedGF ? shiftGF(combinedGF, dt) : null,
+          fromCatch: srcs.every(s => s.fromCatch), Qr: srcs[0].Qr, tr: srcs[0].tr,
+        };
+        if (!res[id].gf) {
+          const combined = combineGF(srcGFs);
+          res[id].gf = { type: "dense", ...shiftSeries(combined, dt) };
+        }
+      } else {
+        const combined = srcs.length === 1 ? srcs[0].series : combineSeries(srcs.map(s => s.series));
+        res[id] = {
+          series: shiftSeries(combined, delayDt(d)),
+          fromCatch: srcs.every(s => s.fromCatch), Qr: srcs[0].Qr, tr: srcs[0].tr,
+        };
+      }
     } else if (nd.name === "pump") {
       const Q = parseFloat(d.q);
       const ups = upstreamIds(id, data).map(u => ({ id: u, r: res[u] })).filter(x => x.r);
       const catchUps = ups.filter(x => x.r.fromCatch);
       const flowUps = ups.filter(x => !x.r.fromCatch);
-      let Qr = parseFloat(d.qr), tr = parseFloat(d.tr), lockIds = [], ownRain = null;
+      let Qr = parseFloat(d.qr), tr = parseFloat(d.tr), lockIds = [], ownRainGF = null, ownRain = null;
       if (catchUps.length) {
         lockIds = catchUps.map(x => x.id);
         if (catchUps.length === 1) {
           Qr = catchUps[0].r.Qr;
           tr = catchUps[0].r.tr;
+          ownRainGF = catchUps[0].r.gf;
           ownRain = catchUps[0].r.series;
         } else {
-          ownRain = combineSeries(catchUps.map(x => x.r.series));
-          const ownPeak = seriesPeak(ownRain);
-          Qr = ownPeak.q;
-          tr = Math.max(ownPeak.t, 0.5);
+          if (declarative) {
+            ownRainGF = { type: "dense", ...combineGF(catchUps.map(x => x.r.gf)) };
+            const ownPeak = peakGF(ownRainGF);
+            Qr = ownPeak.q;
+            tr = Math.max(ownPeak.t, 0.5);
+          } else {
+            ownRain = combineSeries(catchUps.map(x => x.r.series));
+            const ownPeak = seriesPeak(ownRain);
+            Qr = ownPeak.q;
+            tr = Math.max(ownPeak.t, 0.5);
+          }
         }
         editor.updateNodeDataFromId(id, { ...editor.getNodeFromId(id).data, qr: Qr, tr });
       }
@@ -122,29 +154,83 @@ function computeCascade() {
       let idle = parseFloat(d.idle);
       if (!(idle >= 0)) idle = 50;
       idle = Math.min(idle, 100);
-      ownRain = ownRain || sampleHydro(Qr, tr, nGlob, hydroTailT(Qr, tr, nGlob) + totalDelay + 30);
-      const inflow = combineSeries([ownRain, ...flowUps.map(x => x.r.series)]);
-      const pureRain = flowUps.length === 0 && catchUps.length <= 1;
       const mode = d.mode === "numeric" ? "numeric" : "analytic";
-      let r, eq = null;
-      if (mode === "analytic") {
-        if (pureRain) {
-          eq = { Qr, tr, n: nGlob };
-          r = Qr <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, Qr, tr, nGlob);
+      let r, eq = null, inflow, inflowGF;
+
+      if (declarative) {
+        if (!ownRainGF) ownRainGF = makeHydroGF(Qr, tr, nGlob, 0);
+        const flowGFs = flowUps.map(x => x.r.gf);
+        const pureRain = flowUps.length === 0 && catchUps.length <= 1;
+        if (flowGFs.length === 0) {
+          inflowGF = ownRainGF;
         } else {
-          const peak = seriesPeak(inflow);
-          eq = { Qr: peak.q, tr: Math.max(peak.t, 0.5), n: nGlob };
-          r = peak.q <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, eq.Qr, eq.tr, eq.n);
+          inflowGF = { type: "dense", ...combineGF([ownRainGF, ...flowGFs]) };
         }
+        if (mode === "analytic") {
+          if (pureRain) {
+            eq = { Qr, tr, n: nGlob };
+            r = Qr <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, Qr, tr, nGlob);
+          } else {
+            const peak = peakGF(inflowGF);
+            eq = { Qr: peak.q, tr: Math.max(peak.t, 0.5), n: nGlob };
+            r = peak.q <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, eq.Qr, eq.tr, eq.n);
+          }
+        } else {
+          r = numericCalc(Q, toDense(inflowGF));
+        }
+        const tMax = durationGF(inflowGF) + totalDelay;
+        res[id] = {
+          gf: makePiecewiseGF([
+            { q: idle, tStart: 0, tEnd: r.dry ? 0 : r.tn },
+            { q: Q, tStart: r.dry ? 0 : r.tn, tEnd: r.dry ? 0 : r.tk },
+            { q: idle, tStart: r.dry ? 0 : r.tk, tEnd: tMax },
+          ], 0),
+          series: pumpOutSeries(Q, r, tMax, HYDRO_DT, idle),
+          ownRainGF, inflowGF, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
+          approx: mode === "analytic" && !pureRain,
+        };
       } else {
-        r = numericCalc(Q, inflow);
+        ownRain = ownRain || sampleHydro(Qr, tr, nGlob, hydroTailT(Qr, tr, nGlob) + totalDelay + 30);
+        inflow = combineSeries([ownRain, ...flowUps.map(x => x.r.series)]);
+        const pureRain = flowUps.length === 0 && catchUps.length <= 1;
+        if (mode === "analytic") {
+          if (pureRain) {
+            eq = { Qr, tr, n: nGlob };
+            r = Qr <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, Qr, tr, nGlob);
+          } else {
+            const peak = seriesPeak(inflow);
+            eq = { Qr: peak.q, tr: Math.max(peak.t, 0.5), n: nGlob };
+            r = peak.q <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, eq.Qr, eq.tr, eq.n);
+          }
+        } else {
+          r = numericCalc(Q, inflow);
+        }
+        res[id] = {
+          series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1] + totalDelay, HYDRO_DT, idle),
+          ownRain, inflow, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
+          approx: mode === "analytic" && !pureRain,
+        };
       }
-      res[id] = {
-        series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1] + totalDelay, HYDRO_DT, idle),
-        ownRain, inflow, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
-        approx: mode === "analytic" && !pureRain,
-      };
     }
+  }
+  if (declarative) {
+    globalTMax = 0;
+    for (const r of Object.values(res)) {
+      if (r?.gf) {
+        const dur = durationGF(r.gf);
+        if (dur > globalTMax) globalTMax = dur;
+      }
+    }
+    for (const r of Object.values(res)) {
+      if (r?.gf?.type === "piecewise" && r.gf.segments.length && globalTMax > 0) {
+        const last = r.gf.segments[r.gf.segments.length - 1];
+        if (last.tEnd < globalTMax) {
+          r.gf = { ...r.gf, segments: [...r.gf.segments.slice(0, -1), { ...last, tEnd: globalTMax }] };
+        }
+      }
+    }
+  } else {
+    globalTMax = 0;
   }
   results = res;
   updateSummaries(data);
@@ -403,6 +489,7 @@ editor.on("nodeDataChanged", () => computeCascade());
 editor.on("nodeMoved", () => saveScheme());
 
 $c("globalN").addEventListener("input", computeCascade);
+$c("cascadeMode").addEventListener("change", computeCascade);
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
 const LS_PALETTE = "kns-palette-collapsed";

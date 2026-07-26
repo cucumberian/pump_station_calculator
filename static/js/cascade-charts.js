@@ -86,9 +86,11 @@ const sbWqChart = { inner: null };
 const sbQtState = {};
 
 function sbCalcFn(res) {
-  return res.mode === "numeric"
-    ? q => numericCalc(q, res.inflow)
-    : q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
+  if (res.mode === "numeric") {
+    const inflowDense = res.inflow || (res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : null);
+    return q => numericCalc(q, inflowDense);
+  }
+  return q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
 }
 
 const catchChart = (() => {

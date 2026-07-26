@@ -53,6 +53,13 @@
             <span class="n-short">n</span>
             <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
           </div>
+          <div class="field" title="режим передачи данных между нодами: сетка точек (плотная дискретизация) или декларативное описание (параметры функций)">
+            <label for="cascadeMode">Передача между нодами</label>
+            <select id="cascadeMode">
+              <option value="grid" selected>Сетка точек</option>
+              <option value="declarative">Декларативный</option>
+            </select>
+          </div>
         </div>
         <h2>Ноды</h2>
         <div class="pal-node pal-catch" draggable="true" data-node="catch">

@@ -130,3 +130,72 @@ function seriesPeak(s) {
   for (let i = 1; i < s.q.length; i++) if (s.q[i] > s.q[iMax]) iMax = i;
   return { t: s.t[iMax], q: s.q[iMax] };
 }
+
+// === Declarative graph functions (GraphFn) ===
+
+function makeHydroGF(Qr, tr, n, delay = 0) {
+  return { type: "hydrograph", Qr, tr, n, delay };
+}
+
+function makePiecewiseGF(segments, delay = 0) {
+  return { type: "piecewise", segments: segments.slice(), delay };
+}
+
+function shiftGF(gf, dt) {
+  return { ...gf, delay: (gf.delay || 0) + dt, segments: gf.segments ? gf.segments.slice() : undefined };
+}
+
+function evalGF(gf, t) {
+  const tEff = t - (gf.delay || 0);
+  if (tEff < 0) return 0;
+  switch (gf.type) {
+    case "hydrograph":
+      return hydro(tEff, gf.Qr, gf.tr, gf.n);
+    case "constant":
+      return (tEff >= gf.tStart && tEff <= gf.tEnd) ? gf.q : 0;
+    case "piecewise":
+      for (const seg of gf.segments) if (tEff >= seg.tStart && tEff <= seg.tEnd) return seg.q;
+      return 0;
+    default:
+      return 0;
+  }
+}
+
+function peakGF(gf) {
+  if (gf.type === "hydrograph") {
+    return { t: (gf.delay || 0) + gf.tr, q: gf.Qr };
+  }
+  const dense = toDense(gf);
+  return seriesPeak(dense);
+}
+
+function durationGF(gf) {
+  if (gf.type === "hydrograph") {
+    return (gf.delay || 0) + hydroTailT(gf.Qr, gf.tr, gf.n);
+  }
+  if (gf.type === "piecewise" && gf.segments.length) {
+    const last = gf.segments[gf.segments.length - 1];
+    return (gf.delay || 0) + last.tEnd;
+  }
+  return 0;
+}
+
+function toDense(gf, dt = HYDRO_DT, tMax) {
+  if (gf.t && gf.q) return gf;
+  const end = tMax != null ? tMax : durationGF(gf);
+  const N = Math.max(2, Math.ceil(end / dt));
+  const ts = [], qs = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i * dt;
+    ts.push(t);
+    qs.push(evalGF(gf, t));
+  }
+  return { t: ts, q: qs };
+}
+
+function combineGF(list, dt = HYDRO_DT, tMax) {
+  const valid = list.filter(Boolean);
+  if (!valid.length) return { t: [0], q: [0] };
+  const allDense = valid.map(gf => gf.t && gf.q ? gf : toDense(gf, dt, tMax));
+  return combineSeries(allDense, dt);
+}

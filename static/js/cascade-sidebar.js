@@ -1,5 +1,19 @@
 "use strict";
 
+function seriesFromResult(res) {
+  if (!res) return null;
+  if (res.series) return res.series;
+  if (res.gf) return toDense(res.gf, HYDRO_DT, globalTMax || undefined);
+  return null;
+}
+
+function inflowFromResult(res) {
+  if (!res) return null;
+  if (res.inflow) return res.inflow;
+  if (res.inflowGF) return toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined);
+  return seriesFromResult(res);
+}
+
 const SB_CATCH_MAP = {
   sbCF: "F", sbCQ20: "q20", sbCP: "P", sbCMr: "mr", sbCGamma: "gamma",
   sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan",
@@ -48,7 +62,7 @@ function renderCatchSidebar(node) {
     ? `Q<sub>r</sub> = ${fmt(res.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(res.tr, 2)} мин`
     : "задайте корректные параметры";
   $c("sbCatchChartWrap").hidden = !res;
-  if (res) catchChart.update(res.series, res.Qr, res.tr);
+  if (res) catchChart.update(seriesFromResult(res), res.Qr, res.tr);
   applySidebarLock();
   applySidebarDisable();
 }
@@ -112,8 +126,8 @@ function renderDelaySidebar(node) {
   $c("sbDelayChartWrap").hidden = !has;
   $c("sbDelayEmpty").hidden = has;
   if (has) {
-    const inSeries = srcs.length === 1 ? srcs[0].series : combineSeries(srcs.map(s => s.series));
-    delayChart.update(dt, inSeries, out.series);
+    const inSeries = srcs.length === 1 ? seriesFromResult(srcs[0]) : combineSeries(srcs.map(s => seriesFromResult(s)));
+    delayChart.update(dt, inSeries, seriesFromResult(out));
   }
   applySidebarLock();
   applySidebarDisable();
@@ -152,7 +166,8 @@ function renderSidebar() {
   }
   if (document.activeElement !== $c("sbQ")) $c("sbQ").value = res.Q;
   if (document.activeElement !== $c("sbQm3h")) $c("sbQm3h").value = +(res.Q * 3.6).toFixed(1);
-  const qMax = seriesPeak(res.inflow).q;
+  const inflowSeries = inflowFromResult(res);
+  const qMax = seriesPeak(inflowSeries).q;
   const rg = $c("sbQrange");
   rg.max = Math.ceil(qMax);
   if (document.activeElement !== rg) rg.value = Math.min(res.Q, qMax);
@@ -167,13 +182,14 @@ function renderSidebar() {
   const ownLabel = res.lockIds?.length > 1
     ? `Водосборы ${res.lockIds.map(x => `#${x}`).join(", ")}`
     : res.lockId ? `Водосбор #${res.lockId}` : "Дождь (собственный)";
-  const comps = [{ label: ownLabel, series: res.ownRain }];
+  const ownSeries = res.ownRainGF ? toDense(res.ownRainGF, HYDRO_DT, globalTMax || undefined) : res.ownRain;
+  const comps = [{ label: ownLabel, series: ownSeries }];
   for (const x of upstreamIds(sbNodeId, data)
     .map(u => ({ nd: data[u], r: results[u] }))
     .filter(x => x.r && !x.r.fromCatch)) {
-    comps.push({ label: `${NODE_LABEL[x.nd.name]} #${x.nd.id}`, series: x.r.series });
+    comps.push({ label: `${NODE_LABEL[x.nd.name]} #${x.nd.id}`, series: seriesFromResult(x.r) });
   }
-  inflowChart.update(res.Q, res.r, res.inflow, comps, res.series);
+  inflowChart.update(res.Q, res.r, inflowSeries, comps, seriesFromResult(res));
 
   const numeric = res.mode === "numeric";
   if (numeric) {
@@ -222,8 +238,9 @@ function openSidebar(id) {
   $c("sidebar").hidden = false;
   requestAnimationFrame(() => EC_REGISTRY.forEach(c => c.resize()));
   const res = results[id];
-  if (res && res.inflow) {
-    const qMax = seriesPeak(res.inflow).q;
+  const inflowRes = res?.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : res?.inflow;
+  if (inflowRes) {
+    const qMax = seriesPeak(inflowRes).q;
     if (!$c("sbFrom").value) {
       $c("sbFrom").value = Math.max(1, Math.round(qMax / 8));
       $c("sbTo").value = Math.round(qMax);
