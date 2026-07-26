@@ -41,7 +41,7 @@
   padding: 14px;
   overflow-y: auto;
 }
-.palette #gnSlot {display: flex; align-items:center;}
+.palette #gnSlot {display: flex; flex-direction: column; gap: 0.4rem;}
 .palette.collapsed { display: none; }
 .palette-toggle {
   position: absolute;
@@ -629,6 +629,7 @@
 .field input[type="text"],
 .field input[type="email"],
 .field input[type="date"],
+.field select,
 .field textarea {
   width: 100%;
   padding: 6px 8px;
