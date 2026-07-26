@@ -170,12 +170,7 @@ function renderSidebar() {
   }
   if (document.activeElement !== $c("sbQ")) $c("sbQ").value = res.Q;
   if (document.activeElement !== $c("sbQm3h")) $c("sbQm3h").value = +(res.Q * 3.6).toFixed(1);
-  let inflowSeries = inflowFromResult(res);
-  if (res.approx) {
-    inflowSeries = sampleHydro(res.eq.Qr, res.eq.tr, res.eq.n,
-      Math.max(inflowSeries.t[inflowSeries.t.length - 1],
-        hydroTailT(res.eq.Qr, res.eq.tr, res.eq.n)));
-  }
+  const inflowSeries = inflowFromResult(res);
   const qMax = seriesPeak(inflowSeries).q;
   const rg = $c("sbQrange");
   rg.max = Math.ceil(qMax);
@@ -198,11 +193,12 @@ function renderSidebar() {
     .filter(x => x.r && !x.r.fromCatch)) {
     comps.push({ label: `${NODE_LABEL[x.nd.name]} #${x.nd.id}`, series: seriesFromResult(x.r) });
   }
-  inflowChart.update(res.Q, res.r, inflowSeries, comps, seriesFromResult(res), !!res.approx);
+  inflowChart.update(res.Q, res.r, inflowSeries, comps, seriesFromResult(res), false);
 
-  const numeric = res.mode === "numeric";
+  const numeric = res.mode === "numeric" || !res.eq;
   if (numeric) {
-    buildCards($c("sbCards"), res.Q, 0, 0, 0, res.r, true);
+    const note = res.mode === "numeric" ? undefined : "аналитически по сегментам суммарного притока";
+    buildCards($c("sbCards"), res.Q, 0, 0, 0, res.r, true, note);
   } else {
     buildCards($c("sbCards"), res.Q, res.eq.Qr, res.eq.tr, res.eq.n, res.r, false);
   }
@@ -418,6 +414,7 @@ function showGFInfo(nodeId) {
   if (res.gf) {
     let outLabel = "";
     if (res.mode === "analytic" && res.eq) outLabel = `Аналит. Qr=${f(res.eq.Qr)} tr=${f(res.eq.tr)}`;
+    else if (res.mode === "analytic") outLabel = "Аналит. по сегментам";
     else if (res.mode === "numeric") outLabel = "Численный";
     if (outLabel) outLabel = ` (${outLabel})`;
     html += `<div class="gf-section gf-section-out"><h3>Выход${outLabel}</h3>${fmtGF(res.gf, "")}</div>`;

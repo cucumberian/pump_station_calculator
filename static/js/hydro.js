@@ -11,6 +11,59 @@ function solveTk(Q, Qr, tr, n) {
   return (lo + hi) / 2;
 }
 
+function hydroInt(T, Qr, tr, n) {
+  const x = T / tr;
+  if (x <= 0) return 0;
+  const v = Math.pow(x, 2 - n);
+  return Qr * tr / (2 - n) * (x > 1 ? v - Math.pow(x - 1, 2 - n) : v);
+}
+
+function mixedAnalyticCalc(Q, hydroGF, piecewiseGFs) {
+  const { Qr, tr, n } = hydroGF;
+  const dh = hydroGF.delay || 0;
+  const tEnd = Math.max(dh + hydroTailT(Qr, tr, n), ...piecewiseGFs.map(gf => durationGF(gf)));
+  const bps = new Set([0, tEnd]);
+  for (const gf of piecewiseGFs) {
+    const d = gf.delay || 0;
+    for (const s of gf.segments) {
+      if (d + s.tStart > 0) bps.add(d + s.tStart);
+      if (d + s.tEnd > 0) bps.add(d + s.tEnd);
+    }
+  }
+  const pts = [...bps].filter(t => t < tEnd).sort((a, b) => a - b);
+  pts.push(tEnd);
+  let tn = null, tk = null, V = 0, W = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (b - a < 1e-9) continue;
+    let c = 0;
+    for (const gf of piecewiseGFs) c += evalGF(gf, (a + b) / 2);
+    const Qe = Q - c;
+    let s = null, e = null;
+    if (Qe <= 0) {
+      s = a; e = b;
+    } else if (Qe < Qr) {
+      const tnE = dh + tr * Math.pow(Qe / Qr, 1 / (1 - n));
+      const tkE = dh + solveTk(Qe, Qr, tr, n);
+      s = Math.max(tnE, a); e = Math.min(tkE, b);
+      if (s >= e - 1e-9) s = e = null;
+    }
+    if (s !== null) {
+      if (tn === null) tn = s;
+      tk = e;
+    }
+    const subs = s === null ? [[a, b]] : [[a, s], [s, e], [e, b]];
+    for (const [sa, sb] of subs) {
+      if (sb - sa < 1e-9) continue;
+      V += 0.06 * (hydroInt(sb - dh, Qr, tr, n) - hydroInt(sa - dh, Qr, tr, n) + (c - Q) * (sb - sa));
+      if (V < 0) V = 0;
+      if (V > W) W = V;
+    }
+  }
+  if (tn === null) return { tn: 0, tk: 0, W: 0, dry: true };
+  return { tn, tk, W };
+}
+
 function calc(Q, Qr, tr, n) {
   if (Q >= Qr) return { tn: 0, tk: 0, W: 0, dry: true };
   const tn = tr * (Q / Qr) ** (1 / (1 - n));

@@ -90,6 +90,9 @@ function sbCalcFn(res) {
     const inflowDense = res.inflow || (res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : null);
     return q => numericCalc(q, inflowDense);
   }
+  if (!res.eq) {
+    return q => mixedAnalyticCalc(q, res.ownRainGF, res.flowGFs);
+  }
   return q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
 }
 

@@ -161,9 +161,13 @@ function computeCascade() {
           eq = { Qr, tr, n: nGlob };
           r = Qr <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, Qr, tr, nGlob);
         } else {
-          const peak = peakGF(inflowGF);
-          eq = { Qr: peak.q, tr: Math.max(peak.t, 0.5), n: nGlob };
-          r = peak.q <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, eq.Qr, eq.tr, eq.n);
+          if (ownRainGF.type === "hydrograph" && flowGFs.length && flowGFs.every(gf => gf.type === "piecewise")) {
+            r = mixedAnalyticCalc(Q, ownRainGF, flowGFs);
+          } else {
+            const peak = peakGF(inflowGF);
+            eq = { Qr: peak.q, tr: Math.max(peak.t, 0.5), n: nGlob };
+            r = peak.q <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, eq.Qr, eq.tr, eq.n);
+          }
         }
       } else {
         const numEnd = Math.max(durationGF(ownRainGF), ...flowGFs.map(gf => durationGF(gf)));
@@ -180,8 +184,8 @@ function computeCascade() {
           { q: idleQ, tStart: r.dry ? 0 : r.tk, tEnd: tMax },
         ], 0),
         series: pumpOutSeries(Q, r, tMax, HYDRO_DT, idleQ),
-        ownRainGF, inflowGF, r, Q, Qr, tr, idle: idlePct, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
-        approx: mode === "analytic" && !pureRain,
+        ownRainGF, inflowGF, flowGFs, r, Q, Qr, tr, idle: idlePct, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
+        approx: mode === "analytic" && !pureRain && !!eq,
       };
     }
   }

@@ -8,7 +8,7 @@ const load = new Function(src + `
 return {
   calc, solveTk, hydro, hydroTailT, sampleHydro,
   shiftSeries, interpAt, combineSeries, numericCalc,
-  pumpOutSeries, seriesPeak,
+  pumpOutSeries, seriesPeak, hydroInt, mixedAnalyticCalc,
   makeHydroGF, makePiecewiseGF, shiftGF, evalGF, peakGF, durationGF, toDense, combineGF,
   HYDRO_DT
 };
@@ -993,6 +993,122 @@ test("combineGF: один гидрограф короче другого — х�
     if (drop > maxDropAfterShort) maxDropAfterShort = drop;
   }
   if (maxDropAfterShort > 0.5) throw new Error(`ступенька после короткого: ${maxDropAfterShort.toFixed(2)} л/с`);
+});
+
+// ============================================================
+// mixedAnalyticCalc — гидрограф + кусочно-постоянная функция
+// ============================================================
+
+test("mixedAnalyticCalc: нулевой piecewise эквивалентен calc", () => {
+  const gf = H.makeHydroGF(342.3, 10, 0.71, 0);
+  const pw = H.makePiecewiseGF([{ q: 0, tStart: 0, tEnd: 500 }], 0);
+  const r = H.mixedAnalyticCalc(150, gf, [pw]);
+  const ref = H.calc(150, 342.3, 10, 0.71);
+  approx(r.tn, ref.tn, 1e-3);
+  approx(r.tk, ref.tk, 1e-3);
+  approx(r.W, ref.W, 1e-3);
+});
+
+test("mixedAnalyticCalc: постоянный сдвиг c эквивалентен calc с Q−c", () => {
+  const gf = H.makeHydroGF(342.3, 10, 0.71, 0);
+  const c = 40;
+  const pw = H.makePiecewiseGF([{ q: c, tStart: 0, tEnd: 1000 }], 0);
+  const r = H.mixedAnalyticCalc(150, gf, [pw]);
+  const ref = H.calc(150 - c, 342.3, 10, 0.71);
+  approx(r.tn, ref.tn, 1e-3);
+  approx(r.tk, ref.tk, 1e-3);
+  approx(r.W, ref.W, 1e-3);
+});
+
+test("mixedAnalyticCalc: совпадает с numericCalc на суммарном ряде", () => {
+  const Qr = 342.3, tr = 10, n = 0.71, Q = 150;
+  const gf = H.makeHydroGF(Qr, tr, n, 0);
+  const pw = H.makePiecewiseGF([
+    { q: 30, tStart: 0, tEnd: 5 },
+    { q: 120, tStart: 5, tEnd: 12 },
+    { q: 30, tStart: 12, tEnd: 200 },
+  ], 0);
+  const r = H.mixedAnalyticCalc(Q, gf, [pw]);
+  const tMax = Math.max(H.durationGF(gf), H.durationGF(pw));
+  const dense = H.combineGF([gf, pw], H.HYDRO_DT, tMax);
+  const rn = H.numericCalc(Q, dense);
+  approx(r.tn, rn.tn, 0.3);
+  approx(r.tk, rn.tk, 0.3);
+  approx(r.W, rn.W, 1.0);
+});
+
+test("mixedAnalyticCalc: сегмент c >= Q — весь сегмент выше Qнс", () => {
+  const gf = H.makeHydroGF(100, 10, 0.71, 0);
+  const pw = H.makePiecewiseGF([{ q: 200, tStart: 3, tEnd: 8 }], 0);
+  const r = H.mixedAnalyticCalc(150, gf, [pw]);
+  if (r.dry) throw new Error("ожидалось наполнение");
+  if (r.tn > 3 + 1e-9) throw new Error(`tn=${r.tn} позже начала сегмента 3`);
+  if (r.tk < 8 - 1e-9) throw new Error(`tk=${r.tk} раньше конца сегмента 8`);
+});
+
+test("mixedAnalyticCalc: два разнесённых интервала превышения — tn первый, tk последний", () => {
+  const Qr = 80, tr = 8, n = 0.71, Q = 100;
+  const gf = H.makeHydroGF(Qr, tr, n, 0);
+  const pw = H.makePiecewiseGF([
+    { q: 50, tStart: 2, tEnd: 6 },
+    { q: 0, tStart: 6, tEnd: 9 },
+    { q: 70, tStart: 9, tEnd: 20 },
+  ], 0);
+  const r = H.mixedAnalyticCalc(Q, gf, [pw]);
+  if (r.dry) throw new Error("ожидалось наполнение");
+  if (r.tn > 2 + 1e-9) throw new Error(`tn=${r.tn}, ожидалось 2 (первый интервал)`);
+  if (r.tk < 9) throw new Error(`tk=${r.tk}, ожидалось ≥ 9 (второй интервал)`);
+  const dense = H.combineGF([gf, pw], H.HYDRO_DT, 40);
+  const rn = H.numericCalc(Q, dense);
+  approx(r.tn, rn.tn, 0.3);
+  approx(r.tk, rn.tk, 0.3);
+  approx(r.W, rn.W, 1.0);
+});
+
+test("mixedAnalyticCalc: dry если суммарный пик ниже Q", () => {
+  const gf = H.makeHydroGF(100, 10, 0.71, 0);
+  const pw = H.makePiecewiseGF([{ q: 30, tStart: 0, tEnd: 50 }], 0);
+  const r = H.mixedAnalyticCalc(200, gf, [pw]);
+  if (!r.dry) throw new Error("ожидался dry");
+  if (r.W !== 0) throw new Error("ожидался W=0");
+});
+
+test("mixedAnalyticCalc: delay гидрографа сдвигает tn/tk", () => {
+  const Qr = 342.3, tr = 10, n = 0.71, Q = 150, delay = 5;
+  const gf = H.makeHydroGF(Qr, tr, n, delay);
+  const pw = H.makePiecewiseGF([{ q: 0, tStart: 0, tEnd: 1000 }], 0);
+  const r = H.mixedAnalyticCalc(Q, gf, [pw]);
+  const ref = H.calc(Q, Qr, tr, n);
+  approx(r.tn, ref.tn + delay, 1e-3);
+  approx(r.tk, ref.tk + delay, 1e-3);
+  approx(r.W, ref.W, 1e-3);
+});
+
+test("mixedAnalyticCalc: два piecewise складываются", () => {
+  const Qr = 200, tr = 10, n = 0.71, Q = 150;
+  const gf = H.makeHydroGF(Qr, tr, n, 0);
+  const pw1 = H.makePiecewiseGF([{ q: 40, tStart: 0, tEnd: 30 }], 0);
+  const pw2 = H.makePiecewiseGF([{ q: 60, tStart: 5, tEnd: 15 }], 0);
+  const r = H.mixedAnalyticCalc(Q, gf, [pw1, pw2]);
+  const dense = H.combineGF([gf, pw1, pw2], H.HYDRO_DT, 60);
+  const rn = H.numericCalc(Q, dense);
+  approx(r.tn, rn.tn, 0.3);
+  approx(r.tk, rn.tk, 0.3);
+  approx(r.W, rn.W, 1.0);
+});
+
+test("mixedAnalyticCalc: бак осушается между двумя пиками — W не сумма объёмов", () => {
+  const Qr = 120, tr = 4, n = 0.71, Q = 100;
+  const gf = H.makeHydroGF(Qr, tr, n, 0);
+  const pw = H.makePiecewiseGF([
+    { q: 90, tStart: 0, tEnd: 2 },
+    { q: 0, tStart: 2, tEnd: 40 },
+    { q: 90, tStart: 40, tEnd: 42 },
+  ], 0);
+  const r = H.mixedAnalyticCalc(Q, gf, [pw]);
+  const dense = H.combineGF([gf, pw], H.HYDRO_DT, 80);
+  const rn = H.numericCalc(Q, dense);
+  approx(r.W, rn.W, 1.0);
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);
