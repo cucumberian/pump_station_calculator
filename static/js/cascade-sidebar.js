@@ -417,7 +417,23 @@ function showGFInfo(nodeId) {
     else if (res.mode === "analytic") outLabel = "Аналит. по сегментам";
     else if (res.mode === "numeric") outLabel = "Численный";
     if (outLabel) outLabel = ` (${outLabel})`;
-    html += `<div class="gf-section gf-section-out"><h3>Выход${outLabel}</h3>${fmtGF(res.gf, "")}</div>`;
+    let methodNote = "";
+    const nh = res.hydroGFs?.length || 0, np = res.flowGFs?.length || 0;
+    const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+    if (res.mode === "numeric") {
+      methodNote = "Метод: численный — пошаговое моделирование уровня резервуара по суммарному ряду (Δt = 0,2 мин).";
+    } else if (res.mode === "analytic" && !res.eq) {
+      const parts = [];
+      if (nh) parts.push(`${nh} ${plural(nh, "дождевой гидрограф", "дождевых гидрографа", "дождевых гидрографов")}`);
+      if (np) parts.push(`${np} ${plural(np, "кусочно-постоянный выход КНС", "кусочно-постоянных выхода КНС", "кусочно-постоянных выходов КНС")}`);
+      methodNote = `Метод: точный аналитический по сегментам (${parts.join(" + ")}) — формулы Приложения 8 с эффективным порогом Qнс − c на каждом сегменте, объёмы точными интегралами, пересечения бисекцией.`;
+    } else if (res.mode === "analytic" && np === 0 && nh <= 1) {
+      methodNote = "Метод: точные формулы (1)–(3) Приложения 8 (чистый дождь).";
+    } else if (res.mode === "analytic") {
+      methodNote = "Метод: приближение эквивалентным дождевым гидрографом (Qr*, tr* — пик суммарного притока). Для точного результата включите численный режим.";
+    }
+    if (methodNote) methodNote = `<div class="gf-method">${methodNote} <button class="help-btn gf-method-help" type="button" title="Методика расчёта">?</button></div>`;
+    html += `<div class="gf-section gf-section-out"><h3>Выход${outLabel}</h3>${methodNote}${fmtGF(res.gf, "")}</div>`;
   }
   $c("gfContent").innerHTML = html || '<p class="gf-na">Нет данных о функциях для этой ноды</p>';
   $c("gfModal").hidden = false;
@@ -427,6 +443,10 @@ $c("sbGFBtn").addEventListener("click", () => {
   if (sbNodeId !== null) showGFInfo(sbNodeId);
 });
 $c("gfClose").addEventListener("click", () => { $c("gfModal").hidden = true; });
+$c("gfHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
+$c("gfContent").addEventListener("click", e => {
+  if (e.target.closest(".gf-method-help")) openHelp(CASCADE_HELP, {});
+});
 $c("gfModal").addEventListener("click", e => {
   if (e.target === $c("gfModal")) $c("gfModal").hidden = true;
 });

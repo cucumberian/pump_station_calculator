@@ -18,44 +18,78 @@ function hydroInt(T, Qr, tr, n) {
   return Qr * tr / (2 - n) * (x > 1 ? v - Math.pow(x - 1, 2 - n) : v);
 }
 
-function mixedAnalyticCalc(Q, hydroGF, piecewiseGFs) {
-  const { Qr, tr, n } = hydroGF;
-  const dh = hydroGF.delay || 0;
-  const tEnd = Math.max(dh + hydroTailT(Qr, tr, n), ...piecewiseGFs.map(gf => durationGF(gf)));
-  const bps = new Set([0, tEnd]);
+function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs) {
+  const tEnd = Math.max(0, ...hydroGFs.map(gf => durationGF(gf)), ...piecewiseGFs.map(gf => durationGF(gf)));
+  const bps = new Set([0]);
   for (const gf of piecewiseGFs) {
     const d = gf.delay || 0;
     for (const s of gf.segments) {
-      if (d + s.tStart > 0) bps.add(d + s.tStart);
-      if (d + s.tEnd > 0) bps.add(d + s.tEnd);
+      if (d + s.tStart > 0 && d + s.tStart < tEnd) bps.add(d + s.tStart);
+      if (d + s.tEnd > 0 && d + s.tEnd < tEnd) bps.add(d + s.tEnd);
     }
   }
-  const pts = [...bps].filter(t => t < tEnd).sort((a, b) => a - b);
+  const pts = [...bps].sort((a, b) => a - b);
   pts.push(tEnd);
+  const gAt = t => {
+    let g = 0;
+    for (const gf of hydroGFs) g += evalGF(gf, t);
+    return g;
+  };
+  const gInt = (a, b) => {
+    let s = 0;
+    for (const gf of hydroGFs) {
+      const d = gf.delay || 0;
+      s += hydroInt(b - d, gf.Qr, gf.tr, gf.n) - hydroInt(a - d, gf.Qr, gf.tr, gf.n);
+    }
+    return s;
+  };
+  const single = hydroGFs.length === 1 ? hydroGFs[0] : null;
+  const findRoots = (a, b, L) => {
+    if (L <= 0) return [];
+    if (single) {
+      const { Qr, tr, n } = single;
+      const dh = single.delay || 0;
+      if (L >= Qr) return [];
+      const roots = [];
+      const tnE = dh + tr * Math.pow(L / Qr, 1 / (1 - n));
+      const tkE = dh + solveTk(L, Qr, tr, n);
+      if (tnE > a && tnE < b) roots.push(tnE);
+      if (tkE > a && tkE < b) roots.push(tkE);
+      return roots;
+    }
+    const roots = [];
+    let t0 = a, f0 = gAt(a) - L;
+    for (let t = a + HYDRO_DT; ; t += HYDRO_DT) {
+      const tc = Math.min(t, b);
+      const f1 = gAt(tc) - L;
+      if ((f0 < 0) !== (f1 < 0)) {
+        let lo = t0, hi = tc, flo = f0;
+        for (let k = 0; k < 60 && hi - lo > 1e-4; k++) {
+          const mid = (lo + hi) / 2;
+          if ((gAt(mid) - L < 0) === (flo < 0)) { lo = mid; flo = gAt(mid) - L; } else hi = mid;
+        }
+        roots.push((lo + hi) / 2);
+      }
+      t0 = tc; f0 = f1;
+      if (tc >= b) break;
+    }
+    return roots;
+  };
   let tn = null, tk = null, V = 0, W = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     if (b - a < 1e-9) continue;
     let c = 0;
     for (const gf of piecewiseGFs) c += evalGF(gf, (a + b) / 2);
-    const Qe = Q - c;
-    let s = null, e = null;
-    if (Qe <= 0) {
-      s = a; e = b;
-    } else if (Qe < Qr) {
-      const tnE = dh + tr * Math.pow(Qe / Qr, 1 / (1 - n));
-      const tkE = dh + solveTk(Qe, Qr, tr, n);
-      s = Math.max(tnE, a); e = Math.min(tkE, b);
-      if (s >= e - 1e-9) s = e = null;
-    }
-    if (s !== null) {
-      if (tn === null) tn = s;
-      tk = e;
-    }
-    const subs = s === null ? [[a, b]] : [[a, s], [s, e], [e, b]];
-    for (const [sa, sb] of subs) {
+    const bounds = [a, ...findRoots(a, b, Q - c), b];
+    for (let k = 0; k < bounds.length - 1; k++) {
+      const sa = bounds[k], sb = bounds[k + 1];
       if (sb - sa < 1e-9) continue;
-      V += 0.06 * (hydroInt(sb - dh, Qr, tr, n) - hydroInt(sa - dh, Qr, tr, n) + (c - Q) * (sb - sa));
+      if (gAt((sa + sb) / 2) + c > Q) {
+        if (tn === null) tn = sa;
+        tk = sb;
+      }
+      V += 0.06 * (gInt(sa, sb) + (c - Q) * (sb - sa));
       if (V < 0) V = 0;
       if (V > W) W = V;
     }
@@ -256,10 +290,15 @@ function toDense(gf, dt = HYDRO_DT, tMax) {
     return { t: ts, q: qs };
   }
   const tr = gf.tr;
-  const fineEnd = Math.min(end, Math.max(3 * tr, 20 * dt));
-  const fineN = Math.max(2, Math.ceil(fineEnd / dt));
+  const dly = Math.min(gf.delay || 0, end);
+  const fineEnd = Math.min(end, dly + Math.max(3 * tr, 20 * dt));
   const adaptTs = [0];
-  for (let i = 1; i <= fineN; i++) adaptTs.push(Math.min(i * dt, fineEnd));
+  if (dly > 0) adaptTs.push(dly);
+  const fineN = Math.max(2, Math.ceil((fineEnd - dly) / dt));
+  for (let i = 1; i <= fineN; i++) {
+    const t = Math.min(dly + i * dt, fineEnd);
+    if (t > adaptTs[adaptTs.length - 1]) adaptTs.push(t);
+  }
   if (fineEnd < end) {
     let t = fineEnd, step = dt * 5;
     while (t < end) {

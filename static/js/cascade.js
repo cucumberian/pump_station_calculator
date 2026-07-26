@@ -123,9 +123,10 @@ function computeCascade() {
       const ups = upstreamIds(id, data).map(u => ({ id: u, r: res[u] })).filter(x => x.r);
       const catchUps = ups.filter(x => x.r.fromCatch);
       const flowUps = ups.filter(x => !x.r.fromCatch);
-      let Qr = parseFloat(d.qr), tr = parseFloat(d.tr), lockIds = [], ownRainGF = null;
+      let Qr = parseFloat(d.qr), tr = parseFloat(d.tr), lockIds = [], ownRainGF = null, hydroGFs = [];
       if (catchUps.length) {
         lockIds = catchUps.map(x => x.id);
+        hydroGFs = catchUps.map(x => x.r.gf);
         if (catchUps.length === 1) {
           Qr = catchUps[0].r.Qr;
           tr = catchUps[0].r.tr;
@@ -156,13 +157,16 @@ function computeCascade() {
         const inflowMax = Math.max(durationGF(ownRainGF), ...flowGFs.map(gf => durationGF(gf)));
         inflowGF = { type: "dense", ...combineGF([ownRainGF, ...flowGFs], HYDRO_DT, inflowMax) };
       }
+      const exactGFs = catchUps.length ? hydroGFs : [ownRainGF];
       if (mode === "analytic") {
         if (pureRain) {
           eq = { Qr, tr, n: nGlob };
           r = Qr <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, Qr, tr, nGlob);
+          const dly = ownRainGF.delay || 0;
+          if (dly && !r.dry) r = { ...r, tn: r.tn + dly, tk: r.tk + dly };
         } else {
-          if (ownRainGF.type === "hydrograph" && flowGFs.length && flowGFs.every(gf => gf.type === "piecewise")) {
-            r = mixedAnalyticCalc(Q, ownRainGF, flowGFs);
+          if (exactGFs.every(gf => gf && gf.type === "hydrograph") && flowGFs.every(gf => gf.type === "piecewise")) {
+            r = mixedAnalyticCalc(Q, exactGFs, flowGFs);
           } else {
             const peak = peakGF(inflowGF);
             eq = { Qr: peak.q, tr: Math.max(peak.t, 0.5), n: nGlob };
@@ -184,7 +188,7 @@ function computeCascade() {
           { q: idleQ, tStart: r.dry ? 0 : r.tk, tEnd: tMax },
         ], 0),
         series: pumpOutSeries(Q, r, tMax, HYDRO_DT, idleQ),
-        ownRainGF, inflowGF, flowGFs, r, Q, Qr, tr, idle: idlePct, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
+        ownRainGF, inflowGF, flowGFs, hydroGFs: exactGFs, r, Q, Qr, tr, idle: idlePct, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
         approx: mode === "analytic" && !pureRain && !!eq,
       };
     }

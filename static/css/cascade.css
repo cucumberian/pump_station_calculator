@@ -699,5 +699,6 @@
 .gf-segments { margin-top: 2px; }
 .gf-seg { display: block; font-family: monospace; font-size: 12px; line-height: 1.6; padding-left: 8px; }
 .gf-na { color: #999; font-style: italic; font-size: 12px; }
+.gf-method { text-align: left; font-size: 12px; color: #5a6572; background: #fff; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 .sb-gf { position: static; flex-shrink: 0; width: 28px; height: 24px; padding: 0; border: 1px solid #b9c4d0; border-radius: 5px; background: #fff; color: #5a6572; font-size: 15px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .sb-gf:hover { border-color: var(--pump-accent); color: var(--pump-accent); }

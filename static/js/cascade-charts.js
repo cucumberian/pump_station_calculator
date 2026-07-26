@@ -91,7 +91,7 @@ function sbCalcFn(res) {
     return q => numericCalc(q, inflowDense);
   }
   if (!res.eq) {
-    return q => mixedAnalyticCalc(q, res.ownRainGF, res.flowGFs);
+    return q => mixedAnalyticCalc(q, res.hydroGFs, res.flowGFs);
   }
   return q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
 }
