@@ -19,8 +19,19 @@ function getGlobalN() {
   return n > 0 && n < 1 ? n : 0.71;
 }
 
+function nextNodeId() {
+  const data = graphData();
+  let maxId = 0;
+  for (const id of Object.keys(data)) {
+    const n = parseInt(id, 10);
+    if (n > maxId) maxId = n;
+  }
+  editor.nodeId = maxId + 1;
+}
+
 function addNodeOfType(type, x, y) {
   const [ni, no] = NODE_PORTS[type];
+  nextNodeId();
   return editor.addNode(type, ni, no, x, y, type, { ...NODE_DEFAULTS[type] }, NODE_HTML[type]);
 }
 
@@ -582,6 +593,7 @@ $c("ctxMenu").addEventListener("click", e => {
     const src = editor.getNodeFromId(ctxNode);
     if (src && NODE_PORTS[src.name]) {
       const [ni, no] = NODE_PORTS[src.name];
+      nextNodeId();
       editor.addNode(src.name, ni, no, src.pos_x + 40, src.pos_y + 40,
         src.name, { ...src.data }, NODE_HTML[src.name]);
       computeCascade();

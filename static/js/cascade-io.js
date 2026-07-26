@@ -88,6 +88,7 @@ function rebuildScheme(payload) {
   if (Array.isArray(payload.nodes)) {
     for (const nd of payload.nodes) {
       const [ni, no] = NODE_PORTS[nd.type];
+      editor.nodeId = nd.id;
       map[nd.id] = editor.addNode(nd.type, ni, no, nd.x, nd.y, nd.type,
         migrateNodeData(nd.type, nd.data), NODE_HTML[nd.type]);
     }
@@ -106,6 +107,7 @@ function rebuildScheme(payload) {
     for (const [oldId, nd] of Object.entries(data)) {
       if (!(nd.name in NODE_PORTS)) continue;
       const [ni, no] = NODE_PORTS[nd.name];
+      editor.nodeId = +oldId;
       map[oldId] = editor.addNode(nd.name, ni, no, nd.pos_x, nd.pos_y, nd.name,
         migrateNodeData(nd.name, nd.data), NODE_HTML[nd.name]);
     }
