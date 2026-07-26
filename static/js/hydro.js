@@ -62,7 +62,7 @@ function shiftSeries(s, delay) {
 function interpAt(s, t) {
   const { t: ts, q: qs } = s;
   if (t <= ts[0]) return t === ts[0] ? qs[0] : 0;
-  if (t >= ts[ts.length - 1]) return 0;
+  if (t >= ts[ts.length - 1]) return t === ts[ts.length - 1] ? qs[qs.length - 1] : 0;
   let lo = 0, hi = ts.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
@@ -113,9 +113,8 @@ function numericCalc(Q, s) {
   return { tn, tk, W, truncated: q[t.length - 2] > Q };
 }
 
-function pumpOutSeries(Q, r, tMax, dt = HYDRO_DT, idlePct = 50) {
+function pumpOutSeries(Q, r, tMax, dt = HYDRO_DT, idle = Q * 50 / 100) {
   const ts = [], qs = [];
-  const idle = Q * idlePct / 100;
   const N = Math.max(2, Math.ceil(tMax / dt));
   for (let i = 0; i <= N; i++) {
     const t = i * dt;
@@ -154,7 +153,11 @@ function evalGF(gf, t) {
     case "constant":
       return (tEff >= gf.tStart && tEff <= gf.tEnd) ? gf.q : 0;
     case "piecewise":
-      for (const seg of gf.segments) if (tEff >= seg.tStart && tEff <= seg.tEnd) return seg.q;
+      for (let i = 0; i < gf.segments.length; i++) {
+        const seg = gf.segments[i];
+        const isLast = i === gf.segments.length - 1;
+        if (tEff >= seg.tStart && (isLast ? tEff <= seg.tEnd : tEff < seg.tEnd)) return seg.q;
+      }
       return 0;
     default:
       return 0;

@@ -662,3 +662,23 @@
 @media (max-width: 560px) {
   .meta-grid { grid-template-columns: 1fr; }
 }
+
+.gf-box { max-width: 480px; width: min(480px, 92vw); }
+.gf-h { margin: 0 0 12px; font-size: 16px; }
+.gf-section { margin-bottom: 10px; border-radius: 6px; padding: 6px 10px; }
+.gf-section-in { background: #f5f7fa; border-left: 3px solid #b0c4de; }
+.gf-section-out { background: #f8f5fa; border-right: 3px solid #d4b8c8; text-align: right; }
+.gf-section-out h3 { text-align: right; }
+.gf-section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: #6a7a8a; margin: 0 0 6px; padding: 0; }
+.gf-section-in h3 { color: #6a8aaa; }
+.gf-section-out h3 { color: #9a7a8a; }
+.gf-section-out .gf-entry { text-align: left; }
+.gf-entry { font-size: 13px; line-height: 1.5; padding: 3px 6px; margin-bottom: 4px; background: #fff; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.gf-label { font-weight: 600; margin-right: 6px; }
+.gf-type { font-size: 11px; color: #5a6572; background: #eef0f3; border-radius: 3px; padding: 0 5px; }
+.gf-params, .gf-dur { font-size: 12px; color: #333; margin-top: 1px; }
+.gf-segments { margin-top: 2px; }
+.gf-seg { display: block; font-family: monospace; font-size: 12px; line-height: 1.6; padding-left: 8px; }
+.gf-na { color: #999; font-style: italic; font-size: 12px; }
+.sb-gf { position: static; flex-shrink: 0; width: 28px; height: 24px; padding: 0; border: 1px solid #b9c4d0; border-radius: 5px; background: #fff; color: #5a6572; font-size: 15px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.sb-gf:hover { border-color: var(--pump-accent); color: var(--pump-accent); }

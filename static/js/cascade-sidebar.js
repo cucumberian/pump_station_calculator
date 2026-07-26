@@ -346,3 +346,87 @@ $c("sbFitAxis").addEventListener("click", () => {
   $c("sbFitAxis").classList.toggle("active");
   renderSidebar();
 });
+
+function fmtGF(gf, label) {
+  const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
+  let html = `<div class="gf-entry"><span class="gf-label">${label}</span> `;
+  if (!gf) { html += `<span class="gf-na">нет данных</span></div>`; return html; }
+  if (gf.type === "hydrograph") {
+    html += `<span class="gf-type">Гидрограф</span>
+      <div class="gf-params">Qr = ${f(gf.Qr)} л/с, tr = ${f(gf.tr)} мин, n = ${gf.n}</div>
+      <div class="gf-dur">длительность: ${f(durationGF(gf))} мин</div>`;
+    if (gf.delay) html += `<div class="gf-params">сдвиг: +${f(gf.delay)} мин</div>`;
+  } else if (gf.type === "piecewise") {
+    html += `<span class="gf-type">Кусочно-постоянная</span><div class="gf-segments">`;
+    for (const seg of gf.segments) {
+      html += `<span class="gf-seg">[${f(seg.tStart)}; ${f(seg.tEnd)}) → ${f(seg.q)} л/с</span>`;
+    }
+    html += `</div>`;
+    const last = gf.segments[gf.segments.length - 1];
+    html += `<div class="gf-dur">длительность: ${f((gf.delay||0) + last.tEnd)} мин</div>`;
+    if (gf.delay) html += `<div class="gf-params">сдвиг: +${f(gf.delay)} мин</div>`;
+  } else if (gf.type === "dense") {
+    html += `<span class="gf-type">Набор точек</span>
+      <div class="gf-params">точек: ${gf.t.length}</div>
+      <div class="gf-dur">от ${f(gf.t[0])} до ${f(gf.t[gf.t.length-1])} мин</div>`;
+  } else {
+    html += `<span class="gf-type">Неизвестный тип</span></div>`;
+    return html;
+  }
+  return html + "</div>";
+}
+
+function showGFInfo(nodeId) {
+  const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
+  const data = graphData();
+  const nd = data[nodeId];
+  const res = results[nodeId];
+  if (!nd || !res) { $c("gfModal").hidden = false; $c("gfNodeTitle").textContent = "—"; $c("gfContent").innerHTML = '<p class="gf-na">Нода не найдена</p>'; return; }
+  $c("gfNodeTitle").textContent = `${NODE_LABEL[nd.name] || nd.name} #${nodeId}`;
+  let html = "";
+  const upstreams = upstreamIds(nodeId, data);
+  if (upstreams.length) {
+    html += `<div class="gf-section gf-section-in"><h3>Входы</h3>`;
+    for (const uid of upstreams) {
+      const uNd = data[uid];
+      const uRes = results[uid];
+      const label = `${NODE_LABEL[uNd?.name] || "?"} #${uid}`;
+      html += fmtGF(uRes?.gf || null, label);
+    }
+    html += `</div>`;
+  }
+  if (res.ownRainGF) {
+    html += `<div class="gf-section gf-section-in"><h3>Собственный гидрограф</h3>${fmtGF(res.ownRainGF, "")}</div>`;
+  }
+  if (res.inflowGF) {
+    html += `<div class="gf-section gf-section-in"><h3>Суммарный вход</h3>${fmtGF(res.inflowGF, upstreams.length || res.ownRainGF ? "Σ" : "")}</div>`;
+  }
+  if (res.inflow && !res.inflowGF) {
+    html += `<div class="gf-section gf-section-in"><h3>Суммарный вход</h3>
+      <div class="gf-entry"><span class="gf-type">Набор точек</span>
+      <div class="gf-params">точек: ${res.inflow.t.length}</div>
+      <div class="gf-dur">от ${f(res.inflow.t[0])} до ${f(res.inflow.t[res.inflow.t.length-1])} мин</div></div></div>`;
+  }
+  if (res.gf) {
+    let outLabel = "";
+    if (res.mode === "analytic" && res.eq) outLabel = `Аналит. Qr=${f(res.eq.Qr)} tr=${f(res.eq.tr)}`;
+    else if (res.mode === "numeric") outLabel = "Численный";
+    if (outLabel) outLabel = ` (${outLabel})`;
+    html += `<div class="gf-section gf-section-out"><h3>Выход${outLabel}</h3>${fmtGF(res.gf, "")}</div>`;
+  }
+  if (!res.gf && !res.inflowGF && !res.ownRainGF && res.series) {
+    html += `<div class="gf-section gf-section-out"><h3>Выход</h3>
+      <div class="gf-entry"><span class="gf-type">Набор точек</span>
+      <div class="gf-params">точек: ${res.series.t.length}</div></div></div>`;
+  }
+  $c("gfContent").innerHTML = html || '<p class="gf-na">Нет данных о функциях для этой ноды</p>';
+  $c("gfModal").hidden = false;
+}
+
+$c("sbGFBtn").addEventListener("click", () => {
+  if (sbNodeId !== null) showGFInfo(sbNodeId);
+});
+$c("gfClose").addEventListener("click", () => { $c("gfModal").hidden = true; });
+$c("gfModal").addEventListener("click", e => {
+  if (e.target === $c("gfModal")) $c("gfModal").hidden = true;
+});

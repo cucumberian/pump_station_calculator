@@ -151,9 +151,10 @@ function computeCascade() {
         editor.updateNodeDataFromId(id, { ...editor.getNodeFromId(id).data, qr: Qr, tr });
       }
       if (!(Qr > 0 && tr > 0 && Q > 0)) { res[id] = null; continue; }
-      let idle = parseFloat(d.idle);
-      if (!(idle >= 0)) idle = 50;
-      idle = Math.min(idle, 100);
+      let idlePct = parseFloat(d.idle);
+      if (!(idlePct >= 0)) idlePct = 50;
+      idlePct = Math.min(idlePct, 100);
+      const idleQ = Q * idlePct / 100;
       const mode = d.mode === "numeric" ? "numeric" : "analytic";
       let r, eq = null, inflow, inflowGF;
 
@@ -178,19 +179,19 @@ function computeCascade() {
         } else {
           r = numericCalc(Q, toDense(inflowGF));
         }
-        const tMax = durationGF(inflowGF) + totalDelay;
+        const tMax = Math.max(durationGF(inflowGF), r.dry ? 0 : r.tk + 10);
         res[id] = {
           gf: makePiecewiseGF([
-            { q: idle, tStart: 0, tEnd: r.dry ? 0 : r.tn },
+            { q: idleQ, tStart: 0, tEnd: r.dry ? 0 : r.tn },
             { q: Q, tStart: r.dry ? 0 : r.tn, tEnd: r.dry ? 0 : r.tk },
-            { q: idle, tStart: r.dry ? 0 : r.tk, tEnd: tMax },
+            { q: idleQ, tStart: r.dry ? 0 : r.tk, tEnd: tMax },
           ], 0),
-          series: pumpOutSeries(Q, r, tMax, HYDRO_DT, idle),
-          ownRainGF, inflowGF, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
+          series: pumpOutSeries(Q, r, tMax, HYDRO_DT, idleQ),
+          ownRainGF, inflowGF, r, Q, Qr, tr, idle: idlePct, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
           approx: mode === "analytic" && !pureRain,
         };
       } else {
-        ownRain = ownRain || sampleHydro(Qr, tr, nGlob, hydroTailT(Qr, tr, nGlob) + totalDelay + 30);
+        ownRain = ownRain || sampleHydro(Qr, tr, nGlob, hydroTailT(Qr, tr, nGlob) + 30);
         inflow = combineSeries([ownRain, ...flowUps.map(x => x.r.series)]);
         const pureRain = flowUps.length === 0 && catchUps.length <= 1;
         if (mode === "analytic") {
@@ -206,8 +207,8 @@ function computeCascade() {
           r = numericCalc(Q, inflow);
         }
         res[id] = {
-          series: pumpOutSeries(Q, r, inflow.t[inflow.t.length - 1] + totalDelay, HYDRO_DT, idle),
-          ownRain, inflow, r, Q, Qr, tr, idle, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
+          series: pumpOutSeries(Q, r, Math.max(inflow.t[inflow.t.length - 1], r.dry ? 0 : r.tk + 10), HYDRO_DT, idleQ),
+          ownRain, inflow, r, Q, Qr, tr, idle: idlePct, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
           approx: mode === "analytic" && !pureRain,
         };
       }
@@ -228,6 +229,9 @@ function computeCascade() {
           r.gf = { ...r.gf, segments: [...r.gf.segments.slice(0, -1), { ...last, tEnd: globalTMax }] };
         }
       }
+    }
+    for (const r of Object.values(res)) {
+      if (r?.gf) r.series = toDense(r.gf, HYDRO_DT);
     }
   } else {
     globalTMax = 0;
