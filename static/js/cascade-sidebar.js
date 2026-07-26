@@ -1,5 +1,9 @@
 "use strict";
 
+function plural(n, one, few, many) {
+  return n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+}
+
 function seriesFromResult(res) {
   if (!res) return null;
   return res.series || (res.gf ? toDense(res.gf, HYDRO_DT, globalTMax || undefined) : null);
@@ -196,11 +200,22 @@ function renderSidebar() {
   inflowChart.update(res.Q, res.r, inflowSeries, comps, seriesFromResult(res), false);
 
   const numeric = res.mode === "numeric" || !res.eq;
+  const nh = res.hydroGFs?.length || 0, np = res.flowGFs?.length || 0;
   if (numeric) {
-    const note = res.mode === "numeric" ? undefined : "аналитически по сегментам суммарного притока";
+    let note;
+    if (res.mode === "analytic") {
+      const parts = [];
+      if (nh) parts.push(`${nh} ${plural(nh, "гидрограф", "гидрографа", "гидрографов")}`);
+      if (np) parts.push(`${np} ${plural(np, "кусочной выход КНС", "кусочных выхода КНС", "кусочных выходов КНС")}`);
+      note = `аналитически точно по сегментам: ${parts.join(" + ")}`;
+    }
     buildCards($c("sbCards"), res.Q, 0, 0, 0, res.r, true, note);
   } else {
-    buildCards($c("sbCards"), res.Q, res.eq.Qr, res.eq.tr, res.eq.n, res.r, false);
+    const pure = np === 0 && nh <= 1;
+    const note = pure
+      ? "аналитически точно: формулы (1)–(3) Приложения 8"
+      : "приближение: эквивалентный гидрограф (Qr*, tr* — пик суммарного входа)";
+    buildCards($c("sbCards"), res.Q, res.eq.Qr, res.eq.tr, res.eq.n, res.r, false, note);
   }
 
   if (!sbWqChart.inner) sbWqChart.inner = makeWQChart($c("sbChart"));
@@ -419,7 +434,6 @@ function showGFInfo(nodeId) {
     if (outLabel) outLabel = ` (${outLabel})`;
     let methodNote = "";
     const nh = res.hydroGFs?.length || 0, np = res.flowGFs?.length || 0;
-    const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
     if (res.mode === "numeric") {
       methodNote = "Метод: численный — пошаговое моделирование уровня резервуара по суммарному ряду (Δt = 0,2 мин).";
     } else if (res.mode === "analytic" && !res.eq) {

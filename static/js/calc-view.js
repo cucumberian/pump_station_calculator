@@ -129,7 +129,7 @@ const HYDRO_HELP = [
   { p: "Пик гидрографа — точка T = tr, Q = Qr: при T = tr ветвь подъёма даёт Qr, а вычитаемый член ветви спада равен нулю. Закрашенная площадь между кривой и линией Qнс на интервале [Tнⁿˢ; Tкⁿˢ] — рабочий объём Wнс (формула (1) Приложения 8)." },
 ];
 
-function buildCards(cardsEl, Q, Qr, tr, n, r, numeric, noteText = "численно по суммарному гидрографу") {
+function buildCards(cardsEl, Q, Qr, tr, n, r, numeric, noteText = null) {
   cardsEl.innerHTML = "";
   for (const c of CARDS) {
     const div = document.createElement("div");
@@ -151,10 +151,16 @@ function buildCards(cardsEl, Q, Qr, tr, n, r, numeric, noteText = "числен�
     if (numeric) {
       const note = document.createElement("span");
       note.className = "num-note";
-      note.textContent = noteText;
+      note.textContent = noteText || "численно по суммарному гидрографу";
       div.append(h, note, v);
     } else {
       div.append(h, tex(c.tex(Q, Qr, tr, n, r)), v);
+      if (noteText) {
+        const note = document.createElement("span");
+        note.className = "num-note";
+        note.textContent = noteText;
+        div.append(note);
+      }
     }
     cardsEl.append(div);
   }
