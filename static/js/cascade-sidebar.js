@@ -2,16 +2,12 @@
 
 function seriesFromResult(res) {
   if (!res) return null;
-  if (res.series) return res.series;
-  if (res.gf) return toDense(res.gf, HYDRO_DT, globalTMax || undefined);
-  return null;
+  return res.series || (res.gf ? toDense(res.gf, HYDRO_DT, globalTMax || undefined) : null);
 }
 
 function inflowFromResult(res) {
   if (!res) return null;
-  if (res.inflow) return res.inflow;
-  if (res.inflowGF) return toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined);
-  return seriesFromResult(res);
+  return res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : seriesFromResult(res);
 }
 
 function setTitle(typeLabel) {
@@ -164,6 +160,8 @@ function renderSidebar() {
   if (document.activeElement !== $c("sbTr")) $c("sbTr").value = Number(res.tr).toFixed(2);
   $c("sbQr").disabled = !!res.lockId;
   $c("sbTr").disabled = !!res.lockId;
+  const sbQrTrPair = $c("sbParams")?.querySelector(".sb-pair");
+  if (sbQrTrPair) sbQrTrPair.classList.toggle("sb-locked", !!res.lockId);
   $c("sbLock").hidden = !res.lockId;
   if (res.lockId) {
     const ids = (res.lockIds?.length ? res.lockIds : [res.lockId]).map(x => `#${x}`).join(", ");
@@ -220,8 +218,7 @@ function renderSidebar() {
   }
   sbWqChart.inner.update(res.Q, qMax, 0, 0, { rangePts, calcFn: fn });
   if ($c("sbFitAxis").classList.contains("active") && from > 0 && to > from) {
-    const pad = (to - from) * 0.1;
-    sbWqChart.inner.setXRange(Math.max(0, from - pad), to + pad);
+    sbWqChart.inner.setXRange(Math.max(0, from), to);
   }
   fillVariants($c("sbVariants").querySelector("tbody"), res.Q, from, to, step, fn);
   applySidebarLock();
@@ -418,23 +415,12 @@ function showGFInfo(nodeId) {
   if (res.inflowGF) {
     html += `<div class="gf-section gf-section-in"><h3>Суммарный вход</h3>${fmtGF(res.inflowGF, upstreams.length || res.ownRainGF ? "Σ" : "")}</div>`;
   }
-  if (res.inflow && !res.inflowGF) {
-    html += `<div class="gf-section gf-section-in"><h3>Суммарный вход</h3>
-      <div class="gf-entry"><span class="gf-type">Набор точек</span>
-      <div class="gf-params">точек: ${res.inflow.t.length}</div>
-      <div class="gf-dur">от ${f(res.inflow.t[0])} до ${f(res.inflow.t[res.inflow.t.length-1])} мин</div></div></div>`;
-  }
   if (res.gf) {
     let outLabel = "";
     if (res.mode === "analytic" && res.eq) outLabel = `Аналит. Qr=${f(res.eq.Qr)} tr=${f(res.eq.tr)}`;
     else if (res.mode === "numeric") outLabel = "Численный";
     if (outLabel) outLabel = ` (${outLabel})`;
     html += `<div class="gf-section gf-section-out"><h3>Выход${outLabel}</h3>${fmtGF(res.gf, "")}</div>`;
-  }
-  if (!res.gf && !res.inflowGF && !res.ownRainGF && res.series) {
-    html += `<div class="gf-section gf-section-out"><h3>Выход</h3>
-      <div class="gf-entry"><span class="gf-type">Набор точек</span>
-      <div class="gf-params">точек: ${res.series.t.length}</div></div></div>`;
   }
   $c("gfContent").innerHTML = html || '<p class="gf-na">Нет данных о функциях для этой ноды</p>';
   $c("gfModal").hidden = false;

@@ -10,7 +10,6 @@ return {
   shiftSeries, interpAt, combineSeries, numericCalc,
   pumpOutSeries, seriesPeak,
   makeHydroGF, makePiecewiseGF, shiftGF, evalGF, peakGF, durationGF, toDense, combineGF,
-  extendSeries, extendSeriesZero,
   HYDRO_DT
 };
 `);
@@ -54,6 +53,30 @@ test("calc: tk и W совпадают с эталоном из PDF (6 вари�
     const r = H.calc(Q, 342.3, 10, 0.71);
     approx(r.tk, tk, 0.05);
     approx(r.W, W, 0.2);
+  }
+});
+
+test("calc: Q > Qr → dry=true, W=0 (нет регулирования)", () => {
+  const r = H.calc(400, 342.3, 10, 0.71);
+  approx(r.W, 0);
+  approx(r.tn, 0);
+  approx(r.tk, 0);
+  if (!r.dry) throw new Error("Q > Qr → dry=true");
+});
+
+test("calc: Q == Qr → dry=true, W=0", () => {
+  const r = H.calc(342.3, 342.3, 10, 0.71);
+  approx(r.W, 0);
+  if (!r.dry) throw new Error("Q == Qr → dry=true");
+});
+
+test("calc: W(Q) не растёт при Q > Qr", () => {
+  const Qr = 342.3, tr = 10, n = 0.71;
+  const wAtQr = H.calc(Qr, Qr, tr, n).W;
+  for (const q of [Qr + 1, Qr + 50, Qr + 100, Qr * 2]) {
+    const r = H.calc(q, Qr, tr, n);
+    if (r.W > wAtQr + 0.01) throw new Error(`W(${q}) = ${r.W} > W(${Qr}) = ${wAtQr}`);
+    if (!r.dry) throw new Error(`Q=${q} > Qr=${Qr} → dry=true`);
   }
 });
 
@@ -302,7 +325,131 @@ test("makePiecewiseGF + evalGF: half-open интервалы [tStart, tEnd)", ()
   approx(H.evalGF(gf, 29.9), 200);
   approx(H.evalGF(gf, 30), 50);    // граница — третий сегмент
   approx(H.evalGF(gf, 50), 50);    // последняя точка включительно
-  approx(H.evalGF(gf, 50.1), 0);
+  // за пределами — продолжает значение последнего сегмента (продление «в бесконечность»)
+  approx(H.evalGF(gf, 50.1), 50);
+  approx(H.evalGF(gf, 100), 50);
+  approx(H.evalGF(gf, 9999), 50);
+});
+
+test("evalGF piecewise: 1 сегмент — продление за пределы", () => {
+  const gf = H.makePiecewiseGF([{ q: 100, tStart: 0, tEnd: 20 }], 0);
+  approx(H.evalGF(gf, 0), 100);
+  approx(H.evalGF(gf, 20), 100);
+  approx(H.evalGF(gf, 20.1), 100);
+  approx(H.evalGF(gf, 500), 100);
+});
+
+test("evalGF piecewise: 2 сегмента — продление за пределы", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 0, tStart: 0, tEnd: 10 },
+    { q: 300, tStart: 10, tEnd: 40 },
+  ], 0);
+  approx(H.evalGF(gf, 5), 0);
+  approx(H.evalGF(gf, 10), 300);
+  approx(H.evalGF(gf, 40), 300);
+  approx(H.evalGF(gf, 40.1), 300);
+  approx(H.evalGF(gf, 200), 300);
+});
+
+test("evalGF piecewise: 4 сегмента — продление за пределы", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 10, tStart: 0, tEnd: 5 },
+    { q: 50, tStart: 5, tEnd: 15 },
+    { q: 200, tStart: 15, tEnd: 30 },
+    { q: 30, tStart: 30, tEnd: 60 },
+  ], 0);
+  approx(H.evalGF(gf, 3), 10);
+  approx(H.evalGF(gf, 5), 50);
+  approx(H.evalGF(gf, 15), 200);
+  approx(H.evalGF(gf, 30), 30);
+  approx(H.evalGF(gf, 60), 30);
+  approx(H.evalGF(gf, 60.1), 30);   // продолжает последний сегмент
+  approx(H.evalGF(gf, 1000), 30);
+});
+
+test("evalGF piecewise: 5 сегментов — ступенчатая функция", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 0, tStart: 0, tEnd: 10 },
+    { q: 100, tStart: 10, tEnd: 20 },
+    { q: 0, tStart: 20, tEnd: 30 },
+    { q: 150, tStart: 30, tEnd: 50 },
+    { q: 25, tStart: 50, tEnd: 70 },
+  ], 0);
+  approx(H.evalGF(gf, 0), 0);
+  approx(H.evalGF(gf, 10), 100);
+  approx(H.evalGF(gf, 20), 0);
+  approx(H.evalGF(gf, 30), 150);
+  approx(H.evalGF(gf, 50), 25);
+  approx(H.evalGF(gf, 70), 25);
+  approx(H.evalGF(gf, 70.1), 25);   // продолжает q=25
+  approx(H.evalGF(gf, 500), 25);
+});
+
+test("evalGF piecewise: с delay — продление за пределы с учётом сдвига", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 60, tStart: 0, tEnd: 10 },
+    { q: 120, tStart: 10, tEnd: 25 },
+  ], 5);
+  // tEff = t - delay
+  approx(H.evalGF(gf, 4), 0);       // tEff = -1 < 0
+  approx(H.evalGF(gf, 5), 60);      // tEff = 0 — начало первого сегмента
+  approx(H.evalGF(gf, 15), 120);    // tEff = 10 — начало второго сегмента
+  approx(H.evalGF(gf, 30), 120);    // tEff = 25 — конец второго сегмента
+  approx(H.evalGF(gf, 30.1), 120);  // за пределами — продолжает 120
+  approx(H.evalGF(gf, 100), 120);
+});
+
+test("evalGF piecewise: пустой массив сегментов — возвращает 0", () => {
+  const gf = H.makePiecewiseGF([], 0);
+  approx(H.evalGF(gf, 0), 0);
+  approx(H.evalGF(gf, 100), 0);
+});
+
+test("evalGF piecewise: 1 сегмент с q=0 — продление нуля", () => {
+  const gf = H.makePiecewiseGF([{ q: 0, tStart: 0, tEnd: 50 }], 0);
+  approx(H.evalGF(gf, 0), 0);
+  approx(H.evalGF(gf, 50), 0);
+  approx(H.evalGF(gf, 51), 0);
+});
+
+test("toDense piecewise: плотная сетка с продлением последнего сегмента", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 50, tStart: 0, tEnd: 10 },
+    { q: 200, tStart: 10, tEnd: 30 },
+    { q: 50, tStart: 30, tEnd: 50 },
+  ], 0);
+  const dense = H.toDense(gf, 1, 60);
+  // до tEnd — значение последнего сегмента
+  approx(dense.q[dense.q.length - 1], 50);
+  // t=55 > tEnd=50 — тоже 50
+  const idx55 = dense.t.indexOf(55);
+  approx(dense.q[idx55], 50);
+  // t=60 — конец
+  approx(dense.q[dense.q.length - 1], 50);
+});
+
+test("toDense piecewise: 2 сегмента — плотная сетка с продлением", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 0, tStart: 0, tEnd: 20 },
+    { q: 100, tStart: 20, tEnd: 40 },
+  ], 0);
+  const dense = H.toDense(gf, 1, 80);
+  // t=40 — 100
+  const idx40 = dense.t.indexOf(40);
+  approx(dense.q[idx40], 100);
+  // t=60 — продолжает 100
+  const idx60 = dense.t.indexOf(60);
+  approx(dense.q[idx60], 100);
+  // t=80 — 100
+  approx(dense.q[dense.q.length - 1], 100);
+});
+
+test("durationGF piecewise: возвращает tEnd последнего сегмента", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 10, tStart: 0, tEnd: 20 },
+    { q: 50, tStart: 20, tEnd: 45 },
+  ], 3);
+  approx(H.durationGF(gf), 48);  // delay(3) + tEnd(45)
 });
 
 // ============================================================
@@ -531,48 +678,6 @@ test("interpAt: последняя точка pumpOutSeries на гриде comb
 });
 
 // ============================================================
-// extendSeries — продление плотного ряда до заданного tMax
-// ============================================================
-
-test("extendSeries: если tMax <= конец — возвращает тот же объект", () => {
-  const s = { t: [0, 5, 10], q: [10, 20, 30] };
-  const e = H.extendSeries(s, 10);
-  if (e !== s) throw new Error("должен вернуть тот же объект");
-});
-
-test("extendSeries: если tMax < конец — возвращает тот же объект", () => {
-  const s = { t: [0, 5, 10], q: [10, 20, 30] };
-  const e = H.extendSeries(s, 8);
-  if (e !== s) throw new Error("должен вернуть тот же объект");
-});
-
-test("extendSeries: продлевает ряд удержанием последнего значения", () => {
-  const s = { t: [0, 5, 10], q: [10, 20, 30] };
-  const e = H.extendSeries(s, 15, 1);
-  approx(e.t[e.t.length - 1], 15);
-  for (let i = s.t.length; i < e.t.length; i++) {
-    approx(e.q[i], 30); // последнее значение удержано
-  }
-});
-
-test("extendSeries: шаг сетки соответствует dt на продлённом участке", () => {
-  const s = { t: [0, 2, 4], q: [0, 50, 100] };
-  const e = H.extendSeries(s, 10, 0.5);
-  // проверяем только новые точки (после исходного конца 4)
-  for (let i = s.t.length; i < e.t.length; i++) {
-    approx(e.t[i] - e.t[i - 1], 0.5, 1e-10);
-  }
-});
-
-test("extendSeries: исходные точки не меняются", () => {
-  const s = { t: [0, 5, 10], q: [10, 20, 30] };
-  const origT = s.t.slice(), origQ = s.q.slice();
-  H.extendSeries(s, 20, 1);
-  approx(s.t.join(","), origT.join(","));
-  approx(s.q.join(","), origQ.join(","));
-});
-
-// ============================================================
 // combineGF с tMax — продление компонентов до общего tMax
 // ============================================================
 
@@ -583,15 +688,15 @@ test("combineGF: tMax длиннее компонентов — результа
   approx(c.t[c.t.length - 1], 100);
 });
 
-test("combineGF: tMax длиннее — значения после конца компонента 0", () => {
+test("combineGF: tMax длиннее — piecewise продолжает последний сегмент", () => {
   const a = H.makePiecewiseGF([{ q: 50, tStart: 0, tEnd: 10 }], 0);
   const b = H.makePiecewiseGF([{ q: 100, tStart: 0, tEnd: 10 }], 0);
   const c = H.combineGF([a, b], 0.5, 100);
   const idx = Math.round(10 / 0.5);
   approx(c.q[idx], 150); // 50 + 100
-  // после 10 оба кончились → 0
+  // после 10 оба продолжают последний сегмент → 150
   const idxAfter = Math.round(15 / 0.5);
-  if (idxAfter < c.t.length) approx(c.q[idxAfter], 0);
+  if (idxAfter < c.t.length) approx(c.q[idxAfter], 150);
 });
 
 test("combineGF: tMax длиннее — кусочно-постоянная + гидрограф", () => {
@@ -604,48 +709,6 @@ test("combineGF: tMax длиннее — кусочно-постоянная + �
   approx(c.q[idx50 - 1], H.evalGF(hg, 49.5) + 30, 1);
   // гидрограф после 50 всё ещё положителен
   if (c.q[idx50] <= 0) throw new Error("гидрограф не должен обнулиться в 50");
-});
-
-// ============================================================
-// Симуляция globalTMax post-processing для dense-режима
-// ============================================================
-
-test("post-processing: все series продлеваются до единого tMax (удержание)", () => {
-  const short = { t: [0, 5, 10], q: [10, 20, 5] };
-  const long  = { t: [0, 10, 30], q: [10, 100, 50] };
-  const series = { a: { series: short }, b: { series: long } };
-  let globalTMax = 0;
-  for (const r of Object.values(series)) {
-    if (r?.series?.t?.length) {
-      const last = r.series.t[r.series.t.length - 1];
-      if (last > globalTMax) globalTMax = last;
-    }
-  }
-  for (const r of Object.values(series)) {
-    if (r?.series) r.series = H.extendSeries(r.series, globalTMax);
-  }
-  // оба должны кончаться в 30
-  approx(series.a.series.t[series.a.series.t.length - 1], 30);
-  approx(series.b.series.t[series.b.series.t.length - 1], 30);
-  // короткий удерживает q=5 после 10
-  const idx15 = series.a.series.t.indexOf(15);
-  if (idx15 >= 0) approx(series.a.series.q[idx15], 5);
-});
-
-test("post-processing: inflow и ownRain тоже продлеваются", () => {
-  const base = { t: [0, 5, 10], q: [0, 100, 10] };
-  const res = { series: base, inflow: { t: [0, 4, 8], q: [0, 80, 5] }, ownRain: { t: [0, 3, 6], q: [0, 60, 3] } };
-  const tMax = 15;
-  for (const r of [res]) {
-    if (r?.series) r.series = H.extendSeries(r.series, tMax, 1);
-    if (r?.inflow) r.inflow = H.extendSeries(r.inflow, tMax, 1);
-    if (r?.ownRain) r.ownRain = H.extendSeries(r.ownRain, tMax, 1);
-  }
-  approx(res.series.t[res.series.t.length - 1], 15);
-  approx(res.inflow.t[res.inflow.t.length - 1], 15);
-  approx(res.ownRain.t[res.ownRain.t.length - 1], 15);
-  approx(res.ownRain.q[res.ownRain.q.length - 1], 3);
-  approx(res.inflow.q[res.inflow.q.length - 1], 5);
 });
 
 // ============================================================
@@ -756,11 +819,11 @@ test("post-processing: delay peer (не pump) НЕ продлевается, ч�
   approx(H.evalGF(ext, 50), 50);    // tEff=20 → idle [20,40] (half-open)
   approx(H.evalGF(ext, 60), 50);    // tEff=30 → idle
   approx(H.evalGF(ext, 70), 50);    // tEff=40 → последняя точка включительно
-  approx(H.evalGF(ext, 71), 0);     // за границей — 0
-  // toDense с tMax=120 видит delay GF, но после 70 даёт 0
+  approx(H.evalGF(ext, 71), 50);    // за границей — продолжает последний сегмент
+  // toDense с tMax=120: piecewise продолжает последний сегмент (50)
   const dense = H.toDense(ext, 0.5, 120);
   const idx100 = Math.round(100 / 0.5);
-  if (idx100 < dense.t.length) approx(dense.q[idx100], 0);
+  if (idx100 < dense.t.length) approx(dense.q[idx100], 50);
 });
 
 test("post-processing: pump peer с delay — продлевается с учётом delay", () => {
@@ -785,7 +848,7 @@ test("post-processing: pump peer с delay — продлевается с учё
   approx(H.evalGF(ext, 50), 50);    // tEff=20 → idle (half-open)
   approx(H.evalGF(ext, 51), 50);    // tEff=21 → idle (extended)
   approx(H.evalGF(ext, 150), 50);   // tEff=120 → idle (последняя точка)
-  approx(H.evalGF(ext, 151), 0);    // за границей
+  approx(H.evalGF(ext, 151), 50);   // за границей — продолжает последний сегмент
 });
 
 // ============================================================
@@ -806,19 +869,14 @@ test("numericCalc: combineGF с tMax продлевает короткий upstr
     { q: 100, tStart: 5, tEnd: 15 },
     { q: 20, tStart: 15, tEnd: 30 },
   ], 15);
-  // ownRain c коротким hydroTailT (Qr=30, tr=3, n=0.71 → tail ≈ 33)
+  // ownRain c коротким hydroTailT (Qr=30, tr=3, n=0.71 → tail ≈ 131)
   const ownGF = H.makeHydroGF(30, 3, 0.71, 0);
-  const ownTail = H.durationGF(ownGF); // ≈ 33
-  // без tMax: combineGF даёт tMax = max(33, 45) = 45
-  const inflowShort = H.combineGF([ownGF, upGF]);
-  // с tMax = max(duration) — тот же результат (45)
   const numEnd = Math.max(H.durationGF(ownGF), H.durationGF(upGF));
   const inflowLong = H.combineGF([ownGF, upGF], H.HYDRO_DT, numEnd);
-  // оба кончаются одинаково (upGF доминирует, tMax не нужен)
-  approx(inflowShort.t[inflowShort.t.length - 1], inflowLong.t[inflowLong.t.length - 1], 1);
   const r = H.numericCalc(10, inflowLong);
   if (r.dry) throw new Error("peak=30 > Q=10 → dry=false");
-  if (r.truncated) throw new Error("хвоста хватает → truncated=false");
+  // upstream продолжает idle=20 после t=45 → инфлюанс выше Q=10 → truncated=true
+  if (!r.truncated) throw new Error("upstream idle=20 > Q=10 → truncated=true");
 });
 
 test("numericCalc: собственный гидрограф — truncated=false при достаточной длине", () => {
@@ -851,53 +909,6 @@ test("numericCalc: пересчёт с продлённым притоком и�
   const r = H.numericCalc(50, fullInflow);
   if (r.dry) throw new Error("peak=200 > Q=50 → dry=false");
   if (r.truncated) throw new Error("полный хвост → truncated=false");
-});
-
-test("extendSeriesZero: продлевает нулями, а не последним значением", () => {
-  const s = { t: [0, 1, 2], q: [10, 5, 2] };
-  const ext = H.extendSeriesZero(s, 5, 1);
-  if (ext.t.length !== 6) throw new Error(`ожидалось 6 точек, получено ${ext.t.length}`);
-  // точки после lastT (=2) должны быть 0
-  for (let i = 3; i < ext.t.length; i++) {
-    if (ext.q[i] !== 0) throw new Error(`точка ${i}: ожидался 0, получено ${ext.q[i]}`);
-  }
-});
-
-test("combineSeries: нет ступеньки при разной длине рядов (два водосбора со сдвигом)", () => {
-  const n = 0.71;
-  const dt = 1;
-  const tail1 = Math.ceil(H.hydroTailT(100, 10, n) + 30);
-  const s1 = H.sampleHydro(100, 10, n, tail1, dt);
-  const delay = 30;
-  const s2 = H.shiftSeries(H.sampleHydro(100, 10, n, tail1, dt), delay);
-  const combinedEnd = Math.max(s1.t[s1.t.length - 1], s2.t[s2.t.length - 1]);
-  const ext1 = H.extendSeriesZero(s1, combinedEnd, dt);
-  const ext2 = H.extendSeriesZero(s2, combinedEnd, dt);
-  const combined = H.combineSeries([ext1, ext2], dt);
-  // после завершения s1 — ищем максимальный перепад между соседними точками
-  const s1End = s1.t[s1.t.length - 1];
-  let maxDrop = 0;
-  for (let i = 1; i < combined.t.length; i++) {
-    if (combined.t[i] > s1End) {
-      const drop = Math.abs(combined.q[i] - combined.q[i - 1]);
-      if (drop > maxDrop) maxDrop = drop;
-    }
-  }
-  // s1 хвост ≤ 2% от 100 = 2, после подъёма s2 — не более 2.5
-  if (maxDrop > 2.5) throw new Error(`ступенька после завершения s1: ${maxDrop} л/с (ожидалось ≤ 2.5)`);
-});
-
-test("combineSeries с extendSeriesZero: хвост плавно уходит в 0", () => {
-  const s = { t: [0, 10, 20], q: [100, 50, 2] };
-  const ext = H.extendSeriesZero(s, 30, 1);
-  const combined = H.combineSeries([ext], 1);
-  const lastQ = combined.q[combined.q.length - 1];
-  if (lastQ !== 0) throw new Error(`хвост не в 0: ${lastQ}`);
-  // нет точек выше 2 (последнее значение s) после 20
-  const after20 = combined.t.map((t, i) => ({ t, q: combined.q[i] })).filter(x => x.t > 20);
-  for (const p of after20) {
-    if (p.q > 2.1) throw new Error(`точка t=${p.t}: q=${p.q} > 2`);
-  }
 });
 
 // ============================================================

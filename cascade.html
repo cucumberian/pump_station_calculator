@@ -53,14 +53,7 @@
             <span class="n-short">n</span>
             <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
           </div>
-          <div class="field mode-field" title="Режим передачи данных между нодами: сетка точек (плотная дискретизация) или декларативное описание (параметры функций).">
-            <label for="cascadeMode">Данные между нодами <button class="help-btn mode-help-btn" id="modeHelpBtn" type="button" title="О режимах передачи данных">?</button></label>
-            <select id="cascadeMode" hidden>
-              <option value="declarative" selected>Декларативные</option>
-              <option value="grid">Сетка точек</option>
-            </select>
-            <button class="mode-switch-btn" id="cascadeModeBtn" type="button" title="Декларативный">ƒ</button>
-          </div>
+
         </div>
         <h2>Ноды</h2>
         <div class="pal-node pal-catch" draggable="true" data-node="catch">
@@ -81,11 +74,6 @@
       <button class="btn" id="clearAll" type="button" title="Удалить все ноды и связи"><span class="full">Очистить схему</span><span class="short">Очистить</span></button>
       <button class="palette-toggle" id="paletteToggle" type="button" aria-label="Свернуть панель" title="Свернуть панель">‹</button>
     </aside>
-
-    <div class="mode-help-popup" id="modeHelpPopup" hidden>
-      <b>Сетка точек</b> — гидрограф передаётся между нодами как массив {t, Q} с фиксированным шагом Δt. Промежуточные значения — линейная интерполяция между точками ряда. При суммировании входов на КНС ряды ресамплятся на общую сетку — из-за линейной интерполяции резкие перегибы (выход КНС: холостой ход ↔ Q<sub>нс</sub>) сглаживаются. Точность зависит от шага Δt.<br>
-      <b>Декларативный</b> — гидрограф передаётся как функциональное описание: для дождевого стока — параметры дождевой формулы (Q<sub>r</sub>, t<sub>r</sub>, n), для выхода КНС — кусочно-постоянная функция с точными границами участков (t<sub>н</sub><sup>нс</sup>, t<sub>к</sub><sup>нс</sup>) и значениями (Q<sub>нс</sub>, Q<sub>idle</sub>). Участок сети просто увеличивает внутренний сдвиг функции на Δt — форма гидрографа не меняется. В плотный массив (ресамплинг с Δt) функция преобразуется только один раз — при численном расчёте КНС (чтобы промоделировать работу резервуара пошагово). Благодаря этому резкие перегибы графика сохраняются на всём каскаде точнее, чем в режиме сетки точек.
-    </div>
 
     <div id="drawflow">
       <div class="n-float" id="nFloat" hidden>

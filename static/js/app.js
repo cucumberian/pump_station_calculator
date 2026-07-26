@@ -68,8 +68,7 @@ function render() {
   }
   wqChart.update(Q, Qr, tr, n, { rangePts });
   if ($("chartFitAxis").classList.contains("active") && rc) {
-    const pad = (rc.to - rc.from) * 0.1;
-    wqChart.setXRange(Math.max(0, rc.from - pad), rc.to + pad);
+    wqChart.setXRange(Math.max(0, rc.from), rc.to);
   }
   qtChart.update(Q, Qr, tr, n, r);
 

@@ -219,6 +219,10 @@
   color: #b0341f;
   margin: -4px 0 10px;
 }
+.sidebar .sb-pair.sb-locked {
+  opacity: 0.45;
+  pointer-events: none;
+}
 .sidebar .sb-h .help-btn {
   position: static;
   display: inline-flex;
@@ -530,43 +534,6 @@
 
 .palette .global-n .n-short { display: none; }
 
-.mode-switch-btn {
-  appearance: none; -webkit-appearance: none;
-  border: 1px solid #c6d3e4; border-radius: 6px;
-  background: #fff; color: #12325e;
-  cursor: pointer; font-size: 16px; font-weight: 700;
-  width: 32px; height: 28px; padding: 0;
-  display: flex; align-items: center; justify-content: center;
-  line-height: 1; flex-shrink: 0;
-}
-.mode-switch-btn:hover { background: #dbe6f5; }
-.mode-switch-btn:active { background: #c6d3e4; }
-.mode-field select { display: none; }
-
-label .mode-help-btn {
-  position: static;
-  display: inline-flex;
-  vertical-align: middle;
-  margin-left: 3px;
-  width: 16px; height: 16px;
-  font-size: 11px;
-}
-.mode-help-popup {
-  position: fixed;
-  z-index: 100;
-  background: #fff;
-  border: 1px solid #c6d3e4;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #1a202c;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-  max-width: 320px;
-  width: max-content;
-}
-.mode-field { position: relative; }
-
 .ctx-menu {
   position: fixed;
   z-index: 30;
@@ -669,8 +636,6 @@ label .mode-help-btn {
   .palette .global-n label { display: none; }
   .palette .global-n .n-short { display: inline; font-size: 13px; color: #5a6572; }
   .palette .global-n input { padding: 4px 6px; font-size: 13px; }
-  .palette [for="cascadeMode"] { display: none; }
-  .mode-switch-btn { width: 28px; height: 24px; font-size: 14px; }
   #clearAll .full { display: none; }
   #clearAll .short { display: inline; }
   .sidebar .sb-pair .field label { font-size: 12px; }
@@ -679,8 +644,6 @@ label .mode-help-btn {
   .pal-node b { text-align: center; }
   .palette .short { display: inline; }
   .palette .full { display: none; }
-  .mode-help-btn { display: none !important; }
-  .mode-help-popup { display: none !important; }
 }
 .field input[type="text"],
 .field input[type="email"],

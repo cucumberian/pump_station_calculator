@@ -12,6 +12,7 @@ function solveTk(Q, Qr, tr, n) {
 }
 
 function calc(Q, Qr, tr, n) {
+  if (Q >= Qr) return { tn: 0, tk: 0, W: 0, dry: true };
   const tn = tr * (Q / Qr) ** (1 / (1 - n));
   const tk = solveTk(Q, Qr, tr, n);
   const W = 0.06 * Qr * tr / (2 - n) * (
@@ -158,7 +159,7 @@ function evalGF(gf, t) {
         const isLast = i === gf.segments.length - 1;
         if (tEff >= seg.tStart && (isLast ? tEff <= seg.tEnd : tEff < seg.tEnd)) return seg.q;
       }
-      return 0;
+      return gf.segments.length ? gf.segments[gf.segments.length - 1].q : 0;
     default:
       return 0;
   }
@@ -228,31 +229,6 @@ function toDense(gf, dt = HYDRO_DT, tMax) {
       const f = (t - adaptTs[ai]) / (adaptTs[ai + 1] - adaptTs[ai]);
       qs.push(adaptQs[ai] + f * (adaptQs[ai + 1] - adaptQs[ai]));
     }
-  }
-  return { t: ts, q: qs };
-}
-
-function extendSeries(s, tMax, dt = HYDRO_DT) {
-  const lastT = s.t[s.t.length - 1];
-  if (tMax <= lastT) return s;
-  const lastQ = s.q[s.q.length - 1];
-  const ts = s.t.slice(), qs = s.q.slice();
-  const N = Math.ceil((tMax - lastT) / dt);
-  for (let i = 1; i <= N; i++) {
-    ts.push(lastT + i * dt);
-    qs.push(lastQ);
-  }
-  return { t: ts, q: qs };
-}
-
-function extendSeriesZero(s, tMax, dt = HYDRO_DT) {
-  const lastT = s.t[s.t.length - 1];
-  if (tMax <= lastT) return s;
-  const ts = s.t.slice(), qs = s.q.slice();
-  const N = Math.ceil((tMax - lastT) / dt);
-  for (let i = 1; i <= N; i++) {
-    ts.push(lastT + i * dt);
-    qs.push(0);
   }
   return { t: ts, q: qs };
 }
