@@ -344,7 +344,8 @@
   pointer-events: auto;
 }
 .sb-head-btns { display: flex; align-items: center; gap: 6px; }
-.sb-head-btns .node-lock { position: static; }
+.sb-head-btns .node-lock,
+.sb-head-btns .node-disable { position: static; }
 .node-box .node-title {
   display: flex;
   gap: 0.2rem;
