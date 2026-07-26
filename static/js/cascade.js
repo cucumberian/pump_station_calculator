@@ -177,7 +177,11 @@ function computeCascade() {
             r = peak.q <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, eq.Qr, eq.tr, eq.n);
           }
         } else {
-          r = numericCalc(Q, toDense(inflowGF));
+          const numEnd = Math.max(durationGF(ownRainGF), ...flowGFs.map(gf => durationGF(gf)));
+          const inflowNum = flowGFs.length === 0
+            ? toDense(ownRainGF, HYDRO_DT, numEnd)
+            : combineGF([ownRainGF, ...flowGFs], HYDRO_DT, numEnd);
+          r = numericCalc(Q, inflowNum);
         }
         const tMax = Math.max(durationGF(inflowGF), r.dry ? 0 : r.tk + 10);
         res[id] = {
@@ -204,6 +208,14 @@ function computeCascade() {
             r = peak.q <= Q ? { tn: 0, tk: 0, W: 0, dry: true } : calc(Q, eq.Qr, eq.tr, eq.n);
           }
         } else {
+          const numEnd = Math.max(hydroTailT(Qr, tr, nGlob) + 30,
+            ...flowUps.map(x => x.r.series.t[x.r.series.t.length - 1]));
+          if (numEnd > inflow.t[inflow.t.length - 1]) {
+            inflow = combineSeries([
+              extendSeries(ownRain, numEnd),
+              ...flowUps.map(x => extendSeries(x.r.series, numEnd)),
+            ]);
+          }
           r = numericCalc(Q, inflow);
         }
         res[id] = {
@@ -222,11 +234,14 @@ function computeCascade() {
         if (dur > globalTMax) globalTMax = dur;
       }
     }
-    for (const r of Object.values(res)) {
+    for (const [id, r] of Object.entries(res)) {
+      if (data[id]?.name !== "pump") continue;
       if (r?.gf?.type === "piecewise" && r.gf.segments.length && globalTMax > 0) {
         const last = r.gf.segments[r.gf.segments.length - 1];
-        if (last.tEnd < globalTMax) {
-          r.gf = { ...r.gf, segments: [...r.gf.segments.slice(0, -1), { ...last, tEnd: globalTMax }] };
+        const effectiveEnd = (r.gf.delay || 0) + last.tEnd;
+        if (effectiveEnd < globalTMax) {
+          const newEnd = globalTMax - (r.gf.delay || 0);
+          r.gf = { ...r.gf, segments: [...r.gf.segments.slice(0, -1), { ...last, tEnd: newEnd }] };
         }
       }
     }
@@ -246,6 +261,19 @@ function computeCascade() {
     }
   } else {
     globalTMax = 0;
+    for (const r of Object.values(res)) {
+      if (r?.series?.t?.length) {
+        const last = r.series.t[r.series.t.length - 1];
+        if (last > globalTMax) globalTMax = last;
+      }
+    }
+    if (globalTMax > 0) {
+      for (const r of Object.values(res)) {
+        if (r?.series) r.series = extendSeries(r.series, globalTMax);
+        if (r?.inflow) r.inflow = extendSeries(r.inflow, globalTMax);
+        if (r?.ownRain) r.ownRain = extendSeries(r.ownRain, globalTMax);
+      }
+    }
   }
   results = res;
   updateSummaries(data);

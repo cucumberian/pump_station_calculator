@@ -199,6 +199,19 @@ function toDense(gf, dt = HYDRO_DT, tMax) {
   return { t: ts, q: qs };
 }
 
+function extendSeries(s, tMax, dt = HYDRO_DT) {
+  const lastT = s.t[s.t.length - 1];
+  if (tMax <= lastT) return s;
+  const lastQ = s.q[s.q.length - 1];
+  const ts = s.t.slice(), qs = s.q.slice();
+  const N = Math.ceil((tMax - lastT) / dt);
+  for (let i = 1; i <= N; i++) {
+    ts.push(lastT + i * dt);
+    qs.push(lastQ);
+  }
+  return { t: ts, q: qs };
+}
+
 function combineGF(list, dt = HYDRO_DT, tMax) {
   const valid = list.filter(Boolean);
   if (!valid.length) return { t: [0], q: [0] };

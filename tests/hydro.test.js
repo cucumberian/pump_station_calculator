@@ -10,6 +10,7 @@ return {
   shiftSeries, interpAt, combineSeries, numericCalc,
   pumpOutSeries, seriesPeak,
   makeHydroGF, makePiecewiseGF, shiftGF, evalGF, peakGF, durationGF, toDense, combineGF,
+  extendSeries,
   HYDRO_DT
 };
 `);
@@ -479,5 +480,328 @@ test("interpAt: последняя точка pumpOutSeries на гриде comb
   approx(H.interpAt(out, out.t[out.t.length - 1]), 75);
 });
 
-console.log(`\n=== ${passed} \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E, ${failed} \u043D\u0435 \u043F\u0440\u043E\u0448\u043B\u043E ===`);
+// ============================================================
+// extendSeries — продление плотного ряда до заданного tMax
+// ============================================================
+
+test("extendSeries: если tMax <= конец — возвращает тот же объект", () => {
+  const s = { t: [0, 5, 10], q: [10, 20, 30] };
+  const e = H.extendSeries(s, 10);
+  if (e !== s) throw new Error("должен вернуть тот же объект");
+});
+
+test("extendSeries: если tMax < конец — возвращает тот же объект", () => {
+  const s = { t: [0, 5, 10], q: [10, 20, 30] };
+  const e = H.extendSeries(s, 8);
+  if (e !== s) throw new Error("должен вернуть тот же объект");
+});
+
+test("extendSeries: продлевает ряд удержанием последнего значения", () => {
+  const s = { t: [0, 5, 10], q: [10, 20, 30] };
+  const e = H.extendSeries(s, 15, 1);
+  approx(e.t[e.t.length - 1], 15);
+  for (let i = s.t.length; i < e.t.length; i++) {
+    approx(e.q[i], 30); // последнее значение удержано
+  }
+});
+
+test("extendSeries: шаг сетки соответствует dt на продлённом участке", () => {
+  const s = { t: [0, 2, 4], q: [0, 50, 100] };
+  const e = H.extendSeries(s, 10, 0.5);
+  // проверяем только новые точки (после исходного конца 4)
+  for (let i = s.t.length; i < e.t.length; i++) {
+    approx(e.t[i] - e.t[i - 1], 0.5, 1e-10);
+  }
+});
+
+test("extendSeries: исходные точки не меняются", () => {
+  const s = { t: [0, 5, 10], q: [10, 20, 30] };
+  const origT = s.t.slice(), origQ = s.q.slice();
+  H.extendSeries(s, 20, 1);
+  approx(s.t.join(","), origT.join(","));
+  approx(s.q.join(","), origQ.join(","));
+});
+
+// ============================================================
+// combineGF с tMax — продление компонентов до общего tMax
+// ============================================================
+
+test("combineGF: tMax длиннее компонентов — результат идёт до tMax", () => {
+  const a = H.makePiecewiseGF([{ q: 50, tStart: 0, tEnd: 20 }], 0);
+  const b = H.makePiecewiseGF([{ q: 100, tStart: 0, tEnd: 30 }], 0);
+  const c = H.combineGF([a, b], 0.5, 100);
+  approx(c.t[c.t.length - 1], 100);
+});
+
+test("combineGF: tMax длиннее — значения после конца компонента 0", () => {
+  const a = H.makePiecewiseGF([{ q: 50, tStart: 0, tEnd: 10 }], 0);
+  const b = H.makePiecewiseGF([{ q: 100, tStart: 0, tEnd: 10 }], 0);
+  const c = H.combineGF([a, b], 0.5, 100);
+  const idx = Math.round(10 / 0.5);
+  approx(c.q[idx], 150); // 50 + 100
+  // после 10 оба кончились → 0
+  const idxAfter = Math.round(15 / 0.5);
+  if (idxAfter < c.t.length) approx(c.q[idxAfter], 0);
+});
+
+test("combineGF: tMax длиннее — кусочно-постоянная + гидрограф", () => {
+  const pw = H.makePiecewiseGF([{ q: 30, tStart: 0, tEnd: 50 }], 0);
+  const hg = H.makeHydroGF(200, 10, 0.71, 0);
+  const c = H.combineGF([pw, hg], 0.5, 100);
+  approx(c.t[c.t.length - 1], 100);
+  // после tail гидрографа (~437) не дойдём — tMax=100
+  const idx50 = Math.round(50 / 0.5);
+  approx(c.q[idx50 - 1], H.evalGF(hg, 49.5) + 30, 1);
+  // гидрограф после 50 всё ещё положителен
+  if (c.q[idx50] <= 0) throw new Error("гидрограф не должен обнулиться в 50");
+});
+
+// ============================================================
+// Симуляция globalTMax post-processing для dense-режима
+// ============================================================
+
+test("post-processing: все series продлеваются до единого tMax (удержание)", () => {
+  const short = { t: [0, 5, 10], q: [10, 20, 5] };
+  const long  = { t: [0, 10, 30], q: [10, 100, 50] };
+  const series = { a: { series: short }, b: { series: long } };
+  let globalTMax = 0;
+  for (const r of Object.values(series)) {
+    if (r?.series?.t?.length) {
+      const last = r.series.t[r.series.t.length - 1];
+      if (last > globalTMax) globalTMax = last;
+    }
+  }
+  for (const r of Object.values(series)) {
+    if (r?.series) r.series = H.extendSeries(r.series, globalTMax);
+  }
+  // оба должны кончаться в 30
+  approx(series.a.series.t[series.a.series.t.length - 1], 30);
+  approx(series.b.series.t[series.b.series.t.length - 1], 30);
+  // короткий удерживает q=5 после 10
+  const idx15 = series.a.series.t.indexOf(15);
+  if (idx15 >= 0) approx(series.a.series.q[idx15], 5);
+});
+
+test("post-processing: inflow и ownRain тоже продлеваются", () => {
+  const base = { t: [0, 5, 10], q: [0, 100, 10] };
+  const res = { series: base, inflow: { t: [0, 4, 8], q: [0, 80, 5] }, ownRain: { t: [0, 3, 6], q: [0, 60, 3] } };
+  const tMax = 15;
+  for (const r of [res]) {
+    if (r?.series) r.series = H.extendSeries(r.series, tMax, 1);
+    if (r?.inflow) r.inflow = H.extendSeries(r.inflow, tMax, 1);
+    if (r?.ownRain) r.ownRain = H.extendSeries(r.ownRain, tMax, 1);
+  }
+  approx(res.series.t[res.series.t.length - 1], 15);
+  approx(res.inflow.t[res.inflow.t.length - 1], 15);
+  approx(res.ownRain.t[res.ownRain.t.length - 1], 15);
+  approx(res.ownRain.q[res.ownRain.q.length - 1], 3);
+  approx(res.inflow.q[res.inflow.q.length - 1], 5);
+});
+
+// ============================================================
+// Симуляция globalTMax post-processing для declarative-режима
+// ============================================================
+
+test("post-processing declarative: piecewise GF продлевается до globalTMax", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 50, tStart: 0, tEnd: 10 },
+    { q: 200, tStart: 10, tEnd: 30 },
+    { q: 50, tStart: 30, tEnd: 40 },
+  ], 0);
+  const globalTMax = 100;
+  const last = gf.segments[gf.segments.length - 1];
+  const extended = { ...gf, segments: [...gf.segments.slice(0, -1), { ...last, tEnd: globalTMax }] };
+  approx(H.evalGF(extended, 40), 50);
+  approx(H.evalGF(extended, 80), 50);
+  approx(H.evalGF(extended, 100), 50);
+  approx(H.durationGF(extended), 100);
+});
+
+test("post-processing declarative: inflowGF пересобирается с учётом продлённых upstream GF", () => {
+  // upstream GF — кусочно-постоянная с idleQ, изначально до 30
+  const upstream = H.makePiecewiseGF([
+    { q: 30, tStart: 0, tEnd: 5 },
+    { q: 100, tStart: 5, tEnd: 15 },
+    { q: 30, tStart: 15, tEnd: 30 },
+  ], 0);
+  // ownRain — гидрограф с tailT ≈ 437
+  const ownRain = H.makeHydroGF(200, 10, 0.71, 0);
+  const ownDur = H.durationGF(ownRain); // ≈ 437
+  // комбинируем БЕЗ tMax — как это делается на первом проходе
+  const inflowGF = { type: "dense", ...H.combineGF([ownRain, upstream]) };
+  const oldEnd = inflowGF.t[inflowGF.t.length - 1];
+  // симулируем globalTMax = ownDur + 100: продлеваем upstream далеко за ownRain
+  const globalTMax = ownDur + 100;
+  const lastSeg = upstream.segments[upstream.segments.length - 1];
+  const upstreamExt = { ...upstream, segments: [...upstream.segments.slice(0, -1), { ...lastSeg, tEnd: globalTMax }] };
+  // пересобираем inflowGF с tMax
+  const inflowGF2 = { type: "dense", ...H.combineGF([ownRain, upstreamExt], H.HYDRO_DT, globalTMax) };
+  // новый должен быть длиннее старого
+  if (inflowGF2.t[inflowGF2.t.length - 1] <= ownDur + 50) throw new Error("новый inflowGF должен быть длиннее");
+  approx(inflowGF2.t[inflowGF2.t.length - 1], globalTMax, 1);
+  // после ownRain upstream продолжает давать idle=30
+  const idxAfterRain = Math.round((ownDur + 10) / H.HYDRO_DT);
+  if (idxAfterRain < inflowGF2.t.length) {
+    const v = inflowGF2.q[idxAfterRain];
+    if (v < 25) throw new Error("inflow после ownRain должен быть > 25 (idle upstream)");
+    approx(v, 30 + H.evalGF(ownRain, ownDur + 10), 3);
+  }
+});
+
+// ============================================================
+// Приведение диапазонов — post-processing с задержками
+// ============================================================
+
+test("post-processing: piecewise GF без delay продлевается на весь globalTMax", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 50, tStart: 0, tEnd: 10 },
+    { q: 200, tStart: 10, tEnd: 30 },
+    { q: 50, tStart: 30, tEnd: 40 },
+  ], 0);
+  const globalTMax = 120;
+  const last = gf.segments[gf.segments.length - 1];
+  const effectiveEnd = (gf.delay || 0) + last.tEnd;
+  const ext = effectiveEnd < globalTMax
+    ? { ...gf, segments: [...gf.segments.slice(0, -1), { ...last, tEnd: globalTMax - (gf.delay || 0) }] }
+    : gf;
+  approx(H.durationGF(ext), 120);
+  approx(H.evalGF(ext, 40), 50);
+  approx(H.evalGF(ext, 80), 50);
+  approx(H.evalGF(ext, 120), 50);
+});
+
+test("post-processing: pump peer без delay — продлевается на globalTMax", () => {
+  const gf = H.makePiecewiseGF([
+    { q: 50, tStart: 0, tEnd: 10 },
+    { q: 200, tStart: 10, tEnd: 30 },
+    { q: 50, tStart: 30, tEnd: 40 },
+  ], 0);
+  const globalTMax = 120;
+  const last = gf.segments[gf.segments.length - 1];
+  const effectiveEnd = (gf.delay || 0) + last.tEnd;
+  const ext = effectiveEnd < globalTMax
+    ? { ...gf, segments: [...gf.segments.slice(0, -1), { ...last, tEnd: globalTMax - (gf.delay || 0) }] }
+    : gf;
+  approx(H.durationGF(ext), 120);
+  approx(H.evalGF(ext, 40), 50);
+  approx(H.evalGF(ext, 80), 50);
+  approx(H.evalGF(ext, 120), 50);
+});
+
+test("post-processing: delay peer (не pump) НЕ продлевается, чтобы не дублировать idle", () => {
+  // GF с delay 30 — имитирует ноду задержки, которая не должна продлеваться
+  const gf = H.makePiecewiseGF([
+    { q: 50, tStart: 0, tEnd: 5 },
+    { q: 200, tStart: 5, tEnd: 20 },
+    { q: 50, tStart: 20, tEnd: 40 },
+  ], 30);
+  const origEnd = H.durationGF(gf); // 30 + 40 = 70
+  // глобальный TMax больше, но это PEER (не pump) — не продлевается
+  const ext = gf;
+  if (ext !== gf) throw new Error("delay peer не должен продлеваться");
+  approx(H.durationGF(ext), 70);
+  // eval с учётом delay: tEff = t - 30
+  approx(H.evalGF(ext, 35), 200);   // tEff=5 → pumping [5,20)
+  approx(H.evalGF(ext, 49), 200);   // tEff=19 → pumping (ещё <20)
+  approx(H.evalGF(ext, 50), 50);    // tEff=20 → idle [20,40] (half-open)
+  approx(H.evalGF(ext, 60), 50);    // tEff=30 → idle
+  approx(H.evalGF(ext, 70), 50);    // tEff=40 → последняя точка включительно
+  approx(H.evalGF(ext, 71), 0);     // за границей — 0
+  // toDense с tMax=120 видит delay GF, но после 70 даёт 0
+  const dense = H.toDense(ext, 0.5, 120);
+  const idx100 = Math.round(100 / 0.5);
+  if (idx100 < dense.t.length) approx(dense.q[idx100], 0);
+});
+
+test("post-processing: pump peer с delay — продлевается с учётом delay", () => {
+  // pump с delay (бывает при сдвинутом pump GF через shiftGF)
+  const gf = H.makePiecewiseGF([
+    { q: 50, tStart: 0, tEnd: 5 },
+    { q: 200, tStart: 5, tEnd: 20 },
+    { q: 50, tStart: 20, tEnd: 40 },
+  ], 30);
+  const globalTMax = 150;
+  const last = gf.segments[gf.segments.length - 1];
+  const effectiveEnd = (gf.delay || 0) + last.tEnd; // 30 + 40 = 70
+  const ext = effectiveEnd < globalTMax
+    ? { ...gf, segments: [...gf.segments.slice(0, -1), { ...last, tEnd: globalTMax - (gf.delay || 0) }] }
+    : gf;
+  // last.tEnd = 150 - 30 = 120
+  approx(ext.segments[ext.segments.length - 1].tEnd, 120);
+  approx(H.durationGF(ext), 150);
+  // eval с учётом delay: tEff = t - 30
+  approx(H.evalGF(ext, 35), 200);   // tEff=5 → pumping [5,20)
+  approx(H.evalGF(ext, 49), 200);   // tEff=19 → pumping
+  approx(H.evalGF(ext, 50), 50);    // tEff=20 → idle (half-open)
+  approx(H.evalGF(ext, 51), 50);    // tEff=21 → idle (extended)
+  approx(H.evalGF(ext, 150), 50);   // tEff=120 → idle (последняя точка)
+  approx(H.evalGF(ext, 151), 0);    // за границей
+});
+
+// ============================================================
+// numericCalc с продлённым притоком — truncated
+// ============================================================
+
+test("numericCalc: приток обрезан раньше tk — truncated=true", () => {
+  // короткий приток: гидрограф обрезан до завершения откачки
+  const short = H.sampleHydro(342.3, 10, 0.71, 30); // только до 30 мин
+  const r = H.numericCalc(50, short); // Q=50 — долгая откачка
+  if (!r.truncated) throw new Error("ожидалось truncated=true для короткого притока");
+});
+
+test("numericCalc: combineGF с tMax продлевает короткий upstream (delay peer)", () => {
+  // upstream pump: idle до 30, delay 15 → effectiveEnd = 15+30 = 45
+  const upGF = H.makePiecewiseGF([
+    { q: 20, tStart: 0, tEnd: 5 },
+    { q: 100, tStart: 5, tEnd: 15 },
+    { q: 20, tStart: 15, tEnd: 30 },
+  ], 15);
+  // ownRain c коротким hydroTailT (Qr=30, tr=3, n=0.71 → tail ≈ 33)
+  const ownGF = H.makeHydroGF(30, 3, 0.71, 0);
+  const ownTail = H.durationGF(ownGF); // ≈ 33
+  // без tMax: combineGF даёт tMax = max(33, 45) = 45
+  const inflowShort = H.combineGF([ownGF, upGF]);
+  // с tMax = max(duration) — тот же результат (45)
+  const numEnd = Math.max(H.durationGF(ownGF), H.durationGF(upGF));
+  const inflowLong = H.combineGF([ownGF, upGF], H.HYDRO_DT, numEnd);
+  // оба кончаются одинаково (upGF доминирует, tMax не нужен)
+  approx(inflowShort.t[inflowShort.t.length - 1], inflowLong.t[inflowLong.t.length - 1], 1);
+  const r = H.numericCalc(10, inflowLong);
+  if (r.dry) throw new Error("peak=30 > Q=10 → dry=false");
+  if (r.truncated) throw new Error("хвоста хватает → truncated=false");
+});
+
+test("numericCalc: собственный гидрограф — truncated=false при достаточной длине", () => {
+  const ownGF = H.makeHydroGF(200, 10, 0.71, 0);
+  const inflow = H.combineGF([ownGF]);
+  const r = H.numericCalc(50, inflow);
+  if (r.dry) throw new Error("peak=200 > Q=50 → dry=false");
+  if (r.truncated) throw new Error("полный hydroTailT → truncated=false");
+  if (r.tk <= 0) throw new Error("tk > 0");
+});
+
+test("numericCalc: numericCalc возвращает truncated=true на обрезанном ряду", () => {
+  const ownGF = H.makeHydroGF(200, 10, 0.71, 0);
+  const inflow = H.combineGF([ownGF]);
+  // обрезаем до 15 мин — гидрограф ещё ~62 > Q=50
+  const idx15 = inflow.t.findIndex(t => t > 15);
+  const short = { t: inflow.t.slice(0, idx15), q: inflow.q.slice(0, idx15) };
+  const r = H.numericCalc(50, short);
+  if (!r.truncated) throw new Error("обрезанный ряд → truncated=true");
+});
+
+test("numericCalc: пересчёт с продлённым притоком исправляет truncated", () => {
+  // короткий приток до 15 мин (гидрограф ~62 > Q=50)
+  const shortInflow = H.sampleHydro(200, 10, 0.71, 15);
+  const rShort = H.numericCalc(50, shortInflow);
+  if (!rShort.truncated) throw new Error("15 мин → truncated=true");
+  // полный ГФ
+  const ownGF = H.makeHydroGF(200, 10, 0.71, 0);
+  const fullInflow = H.combineGF([ownGF], H.HYDRO_DT, H.durationGF(ownGF));
+  const r = H.numericCalc(50, fullInflow);
+  if (r.dry) throw new Error("peak=200 > Q=50 → dry=false");
+  if (r.truncated) throw new Error("полный хвост → truncated=false");
+});
+
+console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);
 process.exit(failed ? 1 : 0);
