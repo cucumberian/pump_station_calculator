@@ -233,6 +233,17 @@ function computeCascade() {
     for (const r of Object.values(res)) {
       if (r?.gf) r.series = toDense(r.gf, HYDRO_DT);
     }
+    for (const [id, r] of Object.entries(res)) {
+      if (r?.ownRainGF && data[id]?.name === "pump") {
+        const ups = upstreamIds(id, data).map(u => res[u]).filter(Boolean);
+        const flowGFs = ups.filter(x => !x.fromCatch).map(x => x.gf).filter(Boolean);
+        if (flowGFs.length === 0) {
+          r.inflowGF = r.ownRainGF;
+        } else {
+          r.inflowGF = { type: "dense", ...combineGF([r.ownRainGF, ...flowGFs], HYDRO_DT, globalTMax) };
+        }
+      }
+    }
   } else {
     globalTMax = 0;
   }
