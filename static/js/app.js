@@ -178,9 +178,21 @@ for (const id of ["vFrom", "vTo", "vStep"]) {
       $("vTo").value = +rc.to.toFixed(2);
       $("vStep").value = +rc.step.toFixed(2);
     }
-    render();
   });
 }
+render();
+
+$("menuToggle").addEventListener("click", e => {
+  e.stopPropagation();
+  $("headerBtns").classList.toggle("open");
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest("#headerBtns")) $("headerBtns").classList.remove("open");
+});
+document.querySelectorAll("#headerBtns .btn").forEach(b => {
+  b.addEventListener("click", () => $("headerBtns").classList.remove("open"));
+});
+
 $("Qr").addEventListener("input", () => {
   if (!rangeDirty) {
     const Qr = parseFloat($("Qr").value);

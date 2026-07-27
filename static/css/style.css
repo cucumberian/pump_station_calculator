@@ -41,6 +41,21 @@ header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
 }
 .header-btns { display: flex; gap: 8px; }
 .header-btns .btn { font-size: 12px; }
+
+.menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.menu-toggle:hover { background: rgba(255, 255, 255, 0.12); }
 .btn:hover { background: #dbe6f5; }
 
 .tr-row { display: flex; gap: 8px; align-items: center; }
@@ -253,10 +268,26 @@ table.trace tr.bracket td { color: #5a6572; }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
-  header { padding: 6px 16px; }
+  header { padding: 6px 16px; position: relative; }
   header h1 { font-size: 17px; }
+  header p { display: none; }
+  .menu-toggle { display: inline-flex; flex-shrink: 0; }
+  .header-btns {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 8px;
+    flex-direction: column;
+    gap: 6px;
+    background: #12325e;
+    padding: 8px;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    z-index: 20;
+  }
+  .header-btns.open { display: flex; }
+  .header-btns .btn { text-align: center; }
   .btn {font-size: 12px; padding: 5px 10px;}
-  .header-btns {flex-direction: column; gap: 3px;}
   .panel { padding: 12px; }
   .cards { grid-template-columns: 1fr; }
   .chart-wrap { height: 240px; }

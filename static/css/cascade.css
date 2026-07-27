@@ -517,21 +517,6 @@
 .drawflow .connection .main-path:hover,
 .drawflow .connection .main-path.selected { stroke: #d6336c; }
 
-.menu-toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  color: #fff;
-  border-radius: 6px;
-  font-size: 18px;
-  line-height: 1;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-.menu-toggle:hover { background: rgba(255, 255, 255, 0.12); }
-
 .palette .global-n .n-short { display: none; }
 
 .ctx-menu {
@@ -582,25 +567,6 @@
 }
 
 @media (max-width: 900px) {
-  .cascade-page header { position: relative; }
-  .cascade-page header p { display: none; }
-  .cascade-page header h1 { font-size: 16px; }
-  .cascade-page .menu-toggle { display: inline-flex; flex-shrink: 0; }
-  .cascade-page .header-btns {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 8px;
-    flex-direction: column;
-    gap: 6px;
-    background: #12325e;
-    padding: 8px;
-    border-radius: 0 0 8px 8px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    z-index: 20;
-  }
-  .cascade-page .header-btns.open { display: flex; }
-  .cascade-page .header-btns .btn { text-align: center; }
   .cascade-main { flex-direction: column; }
   #drawflow { flex: 1; min-height: 0; }
   .sidebar {

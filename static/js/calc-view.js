@@ -256,7 +256,7 @@ function ecAxisTip(unit) {
 }
 
 function makeWQChart(el) {
-  const ec = makeEChart(el, { legend: true });
+  const ec = makeEChart(el, { legend: true, title: "Wнс от Qнс", toolbox: false });
   return {
     setXRange(min, max) {
       ec.inst.setOption({ xAxis: { min, max } });
@@ -271,8 +271,9 @@ function makeWQChart(el) {
       const fn = calcFn || (q => calc(q, Qr, tr, n));
       const ws = qs.map(q => +fn(q).W.toFixed(2));
       ec.update({
+        title: { left: "center" },
         xAxis: { type: "value", name: "Qнс, л/с", nameLocation: "middle", nameGap: 24, min: "dataMin", axisLabel: { formatter: v => +v.toFixed(2) } },
-        yAxis: { type: "value", name: "Wнс, м³", min: 0 },
+        yAxis: { type: "value", name: "Wнс, м³", min: 0, nameLocation: "middle", nameGap: 40 },
         tooltip: {
           formatter: params => {
             const p = params.find(p => p.seriesName === "Wнс, м³");
@@ -300,7 +301,7 @@ function makeWQChart(el) {
 }
 
 function makeQTChart(el, { onHelp = null } = {}) {
-  const ec = makeEChart(el, { slider: true, legend: true, title: "Гидрограф дождевого стока Q(T)" });
+  const ec = makeEChart(el, { slider: true, legend: true, title: "Гидрограф дождевого стока Q(T)", toolbox: false });
   let lastTitle = "";
   return {
     update(Q, Qr, tr, n, r, { extra = [], hydroFn = null, title = "Гидрограф дождевого стока Q(T)" } = {}) {
@@ -324,7 +325,7 @@ function makeQTChart(el, { onHelp = null } = {}) {
         itemStyle: { color: ds.borderColor },
       }));
       ec.update({
-        title: { text: lastTitle },
+        title: { text: lastTitle, left: "center" },
         xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
         yAxis: { type: "value", name: "Q, л/с", min: 0 },
         tooltip: { formatter: ecAxisTip("л/с") },
