@@ -651,7 +651,12 @@ const fsRequest = document.documentElement.requestFullscreen
     ? () => document.documentElement.webkitRequestFullscreen()
     : null;
 if (!fsRequest) {
-  fsBtn.hidden = true;
+  fsBtn.addEventListener("click", () => {
+    document.documentElement.classList.toggle("fs-fallback");
+    const on = document.documentElement.classList.contains("fs-fallback");
+    fsBtn.textContent = on ? "Свернуть экран" : "Во весь экран";
+    if (on) window.scrollTo(0, 0);
+  });
 } else {
   fsBtn.addEventListener("click", () => {
     if (document.fullscreenElement || document.webkitFullscreenElement) {

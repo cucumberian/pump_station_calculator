@@ -40,6 +40,7 @@ header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
   -webkit-appearance: none;
 }
 .header-btns { display: flex; gap: 8px; }
+.header-btns .btn { font-size: 12px; }
 .btn:hover { background: #dbe6f5; }
 
 .tr-row { display: flex; gap: 8px; align-items: center; }
