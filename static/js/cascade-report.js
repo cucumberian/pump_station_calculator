@@ -12,7 +12,8 @@ function reportPlural(n, one, few, many) {
 function helpBlocksToMD(blocks) {
   const out = [];
   for (const b of blocks) {
-    if (b.p) out.push(b.p);
+    if (b.h) out.push(`### ${b.h}`);
+    else if (b.p) out.push(b.p);
     else if (b.tex) out.push(`$$\n${b.tex}\n$$`);
     else if (b.ol) out.push(b.ol.map((x, i) => `${i + 1}. ${x}`).join("\n"));
   }
@@ -192,8 +193,10 @@ function pumpSectionMD(node, res, graph, results) {
   out.push("### Метод расчёта", "");
   const method = reportMethodCase(res);
   if (method === "pure") {
+    out.push("#### Аналитический режим (чистый дождь)", "");
     out.push("Чистый дождь — точные формулы (1)–(3) Приложения 8 рекомендаций ВОДГЕО (как в одиночном расчёте).");
   } else if (method === "segments") {
+    out.push("#### Аналитический режим (сегментный)", "");
     const nh = res.hydroGFs?.length || 0, np = res.flowGFs?.length || 0;
     const parts = [];
     if (nh) parts.push(`${nh} ${reportPlural(nh, "дождевой гидрограф", "дождевых гидрографа", "дождевых гидрографов")}`);
@@ -204,8 +207,10 @@ function pumpSectionMD(node, res, graph, results) {
     out.push("");
     out.push("Объёмы — точными интегралами по замкнутой первообразной гидрографа; между интервалами превышения резервуар осушается, уровень не уходит ниже нуля. Для суммы нескольких гидрографов пересечения ищутся подбором (бисекция) — тем же приёмом, что методичка предписывает для Tкⁿˢ.");
   } else if (method === "approx") {
+    out.push("#### Аналитический режим (эквивалентный гидрограф)", "");
     out.push("Вход содержит табличные ряды, для которых нет аналитических формул, поэтому суммарный приток заменяется эквивалентным дождевым гидрографом (Qr*, tr* — пик и момент пика суммы). Это приближение; для точного результата рекомендуется численный режим.");
   } else {
+    out.push("#### Численный режим", "");
     out.push("Численный режим — пошаговое моделирование уровня резервуара:");
     out.push("");
     out.push(`$$\nV_{i+1} = \\max\\!\\left(0,\\; V_i + 0{,}06\\,\\frac{(Q_i - Q_{нс}) + (Q_{i+1} - Q_{нс})}{2}\\,\\Delta t\\right), \\qquad W_{нс} = \\max_i V_i\n$$`);
