@@ -18,7 +18,7 @@ function hydroInt(T, Qr, tr, n) {
   return Qr * tr / (2 - n) * (x > 1 ? v - Math.pow(x - 1, 2 - n) : v);
 }
 
-function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs) {
+function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs, withTrace = false) {
   const tEnd = Math.max(0, ...hydroGFs.map(gf => durationGF(gf)), ...piecewiseGFs.map(gf => durationGF(gf)));
   const bps = new Set([0]);
   for (const gf of piecewiseGFs) {
@@ -76,26 +76,33 @@ function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs) {
     return roots;
   };
   let tn = null, tk = null, V = 0, W = 0;
+  const trace = withTrace ? [] : null;
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     if (b - a < 1e-9) continue;
     let c = 0;
     for (const gf of piecewiseGFs) c += evalGF(gf, (a + b) / 2);
-    const bounds = [a, ...findRoots(a, b, Q - c), b];
+    const roots = findRoots(a, b, Q - c);
+    const bounds = [a, ...roots, b];
+    const segTrace = trace ? { a, b, c, level: Q - c, roots, subs: [] } : null;
     for (let k = 0; k < bounds.length - 1; k++) {
       const sa = bounds[k], sb = bounds[k + 1];
       if (sb - sa < 1e-9) continue;
-      if (gAt((sa + sb) / 2) + c > Q) {
+      const above = gAt((sa + sb) / 2) + c > Q;
+      if (above) {
         if (tn === null) tn = sa;
         tk = sb;
       }
-      V += 0.06 * (gInt(sa, sb) + (c - Q) * (sb - sa));
+      const dV = 0.06 * (gInt(sa, sb) + (c - Q) * (sb - sa));
+      V += dV;
       if (V < 0) V = 0;
       if (V > W) W = V;
+      if (segTrace) segTrace.subs.push({ sa, sb, above, dV, V });
     }
+    if (segTrace) { segTrace.V = V; segTrace.W = W; trace.push(segTrace); }
   }
-  if (tn === null) return { tn: 0, tk: 0, W: 0, dry: true };
-  return { tn, tk, W };
+  if (tn === null) return { tn: 0, tk: 0, W: 0, dry: true, ...(trace ? { trace } : {}) };
+  return { tn, tk, W, ...(trace ? { trace } : {}) };
 }
 
 function calc(Q, Qr, tr, n) {
@@ -176,9 +183,10 @@ function combineSeries(list, dt = HYDRO_DT) {
   return { t: ts, q: qs };
 }
 
-function numericCalc(Q, s) {
+function numericCalc(Q, s, withTrace = false) {
   const { t, q } = s;
   let tn = null, tk = null, V = 0, W = 0;
+  const windows = withTrace ? [] : null;
   for (let i = 0; i < t.length - 1; i++) {
     const e0 = q[i] - Q, e1 = q[i + 1] - Q;
     const dt = t[i + 1] - t[i];
@@ -193,12 +201,21 @@ function numericCalc(Q, s) {
         tk = tc;
       }
     }
+    const wasEmpty = V === 0;
     V += 0.06 * (e0 + e1) / 2 * dt;
     if (V < 0) V = 0;
     if (V > W) W = V;
+    if (windows) {
+      if (wasEmpty && V > 0) windows.push({ start: t[i], end: t[i + 1], maxV: V });
+      else if (V > 0 && windows.length) {
+        const w = windows[windows.length - 1];
+        w.end = t[i + 1];
+        if (V > w.maxV) w.maxV = V;
+      }
+    }
   }
-  if (tn === null) return { tn: 0, tk: 0, W: 0, dry: true };
-  return { tn, tk, W, truncated: q[t.length - 2] > Q };
+  if (tn === null) return { tn: 0, tk: 0, W: 0, dry: true, ...(windows ? { windows } : {}) };
+  return { tn, tk, W, truncated: q[t.length - 2] > Q, ...(windows ? { windows } : {}) };
 }
 
 function pumpOutSeries(Q, r, tMax, dt = HYDRO_DT, idle = Q * 50 / 100) {

@@ -257,6 +257,11 @@ $c("exportJson").addEventListener("click", () => {
   a.click();
   URL.revokeObjectURL(a.href);
 });
+$c("exportReport").addEventListener("click", () => {
+  const payload = serializeScheme();
+  const md = buildReportMD({ nodes: payload.nodes, connections: payload.connections }, results, { meta: cascadeMeta, n: getGlobalN(), payload });
+  downloadTextFile("kns-obosnovanie.md", md);
+});
 $c("importJson").addEventListener("click", () => $c("importFile").click());
 $c("importFile").addEventListener("change", async e => {
   const file = e.target.files[0];

@@ -671,4 +671,3 @@ if (!fsRequest) {
 bindModal();
 bindMetaModal();
 loadInitial();
-syncModeBtn();

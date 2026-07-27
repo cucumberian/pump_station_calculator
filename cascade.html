@@ -21,9 +21,10 @@
   <script defer src="static/js/cascade-catch.js?v=1"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=4"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=7"></script>
-  <script defer src="static/js/cascade-io.js?v=2"></script>
-  <script defer src="static/js/cascade.js?v=31"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=11"></script>
+  <script defer src="static/js/cascade-io.js?v=4"></script>
+  <script defer src="static/js/cascade-report.js?v=6"></script>
+  <script defer src="static/js/cascade.js?v=32"></script>
 </head>
 
 <body class="cascade-page">
@@ -38,6 +39,7 @@
       <button class="btn" id="fullscreen" type="button" title="Полноэкранный режим — скрывает адресную строку браузера">Во весь экран</button>
       <button class="btn" id="metaBtn" type="button" title="Сведения об объекте, авторе и произвольные поля — включаются в экспорт">Сведения</button>
       <button class="btn" id="exportJson" type="button" title="Скачать схему в JSON-файл">Экспорт</button>
+      <button class="btn" id="exportReport" type="button" title="Скачать обоснование расчёта в Markdown: методика, формулы, исходные данные и результаты по всем нодам">Обоснование</button>
       <button class="btn" id="importJson" type="button" title="Загрузить схему из JSON-файла">Импорт</button>
       <a class="btn" href="index.html" title="Одиночный расчёт насосной станции">Одиночный расчёт</a>
     </div>
@@ -93,6 +95,7 @@
           <button class="node-disable" id="sbDisableBtn" type="button" title="Отключить ноду"></button>
           <button class="node-lock" id="sbLockBtn" type="button" title="Заблокировать параметры"></button>
           <button class="sb-gf" id="sbGFBtn" type="button" title="Входные и выходные функции ноды">ƒ</button>
+          <button class="sb-gf" id="sbReportBtn" type="button" title="Скачать обоснование расчёта этой ноды в Markdown">MD</button>
           <button class="modal-close" id="sbClose" type="button" aria-label="Закрыть"><svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg></button>
         </div>
       </div>

@@ -372,6 +372,24 @@ $c("sbFitAxis").addEventListener("click", () => {
   renderSidebar();
 });
 
+function fmtSumParts(gfs, labels) {
+  const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
+  let html = `<div class="gf-segments">`;
+  gfs.forEach((gf, i) => {
+    if (!gf) return;
+    const label = labels[i] ? `${labels[i]}: ` : "";
+    if (gf.type === "hydrograph") {
+      html += `<span class="gf-seg">+ ${label}гидрограф Qr = ${f(gf.Qr)} л/с, tr = ${f(gf.tr)} мин, n = ${gf.n}${gf.delay ? `, сдвиг +${f(gf.delay)} мин` : ""}</span>`;
+    } else if (gf.type === "piecewise") {
+      const segs = gf.segments.map(s => `[${f(s.tStart)}; ${f(s.tEnd)}) → ${f(s.q)} л/с`).join("; ");
+      html += `<span class="gf-seg">+ ${label}кусочно-постоянная ${segs}${gf.delay ? `, сдвиг +${f(gf.delay)} мин` : ""}</span>`;
+    } else if (gf.t && gf.q) {
+      html += `<span class="gf-seg">+ ${label}табличный ряд (${gf.t.length} точек)</span>`;
+    }
+  });
+  return html + `</div>`;
+}
+
 function fmtGF(gf, label) {
   const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
   let html = `<div class="gf-entry"><span class="gf-label">${label}</span> `;
@@ -420,11 +438,33 @@ function showGFInfo(nodeId) {
     }
     html += `</div>`;
   }
+  const catchSrcs = upstreams.filter(u => results[u]?.fromCatch);
+  const flowSrcs = upstreams.filter(u => results[u] && !results[u].fromCatch);
+  const hydroLabels = (res.hydroGFs || []).map((_, i) =>
+    catchSrcs[i] ? `${NODE_LABEL[data[catchSrcs[i]]?.name] || "?"} #${catchSrcs[i]}` : "Собственный дождь");
+  const flowLabels = (res.flowGFs || []).map((_, i) =>
+    flowSrcs[i] ? `Выход ${NODE_LABEL[data[flowSrcs[i]]?.name] || "?"} #${flowSrcs[i]}` : "");
+  const hydroGfs = (res.hydroGFs || []).map((gf, i) => (catchSrcs[i] && results[catchSrcs[i]]?.gf) || gf);
+  const flowGfs = (res.flowGFs || []).map((gf, i) => (flowSrcs[i] && results[flowSrcs[i]]?.gf) || gf);
   if (res.ownRainGF) {
-    html += `<div class="gf-section gf-section-in"><h3>Собственный гидрограф</h3>${fmtGF(res.ownRainGF, "")}</div>`;
+    let ownHtml;
+    if (res.ownRainGF.type === "dense" && (res.hydroGFs?.length || 0) > 1) {
+      ownHtml = `<div class="gf-entry"><span class="gf-type">Сумма (аналитическая)</span>${fmtSumParts(hydroGfs, hydroLabels)}<div class="gf-dur">для графика свёрнута в ряд: ${res.ownRainGF.t.length} точек, шаг ${HYDRO_DT} мин</div></div>`;
+    } else {
+      ownHtml = fmtGF(res.ownRainGF, "");
+    }
+    html += `<div class="gf-section gf-section-in"><h3>Собственный гидрограф</h3>${ownHtml}</div>`;
   }
   if (res.inflowGF) {
-    html += `<div class="gf-section gf-section-in"><h3>Суммарный вход</h3>${fmtGF(res.inflowGF, upstreams.length || res.ownRainGF ? "Σ" : "")}</div>`;
+    let inHtml;
+    if ((res.flowGFs?.length || 0) > 0 || (res.hydroGFs?.length || 0) > 1) {
+      const denseNote = res.inflowGF.t
+        ? `<div class="gf-dur">для графика и численного режима свёрнута в ряд: ${res.inflowGF.t.length} точек, шаг ${HYDRO_DT} мин</div>` : "";
+      inHtml = `<div class="gf-entry"><span class="gf-label">Σ</span> <span class="gf-type">Сумма (аналитическая)</span>${fmtSumParts([...hydroGfs, ...flowGfs], [...hydroLabels, ...flowLabels])}${denseNote}</div>`;
+    } else {
+      inHtml = fmtGF(res.inflowGF, upstreams.length || res.ownRainGF ? "Σ" : "");
+    }
+    html += `<div class="gf-section gf-section-in"><h3>Суммарный вход</h3>${inHtml}</div>`;
   }
   if (res.gf) {
     let outLabel = "";
@@ -455,6 +495,12 @@ function showGFInfo(nodeId) {
 
 $c("sbGFBtn").addEventListener("click", () => {
   if (sbNodeId !== null) showGFInfo(sbNodeId);
+});
+$c("sbReportBtn").addEventListener("click", () => {
+  if (sbNodeId === null) return;
+  const payload = serializeScheme();
+  const md = buildNodeReportMD(sbNodeId, { nodes: payload.nodes, connections: payload.connections }, results, { meta: cascadeMeta, n: getGlobalN(), payload });
+  if (md) downloadTextFile(`kns-node-${sbNodeId}.md`, md);
 });
 $c("gfClose").addEventListener("click", () => { $c("gfModal").hidden = true; });
 $c("gfHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
