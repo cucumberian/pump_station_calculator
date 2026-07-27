@@ -167,6 +167,7 @@ function buildCards(cardsEl, Q, Qr, tr, n, r, numeric, noteText = null) {
 }
 
 const EC_REGISTRY = [];
+const sharedZoom = { start: 0, end: 100 };
 function makeEChart(el, { slider = false, title = "", legend = false, toolbox = true } = {}) {
   const inst = echarts.init(el, null, { renderer: "canvas" });
   EC_REGISTRY.push(inst);
@@ -197,6 +198,18 @@ function makeEChart(el, { slider = false, title = "", legend = false, toolbox = 
       ...(slider ? [{ type: "slider", xAxisIndex: 0, height: 20, bottom: 6, brushSelect: false }] : []),
     ],
   };
+  let firstRender = true;
+  let _applyingZoom = false;
+  inst.on("datazoom", () => {
+    if (_applyingZoom) return;
+    try {
+      const opts = inst.getOption();
+      if (opts?.dataZoom?.length) {
+        sharedZoom.start = opts.dataZoom[0].start ?? 0;
+        sharedZoom.end = opts.dataZoom[0].end ?? 100;
+      }
+    } catch (_) {}
+  });
   return {
     inst,
     update(option) {
@@ -205,17 +218,28 @@ function makeEChart(el, { slider = false, title = "", legend = false, toolbox = 
         if (base[k] && option[k]) merged[k] = { ...base[k], ...option[k] };
         else if (!base[k] && k === "toolbox") delete merged[k];
       }
-      try {
-        const prev = inst.getOption();
-        if (prev && Array.isArray(prev.dataZoom) && prev.dataZoom.length) {
-          merged.dataZoom = merged.dataZoom.map((dz, i) => ({
-            ...dz,
-            start: prev.dataZoom[i]?.start ?? dz.start,
-            end: prev.dataZoom[i]?.end ?? dz.end,
-          }));
-        }
-      } catch (_) { /* first render — no zoom to preserve */ }
+      if (firstRender) {
+        firstRender = false;
+        merged.dataZoom = merged.dataZoom.map(dz => ({
+          ...dz,
+          start: sharedZoom.start,
+          end: sharedZoom.end,
+        }));
+      } else {
+        try {
+          const prev = inst.getOption();
+          if (prev && Array.isArray(prev.dataZoom) && prev.dataZoom.length) {
+            merged.dataZoom = merged.dataZoom.map((dz, i) => ({
+              ...dz,
+              start: prev.dataZoom[i]?.start ?? dz.start,
+              end: prev.dataZoom[i]?.end ?? dz.end,
+            }));
+          }
+        } catch (_) {}
+      }
+      _applyingZoom = true;
       inst.setOption(merged, { notMerge: true, lazyUpdate: true });
+      _applyingZoom = false;
     },
   };
 }
