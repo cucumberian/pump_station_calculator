@@ -205,7 +205,7 @@
 .spoiler-head .ic-chevron { transition: transform 0.15s; transform: rotate(-90deg); flex-shrink: 0; }
 
 .sidebar .cards { grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
-.sidebar .chart-wrap { height: 340px; margin-bottom: 16px; }
+.sidebar .chart-wrap { height: 350px; margin-bottom: 16px; }
 .sidebar .mode-row {
   display: flex;
   gap: 14px;

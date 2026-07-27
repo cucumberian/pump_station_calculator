@@ -177,10 +177,10 @@ function makeEChart(el, { slider = false, title = "", legend = false, toolbox = 
     grid: {
       left: 64, right: 16,
       top: title ? 32 : 12,
-      bottom: (slider ? 48 : 36) + legendH, containLabel: false,
+      bottom: (slider ? 58 : 36) + legendH, containLabel: false,
     },
     title: title ? { text: title, left: 4, top: 2, right: 0, textStyle: { fontSize: 13, fontWeight: 600, color: "#12325e", overflow: "truncate", width: 300 } } : undefined,
-    legend: legend ? { left: 4, right: 4, bottom: slider ? 24 : 8, itemWidth: 14, itemHeight: 8, itemGap: 12, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
+    legend: legend ? { left: "center", bottom: slider ? 24 : 8, itemWidth: 14, itemHeight: 8, itemGap: 12, textStyle: { fontSize: 11 }, icon: "rect" } : undefined,
     ...(toolbox ? { toolbox: {
       right: 4, top: 0, itemSize: 14,
       feature: {
@@ -256,7 +256,7 @@ function ecAxisTip(unit) {
 }
 
 function makeWQChart(el) {
-  const ec = makeEChart(el, { title: "Рабочий объём резервуара Wнс от производительности Qнс", legend: true });
+  const ec = makeEChart(el, { legend: true });
   return {
     setXRange(min, max) {
       ec.inst.setOption({ xAxis: { min, max } });
@@ -288,12 +288,12 @@ function makeWQChart(el) {
         series: [
           { name: "Wнс, м³", type: "line", showSymbol: false, data: qs.map((q, i) => [q, ws[i]]),
             lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" }, smooth: 0.2 },
-          { name: "Qнс выбранное", type: "scatter", data: [[+Q.toFixed(2), fn(+Q.toFixed(2)).W]],
+          { name: "Qнс, л/с", type: "scatter", data: [[+Q.toFixed(2), fn(+Q.toFixed(2)).W]],
             symbolSize: 10, itemStyle: { color: "#d6336c" }, z: 5 },
           { name: "Варианты из таблицы", type: "scatter", data: rangePts.map(p => [p.x, p.y]),
             symbolSize: 7, itemStyle: { color: "#f08c00" } },
         ],
-        legend: { data: ["Wнс, м³", "Qнс выбранное", "Варианты из таблицы"] },
+        legend: { data: ["Wнс, м³", "Qнс, л/с", "Варианты из таблицы"], left: "center", right: "center", padding: -5 },
       });
     },
   };
@@ -328,7 +328,7 @@ function makeQTChart(el, { onHelp = null } = {}) {
         xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
         yAxis: { type: "value", name: "Q, л/с", min: 0 },
         tooltip: { formatter: ecAxisTip("л/с") },
-        legend: { data: ["Q(T), л/с", ...extra.map(d => d.label), "Wнс (площадь)"] },
+        legend: { data: ["Q(T), л/с", ...extra.map(d => d.label), "Wнс (площадь)"], left: "center" },
         series: [
           { name: "Q(T), л/с", type: "line", showSymbol: false, data: ts.map((t, i) => [t, qs[i]]),
             lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" }, smooth: 0.2,

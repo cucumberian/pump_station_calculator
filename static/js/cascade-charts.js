@@ -75,7 +75,7 @@ const inflowChart = (() => {
         xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
         yAxis: { type: "value", name: "Q, л/с", min: 0 },
         tooltip: { formatter: ecAxisTip("л/с") },
-        legend: { data: [...comps.map(c => c.label), approx ? "Σ вход (эквив.), л/с" : "Σ вход, л/с", ...(outSeries ? ["выход КНС, л/с"] : [])] },
+        legend: { data: [...comps.map(c => c.label), approx ? "Σ вход (эквив.), л/с" : "Σ вход, л/с", ...(outSeries ? ["выход КНС, л/с"] : [])], left: "center", right: "center", padding: 0  },
         series,
       });
     },
@@ -114,14 +114,14 @@ const catchChart = (() => {
               symbol: "none", silent: true, animation: false,
               data: [
                 { name: "Qr", yAxis: Qr, lineStyle: { color: "#0b7285", type: "dashed" },
-                  label: { formatter: `Qr = ${fmt(Qr, 1)} л/с`, position: "insideStartTop" } },
+                  label: { formatter: `Qr = ${fmt(Qr, 1)} л/с`, position: "insideStartBottom" } },
                 { name: "tr", xAxis: tr, lineStyle: { color: "#8a929c", type: "dashed" },
                   label: { formatter: `tr = ${fmt(tr, 1)} мин`, position: "insideEndTop" } },
               ],
             },
           },
         ],
-        legend: { data: ["Q, л/с"] },
+        legend: { data: ["Q, л/с"], left: "center" },
       });
     },
   };
