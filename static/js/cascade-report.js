@@ -94,7 +94,7 @@ function pumpResultsTable(res) {
   } else {
     rows.push(`| Tнⁿˢ | ${f(r.tn)} мин |`);
     rows.push(`| Tкⁿˢ | ${f(r.tk)} мин |`);
-    rows.push(`| Wнс | ${f(r.W, 1)} м³ |`);
+    rows.push(`| Wнс | ${f(r.W)} м³ |`);
   }
   if (r.truncated) rows.push(`| Примечание | Ряд притока обрезан до окончания откачки — результат занижен |`);
   if (res.approx) rows.push(`| Примечание | Приближение эквивалентным гидрографом (Qr*, tr* — пик суммарного входа) |`);
@@ -137,11 +137,11 @@ function pumpIntermediateMD(res) {
       }
     }
     out.push("");
-    out.push(`V — накопленный объём с учётом осушения (обрезается нулём); Wнс = max V = ${f(trc.W, 1)} м³.`);
+    out.push(`V — накопленный объём с учётом осушения (обрезается нулём); Wнс = max V = ${f(trc.W)} м³.`);
   } else if (method === "numeric") {
     const dense = toDense(res.inflowGF, HYDRO_DT, durationGF(res.inflowGF));
     const rn = numericCalc(res.Q, dense, true);
-    out.push(`Шаг моделирования Δt = ${f(HYDRO_DT, 1)} мин, точек ряда: ${dense.t.length}. Окна заполнения резервуара:`);
+    out.push(`Шаг моделирования Δt = ${f(HYDRO_DT)} мин, точек ряда: ${dense.t.length}. Окна заполнения резервуара:`);
     out.push("");
     if (rn.windows && rn.windows.length) {
       out.push("| Окно | Начало, мин | Конец, мин | max V, м³ |");
@@ -170,7 +170,7 @@ function pumpSectionMD(node, res, graph, results) {
   }
   out.push("### Исходные данные", "");
   out.push("| Параметр | Значение |", "|---|---|");
-  out.push(`| Производительность Qнс | ${f(res.Q)} л/с (${f(res.Q * 3.6, 1)} м³/ч) |`);
+  out.push(`| Производительность Qнс | ${f(res.Q)} л/с (${f(res.Q * 3.6)} м³/ч) |`);
   out.push(`| Откачка вне пика | ${f(res.idle)} % (${f(res.Q * res.idle / 100)} л/с) |`);
   out.push(`| Режим расчёта | ${res.mode === "numeric" ? "численный" : "аналитический"} |`);
   const srcNote = res.lockId ? ` (от ${res.lockIds?.length > 1 ? "водосборов" : "водосбора"} ${(res.lockIds || [res.lockId]).map(x => "#" + x).join(", ")})` : "";
@@ -314,13 +314,13 @@ function reportMermaidMD(graph) {
 function reportSchemeMD(graph, n) {
   const out = ["## Схема", ""];
   out.push(reportMermaidMD(graph), "");
-  out.push("| # | Тип | Название | Ключевые параметры |", "|---|---|---|---|");
+  out.push("| # | Тип | Имя | Ключевые параметры |", "|---|---|---|---|");
   for (const nd of graph.nodes) {
     const d = nd.data || {};
     let params = "";
-    if (nd.type === "pump") params = `Qнс=${d.q || "—"} л/с, Qr=${d.qr || "—"}, tr=${d.tr || "—"}, режим: ${d.mode === "numeric" ? "числ." : "аналит."}`;
-    else if (nd.type === "catch") params = `F=${d.F ?? "—"} га, q20=${d.q20 ?? "—"}`;
-    else if (nd.type === "delay") params = `L=${d.l ?? d.L ?? "—"} м, v=${d.v ?? "—"} м/с`;
+    if (nd.type === "pump") params = `Qнс=${reportFmt(d.q)} л/с, Qr=${reportFmt(d.qr)} л/с, tr=${reportFmt(d.tr)} мин, режим: ${d.mode === "numeric" ? "числ." : "аналит."}`;
+    else if (nd.type === "catch") params = `F=${reportFmt(d.F)} га, q20=${reportFmt(d.q20)} л/с/га`;
+    else if (nd.type === "delay") params = `L=${reportFmt(d.l ?? d.L)} м, v=${reportFmt(d.v)} м/с`;
     const disabled = d.disabled ? " **(отключена — расчёт не выполняется)**" : "";
     const title = (d.name || "").trim() + ((d.desc || "").trim() ? ` — ${(d.desc || "").trim()}` : "");
     out.push(`| ${nd.id} | ${reportNodeLabel(nd.type)} | ${title || "—"} | ${params}${disabled} |`);
@@ -329,7 +329,7 @@ function reportSchemeMD(graph, n) {
   if (graph.connections.length) {
     out.push(`**Связи:** ${graph.connections.map(c => `#${c.from} → #${c.to}`).join(", ")}`, "");
   }
-  out.push(`**Общий климатический параметр:** n = ${reportFmt(n)}; **шаг дискретизации рядов:** Δt = ${reportFmt(HYDRO_DT, 1)} мин.`, "");
+  out.push(`**Общий климатический параметр:** n = ${reportFmt(n)}; **шаг дискретизации рядов:** Δt = ${reportFmt(HYDRO_DT)} мин.`, "");
   return out.join("\n");
 }
 
