@@ -8,7 +8,7 @@ const load = new Function("window",
   readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("cascade-nodes.js") +
   readSrc("cascade-catch.js") + readSrc("cascade-report.js") + `
 return {
-  buildReportMD, buildNodeReportMD, helpBlocksToMD,
+  buildReportMD, buildNodeReportMD, helpBlocksToMD, reportFmt, CARDS, fmt,
   mixedAnalyticCalc, numericCalc, makeHydroGF, makePiecewiseGF, shiftGF,
   calc, catchParams, toDense, combineGF, durationGF, HYDRO_DT, CASCADE_HELP
 };
@@ -350,6 +350,45 @@ test("json: JSON из отчёта валиден и парсится", () => {
   if (parsed.format !== "kns-cascade") throw new Error("неверный format");
   if (parsed.nodes.length !== 3) throw new Error(`нод в JSON: ${parsed.nodes.length}, ожидалось 3`);
   if (parsed.connections.length !== 2) throw new Error(`связей в JSON: ${parsed.connections.length}, ожидалось 2`);
+});
+
+
+// ============================================================
+// Точность форматирования околонулевых значений
+// ============================================================
+
+test("reportFmt: малое W не обнуляется, крупные числа без изменений", () => {
+  if (H.reportFmt(0.044145) !== "0,044") throw new Error(`reportFmt(0.044145) = ${H.reportFmt(0.044145)}`);
+  if (H.reportFmt(4.415) !== "4,42") throw new Error(`reportFmt(4.415) = ${H.reportFmt(4.415)}`);
+  if (H.reportFmt(342.345, 2) !== "342,35") throw new Error(`reportFmt(342.345,2) = ${H.reportFmt(342.345, 2)}`);
+  if (H.reportFmt(0) !== "0") throw new Error(`reportFmt(0) = ${H.reportFmt(0)}`);
+  if (H.reportFmt(0.71) !== "0,71") throw new Error(`reportFmt(0.71) = ${H.reportFmt(0.71)}`);
+  if (H.reportFmt(1.23e-8) !== "0,00000001") throw new Error(`reportFmt(1.23e-8) = ${H.reportFmt(1.23e-8)}`); // каппа 8 знаков
+});
+
+test("fmt: карточки W/Q показывают значащие цифры у нуля", () => {
+  if (H.fmt(0.044145, 1) !== "0,044") throw new Error(`fmt(0.044145,1) = ${H.fmt(0.044145, 1)}`);
+  if (H.fmt(0.000322, 1) !== "0,00032") throw new Error(`fmt(0.000322,1) = ${H.fmt(0.000322, 1)}`);
+  if (H.fmt(4.415, 1) !== "4,4") throw new Error(`fmt(4.415,1) = ${H.fmt(4.415, 1)}`);
+  if (H.fmt(15.61) !== "15,61") throw new Error(`fmt(15.61) = ${H.fmt(15.61)}`);
+});
+
+test("формула Wнс: подстановка 5 значащих цифр сходится с итогом", () => {
+  const r = H.calc(15, 16.65, 4.96, 0.35); // реальный тестовый случай
+  const tex = H.CARDS.find(c => c.znote).tex(15, 16.65, 4.96, 0.35, r);
+  if (!tex.includes("= 0,044\\ \\text{м}^3")) throw new Error("итог формулы не 0,044: " + tex.slice(-80));
+  // подставляемые слагаемые не должны печататься двумя знаками:
+  if (!tex.includes("0,85167")) throw new Error("в подстановке нет 5-значных слагаемых");
+});
+
+test("отчёт: малое Wнс не показывает 0 м³", () => {
+  const r = H.calc(15, 16.65, 4.96, 0.35);
+  const graph = { nodes: [{ id: 1, type: "pump", data: { q: 15, qr: 16.65, tr: 4.96, idle: 50, mode: "analytic" } }], connections: [] };
+  const results = { 1: { gf: null, ownRainGF: H.makeHydroGF(16.65, 4.96, 0.35, 0), inflowGF: null, flowGFs: [], hydroGFs: [H.makeHydroGF(16.65, 4.96, 0.35, 0)],
+    r, Q: 15, Qr: 16.65, tr: 4.96, idle: 50, mode: "analytic", eq: { Qr: 16.65, tr: 4.96, n: 0.35 }, nEff: 0.35, lockId: null, lockIds: [], approx: false } };
+  const md = H.buildReportMD(graph, results, { meta: { custom: [] }, n: 0.35 });
+  includes(md, "| Wнс | 0,044 м³ |");
+  includes(md, "объём регулирования стремится к нулю");
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);

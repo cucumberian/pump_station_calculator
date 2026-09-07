@@ -406,6 +406,7 @@
 }
 .node-summary { padding-right: 30px; min-height: 38px; }
 .node-summary .warn { color: #b0341f; }
+.node-summary .hint { color: #b45309; font-size: 11px; }
 .node-num { font-weight: 700; opacity: 0.55; }
 
 .catch-out {

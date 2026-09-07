@@ -162,7 +162,7 @@ function applyPayload(payload) {
   if (payload.n > 0 && payload.n < 1) $c("globalN").value = payload.n;
   closeSidebar();
   rebuildScheme(payload.scheme && !payload.nodes ? payload.scheme : payload);
-  computeCascade();
+  flushCascade();
   fitView();
 }
 
@@ -187,7 +187,7 @@ function loadInitial() {
   } else {
     fitView();
   }
-  computeCascade();
+  flushCascade();
   viewReady = true;
 }
 
@@ -258,6 +258,7 @@ $c("exportJson").addEventListener("click", () => {
   URL.revokeObjectURL(a.href);
 });
 $c("exportReport").addEventListener("click", () => {
+  flushCascade(); // в отчёт попадают свежие результаты
   const payload = serializeScheme();
   const md = buildReportMD({ nodes: payload.nodes, connections: payload.connections }, results, { meta: cascadeMeta, n: getGlobalN(), payload });
   downloadTextFile("kns-obosnovanie.md", md);
@@ -285,5 +286,5 @@ $c("clearAll").addEventListener("click", () => {
   if (!confirm("Удалить все ноды и связи?")) return;
   closeSidebar();
   editor.clear();
-  computeCascade();
+  flushCascade();
 });

@@ -1,7 +1,45 @@
 "use strict";
 
 const $view = id => document.getElementById(id);
-const fmt = (x, d = 2) => Number(x).toLocaleString("ru-RU", { maximumFractionDigits: d });
+
+// Малые значения не обнуляем: добавляем знаки до первых значащих цифр.
+// fmt(0.0441, 1) → «0,044», fmt(4.41, 1) → «4,4» — как раньше для крупных.
+function fmtDecimals(x, d) {
+  const v = Number(x);
+  if (v !== 0 && Number.isFinite(v) && Math.abs(v) < 1) {
+    return Math.min(8, Math.max(d, 1 - Math.floor(Math.log10(Math.abs(v)))));
+  }
+  return d;
+}
+const fmt = (x, d = 2) =>
+  Number(x).toLocaleString("ru-RU", { maximumFractionDigits: fmtDecimals(x, d) });
+
+// Формат с N значащими цифрами — для величин, подставляемых в формулы,
+// чтобы строка вычислений сходилась с итогом даже при вычитании близких чисел.
+function fmtSig(x, sig = 4) {
+  const v = Number(x);
+  if (!Number.isFinite(v)) return "—";
+  if (v === 0) return "0";
+  const dec = Math.min(10, Math.max(0, sig - 1 - Math.floor(Math.log10(Math.abs(v)))));
+  return v.toLocaleString("ru-RU", { maximumFractionDigits: dec });
+}
+
+// Округление для данных графиков/таблиц: малые значения сохраняют 2 знака.
+const smartRound = v => {
+  const a = Math.abs(v);
+  if (!Number.isFinite(v)) return 0;
+  return a > 0 && a < 0.01 ? +v.toPrecision(2) : +v.toFixed(2);
+};
+
+// Почти нулевой объём — не ошибка, а особенный режим: резервуар почти не работает.
+function nearZeroNote(r) {
+  if (!r || r.dry || !(r.W > 0)) return null;
+  if (r.W >= 0.05) return null;
+  const fill = Number.isFinite(r.tk) && Number.isFinite(r.tn) && r.tk > r.tn
+    ? ` Наполнение резервуара длится всего ${fmt(r.tk - r.tn)} мин в пике дождя.`
+    : "";
+  return `Qⁿˢ почти равен притоку: объём регулирования стремится к нулю.${fill}`;
+}
 
 function tex(formula) {
   const span = document.createElement("span");
@@ -111,9 +149,14 @@ const CARDS = [
     title: "Wнс — рабочий объём резервуара, м³",
     sym: "W_{нс}", unit: "\\text{м}^3",
     wide: true,
+    znote: true,
     val: r => fmt(r.W, 1),
-    tex: (Q, Qr, tr, n, r) =>
-      `\\begin{aligned} W_{нс} &= \\frac{0{,}06\\,Q_r\\,t_r}{2-n}\\left[\\left(\\frac{T_{к}^{\\text{нс}}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{н}^{\\text{нс}}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{к}^{\\text{нс}}}{t_r}-1\\right)^{2-n} - \\frac{Q_{нс}}{Q_r}(2-n)\\left(\\frac{T_{к}^{\\text{нс}}}{t_r}-\\frac{T_{н}^{\\text{нс}}}{t_r}\\right)\\right] \\\\ &= \\frac{0{,}06\\cdot ${fmt(Qr)}\\cdot ${fmt(tr)}}{2-${fmt(n)}}\\left[ ${fmt(r.tk / tr, 2)}^{${fmt(2 - n)}} - ${fmt(r.tn / tr, 3)}^{${fmt(2 - n)}} - ${fmt(r.tk / tr - 1, 2)}^{${fmt(2 - n)}} - ${fmt(Q / Qr, 3)}\\cdot ${fmt(2 - n)}\\cdot (${fmt(r.tk / tr, 2)}-${fmt(r.tn / tr, 3)}) \\right] = ${fmt(r.W, 1)}\\ \\text{м}^3 \\end{aligned}`
+    tex: (Q, Qr, tr, n, r) => {
+      // В подстановку идут значения с 5 значащими цифрами: слагаемые вычитаются
+      // из близких чисел, при 2–3 знаках строка «не сходится» с итогом.
+      const k = v => fmtSig(v, 5);
+      return `\\begin{aligned} W_{нс} &= \\frac{0{,}06\\,Q_r\\,t_r}{2-n}\\left[\\left(\\frac{T_{к}^{\\text{нс}}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{н}^{\\text{нс}}}{t_r}\\right)^{2-n} - \\left(\\frac{T_{к}^{\\text{нс}}}{t_r}-1\\right)^{2-n} - \\frac{Q_{нс}}{Q_r}(2-n)\\left(\\frac{T_{к}^{\\text{нс}}}{t_r}-\\frac{T_{н}^{\\text{нс}}}{t_r}\\right)\\right] \\\\ &= \\frac{0{,}06\\cdot ${k(Qr)}\\cdot ${k(tr)}}{2-${k(n)}}\\left[ ${k(r.tk / tr)}^{${k(2 - n)}} - ${k(r.tn / tr)}^{${k(2 - n)}} - ${k(r.tk / tr - 1)}^{${k(2 - n)}} - ${k(Q / Qr)}\\cdot ${k(2 - n)}\\cdot (${k(r.tk / tr)}-${k(r.tn / tr)}) \\right] = ${fmt(r.W, 1)}\\ \\text{м}^3 \\end{aligned}`;
+    }
   },
 ];
 
@@ -131,6 +174,7 @@ const HYDRO_HELP = [
 
 function buildCards(cardsEl, Q, Qr, tr, n, r, numeric, noteText = null) {
   cardsEl.innerHTML = "";
+  const znote = (!numeric && r) ? nearZeroNote(r) : null;
   for (const c of CARDS) {
     const div = document.createElement("div");
     div.className = "card" + (c.wide ? " wide" : "");
@@ -159,6 +203,13 @@ function buildCards(cardsEl, Q, Qr, tr, n, r, numeric, noteText = null) {
         const note = document.createElement("span");
         note.className = "num-note";
         note.textContent = noteText;
+        div.append(note);
+      }
+      if (c.znote && znote) {
+        const note = document.createElement("span");
+        note.className = "num-note";
+        note.style.color = "#b45309";
+        note.textContent = znote;
         div.append(note);
       }
     }
@@ -269,7 +320,7 @@ function makeWQChart(el) {
       qSet.add(+Q.toFixed(2));
       const qs = [...qSet].sort((a, b) => a - b);
       const fn = calcFn || (q => calc(q, Qr, tr, n));
-      const ws = qs.map(q => +fn(q).W.toFixed(2));
+      const ws = qs.map(q => smartRound(fn(q).W));
       ec.update({
         title: { left: "center" },
         xAxis: { type: "value", name: "Qнс, л/с", nameLocation: "middle", nameGap: 24, min: "dataMin", axisLabel: { formatter: v => +v.toFixed(2) } },

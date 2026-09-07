@@ -224,7 +224,7 @@ function renderSidebar() {
   const from = parseFloat($c("sbFrom").value), to = parseFloat($c("sbTo").value), step = parseFloat($c("sbStep").value);
   if (from > 0 && to > from && step > 0) {
     for (let q = from, i = 0; q <= to + 1e-9 && i < 51; q += step, i++) {
-      rangePts.push({ x: +q.toFixed(2), y: +fn(q).W.toFixed(2) });
+      rangePts.push({ x: +q.toFixed(2), y: smartRound(fn(q).W) });
     }
   }
   sbWqChart.inner.update(res.Q, qMax, 0, 0, { rangePts, calcFn: fn });
@@ -255,6 +255,7 @@ function openSidebar(id) {
   sbNodeId = id;
   markSidebarNode();
   $c("sidebar").hidden = false;
+  if (computeTimer !== null) flushCascade(); // панель должна показывать свежие итоги
   requestAnimationFrame(() => EC_REGISTRY.forEach(c => c.resize()));
   const res = results[id];
   const inflowRes = res?.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : res?.inflow;
@@ -275,13 +276,18 @@ function closeSidebar() {
   $c("sidebar").hidden = true;
 }
 
+// Дисковые (дискретные) переключения ждём мгновенной реакции, а ввод чисел
+// и протягивание слайдера пересчитываются пачкой — см. computeCascade.
+const IMMEDIATE_KEYS = new Set(["locked", "disabled", "mode", "coeffMode"]);
+
 function syncNodeParam(id, key, value) {
   const nd = editor.getNodeFromId(id);
   if (!nd) return;
   editor.updateNodeDataFromId(id, { ...nd.data, [key]: value });
   const inp = document.querySelector(`#node-${id} input[df-${key}]`);
   if (inp && document.activeElement !== inp) inp.value = value;
-  computeCascade();
+  if (IMMEDIATE_KEYS.has(key)) flushCascade();
+  else computeCascade();
 }
 
 $c("sbLockBtn").addEventListener("click", () => {
@@ -420,6 +426,7 @@ function fmtGF(gf, label) {
 }
 
 function showGFInfo(nodeId) {
+  if (computeTimer !== null) flushCascade(); // в модалке должны быть свежие ряды
   const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
   const data = graphData();
   const nd = data[nodeId];

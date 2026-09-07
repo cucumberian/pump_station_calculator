@@ -2,7 +2,12 @@
 
 function reportFmt(x, d = 2) {
   const v = Number(x);
-  return (v === 0 ? 0 : v).toLocaleString("ru-RU", { maximumFractionDigits: d });
+  // Малые значения не обнуляем: добавляем знаки до первых значащих цифр.
+  let dec = d;
+  if (v !== 0 && Number.isFinite(v) && Math.abs(v) < 1) {
+    dec = Math.min(8, Math.max(d, 1 - Math.floor(Math.log10(Math.abs(v)))));
+  }
+  return (v === 0 ? 0 : v).toLocaleString("ru-RU", { maximumFractionDigits: dec });
 }
 
 function reportPlural(n, one, few, many) {
@@ -99,6 +104,7 @@ function pumpResultsTable(res) {
   }
   if (r.truncated) rows.push(`| Примечание | Ряд притока обрезан до окончания откачки — результат занижен |`);
   if (res.approx) rows.push(`| Примечание | Приближение эквивалентным гидрографом (Qr*, tr* — пик суммарного входа) |`);
+  if (!r.dry && r.W > 0 && r.W < 0.05) rows.push(`| Примечание | Qнс почти равен притоку: объём регулирования стремится к нулю |`);
   return rows.join("\n");
 }
 

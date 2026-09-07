@@ -83,7 +83,30 @@ function topoOrder(data) {
   return order;
 }
 
+// Пересчёт всего графа — дорогая операция (топосорт, сэмплирование рядов, графики).
+// При вводе чисел и протягивании слайдера считаем не по каждому нажатию, а
+// через 250 мс после последнего изменения: computeCascade() откладывает,
+// flushCascade() — считает немедленно (структурные правки, экспорт, отчёт).
+const COMPUTE_DEBOUNCE_MS = 250;
+let computeTimer = null;
+
 function computeCascade() {
+  if (computeTimer !== null) return;
+  computeTimer = setTimeout(() => {
+    computeTimer = null;
+    computeCascadeNow();
+  }, COMPUTE_DEBOUNCE_MS);
+}
+
+function flushCascade() {
+  if (computeTimer !== null) {
+    clearTimeout(computeTimer);
+    computeTimer = null;
+  }
+  computeCascadeNow();
+}
+
+function computeCascadeNow() {
   const data = graphData();
   const nGlob = getGlobalN();
   const totalDelay = Object.values(data)
@@ -314,10 +337,12 @@ function updateSummaries(data = graphData()) {
     } else if (r.r.dry) {
       el.innerHTML = `<span class="warn">Q<sub>нс</sub> ≥ притока — регулирование не требуется</span>`;
     } else {
+      const zn = nearZeroNote(r.r);
       el.innerHTML =
         `T<sub>н</sub> = ${fmt(r.r.tn)} мин, T<sub>к</sub> = ${fmt(r.r.tk)} мин<br>` +
         `W<sub>нс</sub> = <b>${fmt(r.r.W, 1)} м³</b>` +
-        (r.r.truncated ? `<br><span class="warn">окно расчёта обрезано — W может быть занижен</span>` : "");
+        (r.r.truncated ? `<br><span class="warn">окно расчёта обрезано — W может быть занижен</span>` : "") +
+        (zn ? `<br><span class="hint">${zn}</span>` : "");
     }
   }
 }
@@ -332,7 +357,7 @@ for (const item of document.querySelectorAll(".pal-node")) {
     const x = (rect.width / 2 - editor.canvas_x) / editor.zoom;
     const y = (rect.height / 2 - editor.canvas_y) / editor.zoom;
     addNodeOfType(item.dataset.node, x - 100, y - 60);
-    computeCascade();
+    flushCascade();
   });
 }
 $c("drawflow").addEventListener("dragover", e => e.preventDefault());
@@ -342,7 +367,7 @@ $c("drawflow").addEventListener("drop", e => {
   if (!NODE_HTML[type]) return;
   const rect = editor.precanvas.getBoundingClientRect();
   addNodeOfType(type, (e.clientX - rect.x) / editor.zoom, (e.clientY - rect.y) / editor.zoom);
-  computeCascade();
+  flushCascade();
 });
 
 $c("drawflow").addEventListener("mouseup", scheduleSaveView);
@@ -451,6 +476,7 @@ $c("drawflow").addEventListener("click", e => {
   if (!ci) return;
   e.stopPropagation();
   const id = ci.closest(".drawflow-node").id.replace("node-", "");
+  if (computeTimer !== null) flushCascade(); // справка по свежим параметрам
   const r = results[id];
   if (r?.params) openHelp(catchHelp(r.params), {});
 }, true);
@@ -471,12 +497,12 @@ editor.on("connectionCreated", conn => {
     editor.removeSingleConnection(conn.output_id, conn.input_id, conn.output_class, conn.input_class);
     return;
   }
-  computeCascade();
+  flushCascade();
 });
-editor.on("connectionRemoved", () => computeCascade());
+editor.on("connectionRemoved", () => flushCascade());
 editor.on("nodeRemoved", id => {
   if (String(sbNodeId) === String(id)) closeSidebar();
-  computeCascade();
+  flushCascade();
 });
 editor.on("nodeDataChanged", () => computeCascade());
 editor.on("nodeMoved", () => saveScheme());
@@ -604,7 +630,7 @@ $c("ctxMenu").addEventListener("click", e => {
       nextNodeId();
       editor.addNode(src.name, ni, no, src.pos_x + 40, src.pos_y + 40,
         src.name, { ...src.data }, NODE_HTML[src.name]);
-      computeCascade();
+      flushCascade();
     }
     hideCtxMenu();
     return;
@@ -623,7 +649,7 @@ $c("ctxMenu").addEventListener("click", e => {
   const x = (ctxPos[0] - rect.left - editor.canvas_x) / editor.zoom;
   const y = (ctxPos[1] - rect.top - editor.canvas_y) / editor.zoom;
   addNodeOfType(btn.dataset.add, x, y);
-  computeCascade();
+  flushCascade();
   hideCtxMenu();
 });
 document.addEventListener("click", e => {

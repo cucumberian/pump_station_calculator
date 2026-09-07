@@ -63,7 +63,7 @@ function render() {
   const rc = clampRange(Qr);
   if (rc) {
     for (let q = rc.from, i = 0; q <= rc.to + 1e-9 && i < 51; q += rc.step) {
-      rangePts.push({ x: +q.toFixed(2), y: +calc(q, Qr, tr, n).W.toFixed(2) });
+      rangePts.push({ x: +q.toFixed(2), y: smartRound(calc(q, Qr, tr, n).W) });
     }
   }
   wqChart.update(Q, Qr, tr, n, { rangePts });
