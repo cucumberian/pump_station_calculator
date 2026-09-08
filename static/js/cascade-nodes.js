@@ -29,9 +29,9 @@ const NODE_HTML = {
       <div class="node-title"><span class="node-num"></span> <span class="node-name">Водосбор</span></div>
       <button class="node-disable" type="button" title="Отключить ноду"></button>
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
-      <div class="nf"><label>F, га</label><input df-F type="number" step="any" min="0.01"></div>
+      <div class="nf"><label>F, га</label><input df-f type="number" step="any" min="0.01"></div>
       <div class="nf"><label>q₂₀, л/с·га</label><input df-q20 type="number" step="any" min="1"></div>
-      <div class="nf"><label>P, лет</label><input df-P type="number" step="any" min="0.1"></div>
+      <div class="nf"><label>P, лет</label><input df-p type="number" step="any" min="0.1"></div>
       <div class="nf"><label>t<sub>con</sub>, мин</label><input df-tcon type="number" step="any" min="0"></div>
       <div class="catch-out">Q<sub>r</sub> = — <br> t<sub>r</sub> = —</div>
       <button class="catch-info" type="button" title="Формулы расчёта Qr и tr (п. 2.3.1)">?</button>

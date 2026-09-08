@@ -482,9 +482,27 @@ $c("drawflow").addEventListener("click", e => {
 }, true);
 
 $c("drawflow").addEventListener("input", e => {
-  if (!e.target.classList?.contains("q-range")) return;
-  const id = e.target.closest(".drawflow-node").id.replace("node-", "");
-  syncNodeParam(id, "q", parseFloat(e.target.value));
+  const t = e.target;
+  if (t.classList?.contains("q-range")) {
+    const id = t.closest(".drawflow-node").id.replace("node-", "");
+    syncNodeParam(id, "q", parseFloat(t.value));
+    return;
+  }
+  // DOM всегда отдает имя атрибута в нижнем регистре, поэтому Drawflow пишет
+  // поля F/P узла-водосбора в data.f/data.p, а канонические F/P устаревают:
+  // расчёт читает канон, а поле при перерисовке возвращается к призраку.
+  // Зеркалим введенное значение в канон прямо в живых данных — через
+  // updateNodeDataFromId нельзя: он перезапишет поле, в которое вводят,
+  // и сломает набор десятичных дробей.
+  const key = dfKey(t);
+  if (key !== "F" && key !== "P") return;
+  const nodeEl = t.closest(".drawflow-node");
+  if (!nodeEl) return;
+  const d = editor.drawflow?.drawflow?.Home?.data?.[nodeEl.id.slice(5)]?.data;
+  if (!d) return;
+  const v = parseFloat(t.value);
+  if (Number.isFinite(v)) d[key] = v;
+  delete d[key === "F" ? "f" : "p"];
 });
 
 editor.on("connectionCreated", conn => {

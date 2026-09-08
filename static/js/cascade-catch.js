@@ -13,10 +13,12 @@ function num(x, fallback, min = -Infinity) {
 
 function catchParams(d, n) {
   const q20 = num(d.q20, 80, 0.01);
-  const P = num(d.P, 1, 0.01);
+  // Страховка от нижнерегистровых дубликатов f/p, которые Drawflow мог оставить
+  // в старых схемах (см. migrateNodeData): canonical приоритетен, дубль — fallback.
+  const P = num(d.P !== undefined ? d.P : d.p, 1, 0.01);
   const mr = num(d.mr, 150, 1.01);
   const gamma = num(d.gamma, 1.54, 0.01);
-  const F = num(d.F, 3.9, 0.001);
+  const F = num(d.F !== undefined ? d.F : d.f, 3.9, 0.001);
   const psiMid = num(d.psiMid, 0.634, 0.001);
   const zMid = num(d.zMid, 0.201, 0.001);
   const tcon = num(d.tcon, 3, 0);

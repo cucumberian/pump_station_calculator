@@ -283,7 +283,13 @@ const IMMEDIATE_KEYS = new Set(["locked", "disabled", "mode", "coeffMode"]);
 function syncNodeParam(id, key, value) {
   const nd = editor.getNodeFromId(id);
   if (!nd) return;
-  editor.updateNodeDataFromId(id, { ...nd.data, [key]: value });
+  const data = { ...nd.data, [key]: value };
+  // DOM всегда отдает имя атрибута в нижнем регистре, поэтому Drawflow заводит
+  // у узла-водосбора призрачных близнецов f/p рядом с каноническими F/P —
+  // вычищаем близнеца, иначе расчёт и поле разойдутся.
+  if (key === "F") delete data.f;
+  if (key === "P") delete data.p;
+  editor.updateNodeDataFromId(id, data);
   const inp = document.querySelector(`#node-${id} input[df-${key}]`);
   if (inp && document.activeElement !== inp) inp.value = value;
   if (IMMEDIATE_KEYS.has(key)) flushCascade();
@@ -370,8 +376,19 @@ $c("sbCHelp").addEventListener("click", () => {
   if (r?.params) openHelp(catchHelp(r.params), {});
 });
 
+// Эти поля не меняют граф — перерисовываем только панель, но тоже пачкой
+// по кадру: прокрутка колесом не должна дёргать KaTeX и ECharts по тикам.
+let sidebarRenderQueued = false;
+function scheduleSidebarRender() {
+  if (sidebarRenderQueued) return;
+  sidebarRenderQueued = true;
+  requestAnimationFrame(() => {
+    sidebarRenderQueued = false;
+    renderSidebar();
+  });
+}
 for (const id of ["sbFrom", "sbTo", "sbStep"]) {
-  $c(id).addEventListener("input", renderSidebar);
+  $c(id).addEventListener("input", scheduleSidebarRender);
 }
 $c("sbFitAxis").addEventListener("click", () => {
   $c("sbFitAxis").classList.toggle("active");

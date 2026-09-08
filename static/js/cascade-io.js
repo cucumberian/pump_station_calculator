@@ -69,6 +69,17 @@ function migrateNodeData(type, raw) {
     if (d.Qr !== undefined) { d.qr = d.Qr; delete d.Qr; }
     if (d.Q !== undefined) { d.q = d.Q; delete d.Q; }
   }
+  if (type === "catch") {
+    // Drawflow пишет в данные имя DOM-атрибута, а DOM всегда нижний регистр:
+    // ввод в поле F/P плодил в data призрачный ключ "f"/"p" — поле показывало
+    // его, а расчёт читал устаревший канонический F/P. При загрузке склеиваем:
+    // свежее показанное значение (f/p) становится каноническим, дубликат вон.
+    const pf = parseFloat(d.f), pp = parseFloat(d.p);
+    if (Number.isFinite(pf) && pf > 0) d.F = pf;
+    if (Number.isFinite(pp) && pp > 0) d.P = pp;
+    delete d.f;
+    delete d.p;
+  }
   if (type === "delay") {
     const lOld = parseFloat(d.l ?? d.L);
     const dtOld = parseFloat(d.dt);
