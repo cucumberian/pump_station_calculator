@@ -91,8 +91,8 @@ function migrateNodeData(type, raw) {
   return d;
 }
 
-function rebuildScheme(payload) {
-  const errors = validatePayload(payload);
+function rebuildScheme(payload, opts) {
+  const errors = validatePayload(payload, opts);
   if (errors.length) throw new Error(errors.join("; "));
   editor.clear();
   let map = {};
@@ -138,7 +138,7 @@ function rebuildScheme(payload) {
   }
 }
 
-function validatePayload(p) {
+function validatePayload(p, opts) {
   const errors = [];
   if (!p || typeof p !== "object") return ["файл не является JSON-объектом"];
   if (p.format !== undefined) {
@@ -157,10 +157,22 @@ function validatePayload(p) {
       for (const c of p.connections || []) {
         if (!ids.has(c.from) || !ids.has(c.to)) errors.push(`связь ${c.from}→${c.to}: несуществующая нода`);
       }
+      // Цикл, молча севший на холст, делает порядок пересчёта непригодным
+      // (formal/Formal/Graph.lean, cascadeCycle_not_topo) — файл с циклом не грузится.
+      // opts.allowCycle — снисходительно к старым сохранённым схемам (localStorage).
+      if (!(opts && opts.allowCycle) && typeof cycleMessage === "function") {
+        const cyc = cycleMessage(p, { validTypes: Object.keys(NODE_PORTS) });
+        if (cyc) errors.push(cyc);
+      }
     }
     if (p.n !== undefined && !(p.n > 0 && p.n < 1)) errors.push("параметр n вне диапазона (0; 1)");
   } else if (!p.drawflow && !p.scheme) {
     errors.push("неизвестная структура файла: нет ни format, ни drawflow");
+  }
+  // Для drawflow-структуры (без массива nodes) — та же проверка ацикличности.
+  if (p.format === undefined && p.drawflow && !(opts && opts.allowCycle) && typeof cycleMessage === "function") {
+    const cyc = cycleMessage(p, { validTypes: Object.keys(NODE_PORTS) });
+    if (cyc) errors.push(cyc);
   }
   return errors;
 }
@@ -183,8 +195,10 @@ function loadInitial() {
   try { stored = JSON.parse(localStorage.getItem(LS_CASCADE) || "null"); } catch { stored = null; }
   const storedN = parseFloat(localStorage.getItem(LS_N));
   if (storedN > 0 && storedN < 1) $c("globalN").value = storedN;
-  if (stored && !validatePayload(stored).length) {
-    rebuildScheme(stored);
+  if (stored && !validatePayload(stored, { allowCycle: true }).length) {
+    // allowCycle: старая сохранённая схема могла содержать цикл (дыра, закрытая
+    // на импорте) — грузим как есть, о цикле предупредит баннер пересчёта.
+    rebuildScheme(stored, { allowCycle: true });
   } else {
     addNodeOfType("pump", 320, 160);
   }

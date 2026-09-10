@@ -71,6 +71,8 @@ const NODE_DEFAULTS = ${JSON.stringify(NODE_DEFAULTS)};
 const NODE_HTML = ${JSON.stringify(nodesMod.NODE_HTML)};
 
 function getGlobalN() { return 0.71; }
+
+${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-graph.js"), "utf8")}
 `;
 
 const ioMod = new Function(
@@ -184,6 +186,149 @@ test("validatePayload: non-JSON input", () => {
 test("validatePayload: null input", () => {
   const errs = ioMod.validatePayload(null);
   if (!errs.some(e => e.includes("JSON"))) throw new Error(`expected JSON error, got: ${errs.join("; ")}`);
+});
+
+// ============================================================
+// validatePayload: ацикличность
+// ============================================================
+
+test("validatePayload: acyclic chain passes", () => {
+  const p = {
+    ...MINIMAL_VALID,
+    nodes: [
+      { id: 1, type: "catch", x: 0, y: 0 },
+      { id: 2, type: "pump", x: 100, y: 0 },
+      { id: 3, type: "pump", x: 200, y: 0 },
+    ],
+    connections: [{ from: 1, to: 2 }, { from: 2, to: 3 }],
+  };
+  const errs = ioMod.validatePayload(p);
+  if (errs.length) throw new Error(`acyclic payload rejected: ${errs.join("; ")}`);
+});
+
+test("validatePayload: cycle rejected with message", () => {
+  const p = {
+    ...MINIMAL_VALID,
+    nodes: [
+      { id: 2, type: "pump", x: 0, y: 0 },
+      { id: 3, type: "pump", x: 100, y: 0 },
+      { id: 5, type: "pump", x: 200, y: 0 },
+    ],
+    connections: [{ from: 2, to: 3 }, { from: 3, to: 5 }, { from: 5, to: 2 }],
+  };
+  const errs = ioMod.validatePayload(p);
+  if (!errs.some(e => e.includes("цикл"))) throw new Error(`expected cycle error, got: ${errs.join("; ")}`);
+  const cyc = errs.find(e => e.includes("цикл"));
+  if (!cyc.includes("2 → 3 → 5 → 2")) throw new Error(`expected path in message, got: ${cyc}`);
+});
+
+test("validatePayload: cycle with downstream node listed in path or cycle set", () => {
+  const p = {
+    ...MINIMAL_VALID,
+    nodes: [
+      { id: 1, type: "catch", x: 0, y: 0 },
+      { id: 2, type: "pump", x: 100, y: 0 },
+      { id: 3, type: "pump", x: 200, y: 0 },
+      { id: 4, type: "pump", x: 300, y: 0 },
+    ],
+    connections: [{ from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 2 }, { from: 3, to: 4 }],
+  };
+  const errs = ioMod.validatePayload(p);
+  if (!errs.some(e => e.includes("цикл"))) throw new Error(`expected cycle error, got: ${errs.join("; ")}`);
+});
+
+test("validatePayload: self-loop rejected", () => {
+  const p = {
+    ...MINIMAL_VALID,
+    nodes: [{ id: 2, type: "pump", x: 0, y: 0 }],
+    connections: [{ from: 2, to: 2 }],
+  };
+  const errs = ioMod.validatePayload(p);
+  if (!errs.some(e => e.includes("цикл"))) throw new Error(`expected self-loop error, got: ${errs.join("; ")}`);
+});
+
+test("validatePayload: allowCycle option skips the cycle check (saved schemes load)", () => {
+  const p = {
+    ...MINIMAL_VALID,
+    nodes: [
+      { id: 2, type: "pump", x: 0, y: 0 },
+      { id: 3, type: "pump", x: 100, y: 0 },
+    ],
+    connections: [{ from: 2, to: 3 }, { from: 3, to: 2 }],
+  };
+  const strict = ioMod.validatePayload(p);
+  if (!strict.some(e => e.includes("цикл"))) throw new Error("strict mode should reject cycle");
+  const lenient = ioMod.validatePayload(p, { allowCycle: true });
+  if (lenient.length) throw new Error(`allowCycle should pass, got: ${lenient.join("; ")}`);
+});
+
+test("validatePayload: no false positive when only the SECOND connection would close a cycle", () => {
+  // rebuildScheme берёт только первое соединение каждого from (usedOut):
+  // 4→2 — второе от узла 4, на холст не попадёт; эффективный граф 2→3→4→5
+  // ацикличен, файл грузится.
+  const p = {
+    ...MINIMAL_VALID,
+    nodes: [
+      { id: 2, type: "pump", x: 0, y: 0 },
+      { id: 3, type: "pump", x: 100, y: 0 },
+      { id: 4, type: "pump", x: 200, y: 0 },
+      { id: 5, type: "pump", x: 300, y: 0 },
+    ],
+    connections: [
+      { from: 2, to: 3 }, { from: 3, to: 4 },
+      { from: 4, to: 5 }, { from: 4, to: 2 }, // 4→2 — второе, отбрасывается
+    ],
+  };
+  const errs = ioMod.validatePayload(p);
+  if (errs.some(e => e.includes("цикл"))) throw new Error(`false positive on usedOut-folded graph: ${errs.join("; ")}`);
+});
+
+test("validatePayload: no false positive when the cycle runs only through catch→delay (skipped)", () => {
+  // catch → delay не связывается при перестройке, значит цикл через неё не появляется.
+  const p = {
+    ...MINIMAL_VALID,
+    nodes: [
+      { id: 1, type: "catch", x: 0, y: 0 },
+      { id: 2, type: "delay", x: 100, y: 0 },
+      { id: 3, type: "pump", x: 200, y: 0 },
+    ],
+    connections: [{ from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 1 }],
+  };
+  // 1→2 — это catch→delay: skip. Остаются 2→3 и 3→1: цикла нет.
+  const errs = ioMod.validatePayload(p);
+  if (errs.some(e => e.includes("цикл"))) throw new Error(`false positive across skipped catch→delay: ${errs.join("; ")}`);
+});
+
+test("validatePayload: cycle inside legacy drawflow payload rejected", () => {
+  const p = {
+    drawflow: {
+      Home: {
+        data: {
+          1: { name: "pump", outputs: { output_1: { connections: [{ node: 2 }] } } },
+          2: { name: "pump", outputs: { output_1: { connections: [{ node: 1 }] } } },
+        },
+      },
+    },
+  };
+  const errs = ioMod.validatePayload(p);
+  if (!errs.some(e => e.includes("цикл"))) throw new Error(`expected cycle error for drawflow payload, got: ${errs.join("; ")}`);
+});
+
+test("validatePayload: unknown node types don't invent cycle edges", () => {
+  // Тип unknown не создаёт ноду на холсте — рёбра через неё не считаются.
+  const p = {
+    format: "kns-cascade",
+    version: 2,
+    n: 0.71,
+    nodes: [
+      { id: 2, type: "pump", x: 0, y: 0 },
+      { id: 3, type: "pump", x: 100, y: 0 },
+      { id: 9, type: "unknown", x: 200, y: 0 },
+    ],
+    connections: [{ from: 2, to: 9 }, { from: 9, to: 3 }],
+  };
+  const errs = ioMod.validatePayload(p);
+  if (errs.some(e => e.includes("цикл"))) throw new Error(`cycle edge through unknown node must be ignored: ${errs.join("; ")}`);
 });
 
 // ============================================================

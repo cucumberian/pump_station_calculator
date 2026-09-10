@@ -5,7 +5,8 @@ const path = require("path");
 
 const readSrc = f => fs.readFileSync(path.join(__dirname, "..", "static/js", f), "utf8");
 const load = new Function("window",
-  readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("cascade-nodes.js") +
+  readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("cascade-graph.js") +
+  readSrc("cascade-nodes.js") +
   readSrc("cascade-catch.js") + readSrc("cascade-report.js") + `
 return {
   buildReportMD, buildNodeReportMD, helpBlocksToMD, reportFmt, CARDS, fmt,
@@ -389,6 +390,21 @@ test("отчёт: малое Wнс не показывает 0 м³", () => {
   const md = H.buildReportMD(graph, results, { meta: { custom: [] }, n: 0.35 });
   includes(md, "| Wнс | 0,044 м³ |");
   includes(md, "объём регулирования стремится к нулю");
+});
+
+test("отчёт: цикл в схеме — предупреждение и пометка в разделах", () => {
+  const graph = {
+    nodes: [
+      { id: 1, type: "catch", data: { F: 3.9, q20: 80, P: 1, mr: 150, gamma: 1.54, psiMid: 0.634, tcon: 3, tcan: 0 } },
+      { id: 2, type: "pump", data: { q: 100, qr: 0, tr: 0, idle: 50, mode: "analytic" } },
+      { id: 3, type: "pump", data: { q: 120, qr: 342.3, tr: 10, idle: 50, mode: "analytic" } },
+    ],
+    connections: [{ from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 2 }],
+  };
+  // результаты как после computeCascadeNow: циклические узлы не рассчитаны
+  const md = H.buildReportMD(graph, { 1: null, 2: null, 3: null }, { meta: { custom: [] }, n: N });
+  includes(md, "Внимание: схема содержит цикл: 2 → 3 → 2");
+  includes(md, "Расчёт не выполнен");
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);

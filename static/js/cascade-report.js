@@ -172,7 +172,7 @@ function pumpSectionMD(node, res, graph, results) {
     return out.join("\n");
   }
   if (!res) {
-    out.push("_Расчёт не выполнен: проверьте параметры ноды (Qнс, Qr, tr должны быть > 0)._", "");
+    out.push("_Расчёт не выполнен: проверьте параметры ноды (Qнс, Qr, tr должны быть > 0) либо наличие цикла в схеме (см. предупреждение выше)._", "");
     return out.join("\n");
   }
   out.push("### Исходные данные", "");
@@ -375,6 +375,13 @@ function nodePayload(payload, nodeId) {
 function buildReportMD(graph, results, ctx = {}) {
   const out = [reportHeaderMD(ctx.meta)];
   out.push(reportSchemeMD(graph, ctx.n));
+  // Цикл в схеме (например, старый сохранённый файл): такие узлы расчёт
+  // пропускает — фиксируем это в отчёте явно, а не молча.
+  const cycMsg = typeof cycleMessage === "function"
+    ? cycleMessage({ nodes: graph.nodes, connections: graph.connections }) : null;
+  if (cycMsg) {
+    out.push("> **Внимание: " + cycMsg + ".** Расчёт этих узлов не выполнялся; их разделы ниже содержат только параметры.", "");
+  }
   out.push("## Методика расчёта", "");
   out.push(helpBlocksToMD(CASCADE_HELP), "");
   for (const id of topoNodeOrder(graph.nodes, graph.connections)) {

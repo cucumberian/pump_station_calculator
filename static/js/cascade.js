@@ -61,26 +61,15 @@ function wouldCycle(outId, inId) {
   return false;
 }
 
+// Порядок пересчёта (Kahn). Возвращает {order, cyclic}: order — пригодный
+// топопорядок (все рёбра идут влево), cyclic — узлы на циклах и всё, что
+// получает из них поток. Раньше «остаток» молча дописывался в конец —
+// непригодный порядок (см. formal/Formal/Graph.lean, cascadeCycle_not_topo);
+// теперь он не участвует в расчёте, а computeCascadeNow показывает баннер.
 function topoOrder(data) {
   const ids = Object.keys(data);
-  const indeg = {};
-  for (const id of ids) indeg[id] = upstreamIds(id, data).filter(u => data[u]).length;
-  const queue = ids.filter(id => indeg[id] === 0);
-  const order = [];
-  const deg = { ...indeg };
-  while (queue.length) {
-    const id = queue.shift();
-    order.push(id);
-    for (const out of Object.values(data[id].outputs || {})) {
-      for (const conn of out.connections) {
-        const t = String(conn.node);
-        if (!(t in deg)) continue;
-        if (--deg[t] === 0) queue.push(t);
-      }
-    }
-  }
-  for (const id of ids) if (!order.includes(id)) order.push(id);
-  return order;
+  const { order, rest } = kahnParts(ids, edgesFromData(data));
+  return { order, cyclic: rest };
 }
 
 // Пересчёт всего графа — дорогая операция (топосорт, сэмплирование рядов, графики).
@@ -106,6 +95,26 @@ function flushCascade() {
   computeCascadeNow();
 }
 
+// Баннер о цикле в #drawflow (скрыт, когда цикла нет). cyclic — узлы вне
+// пригодного порядка (узлы на циклах + получающие из них поток).
+function updateCycleBanner(data, cyclic) {
+  const el = document.getElementById("cycleWarn");
+  if (!el) return;
+  if (!cyclic.length) { el.hidden = true; return; }
+  const edges = edgesFromData(data);
+  const onCycle = nodesInCycles(edges);
+  const path = cyclePathExample(edges);
+  const nums = ids => ids.map(x => "#" + x).join(", ");
+  const parts = [];
+  parts.push(path ? `Цикл в схеме: ${path.join(" → ")}` : `Цикл в схеме: ${nums(onCycle)}`);
+  if (onCycle.length) parts.push(`узлы в цикле: ${nums(onCycle)}`);
+  const downstream = cyclic.filter(id => !onCycle.includes(id));
+  if (downstream.length) parts.push(`не рассчитаны (получают из цикла): ${nums(downstream)}`);
+  parts.push("разорвите связь, чтобы расчёт продолжился");
+  el.textContent = parts.join(" — ") + ".";
+  el.hidden = false;
+}
+
 function computeCascadeNow() {
   const data = graphData();
   const nGlob = getGlobalN();
@@ -113,8 +122,9 @@ function computeCascadeNow() {
     .filter(nd => nd.name === "delay")
     .reduce((s, nd) => s + delayDt(nd.data || {}), 0);
 
+  const { order, cyclic } = topoOrder(data);
   const res = {};
-  for (const id of topoOrder(data)) {
+  for (const id of order) {
     const nd = data[id];
     const d = nd.data || {};
     if (d.disabled) { res[id] = null; continue; }
@@ -248,6 +258,9 @@ function computeCascadeNow() {
       }
     }
   }
+  // Циклические узлы и их «потомки» в расчёте не участвуют; summary покажет «—».
+  for (const id of cyclic) res[id] = null;
+  updateCycleBanner(data, cyclic);
   results = res;
   updateSummaries(data);
   saveScheme();

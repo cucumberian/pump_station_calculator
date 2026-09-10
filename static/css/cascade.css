@@ -138,6 +138,26 @@
 
 #drawflow .drawflow { transform-origin: 0 0; }
 
+/* Предупреждение о цикле: поверх холста, по центру сверху (см. topoOrder). */
+.cycle-warn {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  max-width: min(92%, 760px);
+  padding: 8px 14px;
+  border: 1px solid #e0b4a8;
+  border-left: 4px solid #b0341f;
+  border-radius: 8px;
+  background: #fdf1ee;
+  color: #7c2515;
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: 0 2px 10px rgba(176, 52, 31, 0.15);
+}
+.cycle-warn[hidden] { display: none; }
+
 .zoom-controls {
   position: absolute;
   right: 12px;
