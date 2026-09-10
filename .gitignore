@@ -1,0 +1,5 @@
+.playwright-mcp
+.gitignore
+
+# Lean/Mathlib build artifacts
+formal/.lake/
