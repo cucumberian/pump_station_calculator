@@ -349,8 +349,13 @@ function updateSummaries(data = graphData()) {
     }
     const slider = document.querySelector(`#node-${id} .q-range`);
     if (slider && r) {
-      slider.max = Math.ceil(r.Qr);
-      if (document.activeElement !== slider) slider.value = Math.min(r.Q, r.Qr);
+      // Верх слайдера — пик суммарного притока, а не только собственного дождя:
+      // та же методика, что в боковой панели (seriesPeak(inflowFromResult)),
+      // иначе на нод со станциями выше слайдер обрезается ниже входов.
+      const inflS = inflowFromResult(r);
+      const qMax = inflS ? seriesPeak(inflS).q : r.Qr;
+      slider.max = Math.ceil(qMax);
+      if (document.activeElement !== slider) slider.value = Math.min(r.Q, qMax);
     }
     const el = document.querySelector(`#node-${id} .node-summary`);
     if (!el) continue;
