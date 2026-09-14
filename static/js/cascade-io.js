@@ -43,6 +43,123 @@ function saveScheme() {
   } catch { /* приватный режим */ }
 }
 
+// ============================================================
+// Шаринг ссылкой: схема пакуется во фрагмент адреса после «#».
+// Фрагмент не отправляется на сервер (ни 414 от nginx/Apache с их 8 КБ,
+// ни попадание в access-логи), поэтому лимит — только строка адреса
+// браузера (мегабайты), а мы держим запас SHARE_LIMIT. Payload без
+// значений по умолчанию — их возвращает NODE_DEFAULTS в migrateNodeData
+// при загрузке; format/version тоже не нужны — подставляются здесь же.
+// Замер (40 водосборов + 20 КНС + 30 участков, русские имена): ~3,3 КБ
+// против 19,9 КБ исходного JSON. YAML и tree.d после deflate не helped —
+// избыточность сжатие съедает, формат менять не имеет смысла.
+// ============================================================
+
+const SHARE_PARAM = "s";
+const SHARE_LIMIT = 6000;
+
+function stripSharePayload(payload) {
+  return {
+    n: payload.n,
+    nodes: payload.nodes.map(nd => {
+      const def = NODE_DEFAULTS[nd.type] || {};
+      const d = {};
+      for (const k in nd.data || {}) {
+        if (JSON.stringify(nd.data[k]) !== JSON.stringify(def[k])) d[k] = nd.data[k];
+      }
+      return { id: nd.id, type: nd.type, x: nd.x, y: nd.y, data: d };
+    }),
+    connections: payload.connections,
+  };
+}
+
+function bytesToB64url(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function b64urlToBytes(code) {
+  const bin = atob(code.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// d — deflate-raw (CompressionStream, Chrome 80+/FF 113+/Safari 16.4+);
+// j — без сжатия, деградация для старых браузеров: ссылка длиннее, но живая.
+async function encodeShareCode(payload) {
+  const json = JSON.stringify(stripSharePayload(payload));
+  if (typeof CompressionStream === "function") {
+    const stream = new Blob([json]).stream()
+      .pipeThrough(new CompressionStream("deflate-raw"));
+    return "d." + bytesToB64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+  }
+  return "j." + bytesToB64url(new TextEncoder().encode(json));
+}
+
+async function decodeShareCode(code) {
+  let json;
+  if (code.startsWith("d.")) {
+    if (typeof DecompressionStream !== "function") {
+      throw new Error("браузер не поддерживает сжатые ссылки");
+    }
+    const stream = new Blob([b64urlToBytes(code.slice(2))]).stream()
+      .pipeThrough(new DecompressionStream("deflate-raw"));
+    json = await new Response(stream).text();
+  } else if (code.startsWith("j.")) {
+    json = new TextDecoder().decode(b64urlToBytes(code.slice(2)));
+  } else {
+    throw new Error("неизвестный формат ссылки");
+  }
+  const p = JSON.parse(json);
+  return { format: FORMAT, version: FORMAT_VERSION,
+    n: p.n, nodes: p.nodes, connections: p.connections };
+}
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { /* ниже fallback */ }
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.append(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length); // iOS Safari требует явный selection
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { /* устаревший API для старых мобильных */ }
+  ta.remove();
+  return ok;
+}
+
+$c("shareCascade").addEventListener("click", async () => {
+  const btn = $c("shareCascade"); // кнопка иконочная: feedback — не текст,
+                                   // а класс .copied (CSS меняет значок на галочку)
+  try {
+    flushCascade(); // в ссылку уходит актуальная схема, не до правок
+    const code = await encodeShareCode(serializeScheme());
+    if (code.length > SHARE_LIMIT) {
+      alert(`Схема велика для ссылки: ${code.length} символов, предел ${SHARE_LIMIT}. ` +
+        "Используйте «Экспорт» в JSON-файл.");
+      return;
+    }
+    const url = location.href.split("#")[0] + "#" + SHARE_PARAM + "=" + code;
+    try { history.replaceState(null, "", url); } catch { /* file://: SecurityError, ссылка и так в буфере */ }
+    if (await copyToClipboard(url)) {
+      btn.classList.add("copied");
+      setTimeout(() => { btn.classList.remove("copied"); }, 1500);
+    } else {
+      prompt("Скопируйте ссылку вручную:", url);
+    }
+  } catch (err) {
+    alert("Не удалось подготовить ссылку: " + err.message);
+  }
+});
+
 function serializeScheme() {
   const data = graphData();
   const nodes = [];
@@ -189,8 +306,26 @@ function applyPayload(payload) {
   fitView();
 }
 
-function loadInitial() {
+async function loadInitial() {
   loadMeta();
+  // Ссылка важнее локальной копии: «Поделиться» уже записал схему в localStorage,
+  // так что повторная загрузка той же ссылки идемпотентна.
+  const hash = location.hash || "";
+  if (hash.startsWith("#" + SHARE_PARAM + "=")) {
+    try {
+      const payload = await decodeShareCode(decodeURIComponent(hash.slice(1 + SHARE_PARAM.length + 1)));
+      const errors = validatePayload(payload);
+      if (errors.length) {
+        alert("Схема из ссылки повреждена:\n" + errors.map(x => "• " + x).join("\n"));
+      } else {
+        applyPayload(payload);
+        viewReady = true;
+        return;
+      }
+    } catch (err) {
+      alert("Не удалось прочитать схему из ссылки: " + err.message);
+    }
+  }
   let stored = null;
   try { stored = JSON.parse(localStorage.getItem(LS_CASCADE) || "null"); } catch { stored = null; }
   const storedN = parseFloat(localStorage.getItem(LS_N));

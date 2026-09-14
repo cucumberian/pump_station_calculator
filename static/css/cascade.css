@@ -29,6 +29,14 @@
   min-height: 0;
 }
 
+/* Кнопка «Поделиться» — иконочная (без подписи): значок nodes-right
+   (gravity-ui), после копирования на 1,5 с показывается галочка.
+   .copied вешает JS; width фиксирован, чтобы кнопка не дёргалась. */
+#shareCascade { padding-left: 10px; padding-right: 10px; }
+#shareCascade .ic-check { display: none; }
+#shareCascade.copied .ic-nodes-right { display: none; }
+#shareCascade.copied .ic-check { display: inline-block; }
+
 .palette {
   position: relative;
   display: flex;
