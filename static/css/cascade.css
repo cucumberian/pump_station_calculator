@@ -379,12 +379,29 @@
   border-color: #e8590c;
   color: #fff;
 }
+/* Выключенная нода — слегка обесцвечена (grayscale), но кнопка включения
+   остаётся цветной: фильтр навешиваем на детей node-box, кроме .node-disable. */
 .node-box.disabled {
-  opacity: 0.45;
   pointer-events: none;
+}
+.node-box.disabled > :not(.node-disable) {
+  filter: grayscale(0.7);
 }
 .node-box.disabled .node-disable {
   pointer-events: auto;
+}
+/* Фон, рамка и порты карточки тоже слегка обесцвечиваем (фильтр на саму
+   карточку нельзя — он закрасил бы и кнопку включения). */
+.drawflow .drawflow-node:has(> .node-box.disabled) {
+  background: #f6f7f8;
+  border-color: #c9ced3;
+}
+.drawflow .drawflow-node:has(> .node-box.disabled) .input,
+.drawflow .drawflow-node:has(> .node-box.disabled) .output {
+  border-color: #b8bfc6;
+}
+.drawflow .drawflow-node:has(> .node-box.disabled).selected {
+  border-color: #8f98a1;
 }
 .sb-head-btns { display: flex; align-items: center; gap: 6px; }
 .sb-head-btns .node-lock,
