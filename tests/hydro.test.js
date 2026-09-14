@@ -1278,5 +1278,27 @@ test("вырожденный приток: Qнс ровно на пике сум
   if (!a.dry) approx(a.W, r.W, Math.max(0.1, Math.abs(r.W) * 1e-3));
 });
 
+// ============================================================
+// Регрессия «Qнс=1 вешает вкладку»: calc не должен выпускать tk за
+// горизонт модели — иначе dense-ряды раздуваются до десятков миллионов точек
+// (tk(Q=1, Qr=342.3, tr=10, n=0.4) без ограничения ≈ 6·10^6 мин).
+// ============================================================
+
+test("calc: Q≪Qr — tk обрезан горизонтом, truncated=true, ряд конечен", () => {
+  const t0 = Date.now();
+  const r = H.calc(1, 342.3, 10, 0.4);
+  if (Date.now() - t0 > 300) throw new Error("calc подвесил расчёт");
+  if (r.truncated !== true) throw new Error("ожидалось truncated=true");
+  if (r.tk > Math.min(200 * 10, 2880) + 1e-9) throw new Error(`tk=${r.tk} за горизонтом`);
+  const dense = H.toDense(H.makeHydroGF(342.3, 10, 0.4, 0), H.HYDRO_DT, Math.max(H.durationGF(H.makeHydroGF(342.3, 10, 0.4, 0)), r.tk + 10));
+  if (dense.t.length > 20000) throw new Error(`ряд раздут: ${dense.t.length} точек`);
+});
+
+test("calc: обычный диапазон — truncated не появляется, значения как раньше", () => {
+  const r = H.calc(150, 342.3, 10, 0.71);
+  if (r.truncated) throw new Error("truncated не должен появляться в обычном режиме");
+  approx(r.tk, 11.84, 0.01);
+});
+
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);
 process.exit(failed ? 1 : 0);

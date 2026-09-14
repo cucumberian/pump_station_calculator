@@ -150,15 +150,28 @@ function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs, withTrace = false) {
   return { tn, tk, W, ...(trace ? { trace } : {}) };
 }
 
+// Единый горизонт «дождевого окна»: за cap хвост гидрографа модель не смотрит
+// (порог 2 % от Qr в hydroTailT; cap = min(200·tr, 2880 мин)).
+function hydroCapT(tr) { return Math.min(200 * tr, 2880); }
+
 function calc(Q, Qr, tr, n) {
   if (Q >= Qr) return { tn: 0, tk: 0, W: 0, dry: true };
   const tn = tr * (Q / Qr) ** (1 / (1 - n));
-  const tk = solveTk(Q, Qr, tr, n);
+  // tk не может уезжать за горизонт модели: при Q ≪ Qr аналитическое решение
+  // уходит в миллионы минут (Q=1 против Qr=342 при n=0.4 — это ~4 года), и
+  // dense-ряды с шагом HYDRO_DT раздуваются до десятков миллионов точек —
+  // вкладка зависает, а saveScheme падает по длине строки. Как и numericCalc,
+  // обрезаем по горизонту и честно помечаем truncated (UI покажет
+  // «окно расчёта обрезано — W может быть занижен»).
+  const cap = hydroCapT(tr);
+  let tk = solveTk(Q, Qr, tr, n);
+  const truncated = tk > cap;
+  if (truncated) tk = cap;
   const W = 0.06 * Qr * tr / (2 - n) * (
     (tk / tr) ** (2 - n) - (tn / tr) ** (2 - n) - (tk / tr - 1) ** (2 - n)
     - Q / Qr * (2 - n) * (tk / tr - tn / tr)
   );
-  return { tn, tk, W: Math.max(W, 0) };
+  return { tn, tk, W: Math.max(W, 0), ...(truncated ? { truncated: true } : {}) };
 }
 
 function hydro(T, Qr, tr, n) {
