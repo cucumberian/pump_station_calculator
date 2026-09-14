@@ -44,6 +44,36 @@ function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs, withTrace = false) {
     return s;
   };
   const single = hydroGFs.length === 1 ? hydroGFs[0] : null;
+  // Изломы T = delay + tr: там ветвь подъёма меняется на ветвь спада, и
+  // |Q'| обращается в бесконечность. Шаг поиска пересечений их не пересекает.
+  // Начало гидрографа (T = delay) тоже излом: до него слагаемое тождественно
+  // нулю, сразу за ним его производная бесконечна.
+  const kinks = hydroGFs.flatMap(gf => [gf.delay || 0, (gf.delay || 0) + gf.tr]).filter(k => k > 0).sort((x, y) => x - y);
+  // Верхняя оценка |g'| на [t, ближайший правее излом): у каждой ветви
+  // гидрографа модуль производной внутри ветви убывает, поэтому значение,
+  // снятое в левом конце, ограничивает её на всём шаге (для ветви спада —
+  // слагаемое при (T−tr)^(−n), оно больше вычитаемого).
+  const slopeAbs = t => {
+    let m = 0;
+    for (const gf of hydroGFs) {
+      const d = gf.delay || 0;
+      // Гидрограф, стартующий строго правее, на этом шаге тождественно нулевой
+      // (излом delay в hard всегда учтён). Если же t стоит ровно на его старте
+      // или на tr — производная бесконечна, и её надо показать большим числом,
+      // иначе шаг перескочит весь подъём (это и был потерянный пик).
+      if (t < d) continue;
+      const u = Math.max(t - d, 1e-9);
+      const k = 1 - gf.n;
+      const c = gf.Qr * k * Math.pow(gf.tr, -k);
+      m += c * Math.pow(u < gf.tr ? u : Math.max(u - gf.tr, 1e-9), k - 1);
+    }
+    return m;
+  };
+  const nextKink = t => { for (const k of kinks) if (k > t) return k; return Infinity; };
+  // Пересечения ищутся адаптивным шагом: за |f|/|g'| минут функция не успевает
+  // сменить знак, значит целый шаг можно пропустить, не вычисляя её. При
+  // равномерном шаге 0,2 мин на горизонте суток это десятки тысяч вычислений
+  // на каждый вызов (кривая W(Q) — 121 вызов), здесь их сотни.
   const findRoots = (a, b, L) => {
     if (L <= 0) return [];
     if (single) {
@@ -58,20 +88,32 @@ function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs, withTrace = false) {
       return roots;
     }
     const roots = [];
-    let t0 = a, f0 = gAt(a) - L;
-    for (let t = a + HYDRO_DT; ; t += HYDRO_DT) {
-      const tc = Math.min(t, b);
+    const MIN_STEP = 1e-6;   // мельче бисекция не различит (её допуск 1e-4)
+    let t = a, f0 = gAt(a) - L;
+    for (;;) {
+      const hard = Math.min(nextKink(t), b);  // шаг не пересекает излом
+      const m = slopeAbs(t);
+      let s = m > 0 && Number.isFinite(m) ? Math.abs(f0) / m : hard - t;
+      // Приток ровно на уровне Qнс (касание вершины либо плато «вне пика»,
+      // совпавшее с порогом): оценка «до следующего пересечения» выродилась в
+      // ноль. Берём шаг прежнего равномерного перебора — так ход гарантирован,
+      // а точность на этом участке ровно как была до адаптивной сетки.
+      if (!(s > MIN_STEP)) s = HYDRO_DT;
+      if (s > hard - t) s = hard - t;
+      if (!(s > 0)) s = MIN_STEP;              // стоим на изломе — протиснуться
+      const tc = Math.min(t + s, b);
+      if (!(tc > t)) break;
       const f1 = gAt(tc) - L;
       if ((f0 < 0) !== (f1 < 0)) {
-        let lo = t0, hi = tc, flo = f0;
+        let lo = t, hi = tc, flo = f0;
         for (let k = 0; k < 60 && hi - lo > 1e-4; k++) {
           const mid = (lo + hi) / 2;
-          if ((gAt(mid) - L < 0) === (flo < 0)) { lo = mid; flo = gAt(mid) - L; } else hi = mid;
+          const fm = gAt(mid) - L;
+          if ((fm < 0) === (flo < 0)) { lo = mid; flo = fm; } else hi = mid;
         }
         roots.push((lo + hi) / 2);
       }
-      t0 = tc; f0 = f1;
-      if (tc >= b) break;
+      t = tc; f0 = f1;
     }
     return roots;
   };
@@ -82,7 +124,10 @@ function mixedAnalyticCalc(Q, hydroGFs, piecewiseGFs, withTrace = false) {
     if (b - a < 1e-9) continue;
     let c = 0;
     for (const gf of piecewiseGFs) c += evalGF(gf, (a + b) / 2);
-    const roots = findRoots(a, b, Q - c);
+    // bounds обязан быть возрастающим: интервал [sa; sb] и признак «выше Qнс»
+    // теряют смысл при рассинхронизации. Корни из соседних бисекций могут
+    // разойтись на допуск 1e-4, поэтому сортируем (обычно 0–2 элемента).
+    const roots = findRoots(a, b, Q - c).sort((x, y) => x - y);
     const bounds = [a, ...roots, b];
     const segTrace = trace ? { a, b, c, level: Q - c, roots, subs: [] } : null;
     for (let k = 0; k < bounds.length - 1; k++) {
@@ -167,18 +212,34 @@ function interpAt(s, t) {
   return qs[lo] + f * (qs[hi] - qs[lo]);
 }
 
+// Сумма рядов на общем гриде. Ряды уже отсортированы по t, а грид идёт
+// возрастающей — поэтому для каждого ряда держим указатель на его интервал
+// и идём им вперёд, а не ищем бинарно каждую точку (на ряду в сутки это
+// было ~17 сравнений на точку вместо одного).
 function combineSeries(list, dt = HYDRO_DT) {
   const valid = list.filter(Boolean);
   if (!valid.length) return { t: [0], q: [0] };
   const tMax = Math.max(...valid.map(s => s.t[s.t.length - 1]));
   const N = Math.max(2, Math.ceil(tMax / dt));
-  const ts = [], qs = [];
+  const idx = valid.map(() => 0);
+  const ts = new Array(N + 1), qs = new Array(N + 1);
   for (let i = 0; i <= N; i++) {
     const t = i * dt;
-    ts.push(t);
+    ts[i] = t;
     let q = 0;
-    for (const s of valid) q += interpAt(s, t);
-    qs.push(q);
+    for (let j = 0; j < valid.length; j++) {
+      const s = valid[j], tsj = s.t, qsj = s.q, last = tsj.length - 1;
+      let k = idx[j];
+      while (k < last && tsj[k + 1] <= t) k++;
+      idx[j] = k;
+      if (k >= last) q += t === tsj[last] ? qsj[last] : 0;
+      else if (t <= tsj[0]) q += t === tsj[0] ? qsj[0] : 0;
+      else {
+        const f = (t - tsj[k]) / (tsj[k + 1] - tsj[k]);
+        q += qsj[k] + f * (qsj[k + 1] - qsj[k]);
+      }
+    }
+    qs[i] = q;
   }
   return { t: ts, q: qs };
 }
@@ -347,4 +408,83 @@ function combineGF(list, dt = HYDRO_DT, tMax) {
   if (!valid.length) return { t: [0], q: [0] };
   const allDense = valid.map(gf => gf.t && gf.q ? gf : toDense(gf, dt, tMax));
   return combineSeries(allDense, dt);
+}
+
+// === Отображаемые серии =====================================================
+// Ресамплинг длинных серий для ECharts: при tr ~ 50 ч ряд с шагом HYDRO_DT —
+// это десятки тысяч точек (в схеме с tr=3021 мин — 34766), а экран ~1000 px,
+// рисовать больше смысла нет. minMax сохраняет пики (важно для Q(T)!),
+// среднее по бакету — нет. Численный расчёт и W по-прежнему идут по полной
+// серии (numericCalc), здесь только отрисовка; маркеры Tн/Tк/Qнс — из r, не из ряда.
+const CHART_MAX_POINTS = 2000;
+
+function resampleForDisplay(s, maxPts = CHART_MAX_POINTS) {
+  const n = s.t.length;
+  if (!n || n <= maxPts) return s;
+  const nb = Math.max(2, Math.floor(maxPts / 2));
+  const out = { t: [], q: [] };
+  for (let b = 0; b < nb; b++) {
+    const i0 = Math.floor(b * (n - 1) / nb), i1 = Math.floor((b + 1) * (n - 1) / nb);
+    let mn = Infinity, mx = -Infinity, tMn = s.t[i0], tMx = s.t[i0];
+    for (let i = i0; i <= i1; i++) {
+      const q = s.q[i];
+      if (q < mn) { mn = q; tMn = s.t[i]; }
+      if (q > mx) { mx = q; tMx = s.t[i]; }
+    }
+    // порядок по t: чтобы ломаная не «схлопывалась» назад по оси времени
+    if (tMn <= tMx) { out.t.push(tMn, tMx); out.q.push(mn, mx); }
+    else { out.t.push(tMx, tMn); out.q.push(mx, mn); }
+  }
+  const lastT = s.t[n - 1], lastQ = s.q[n - 1];
+  if (out.t[out.t.length - 1] !== lastT) { out.t.push(lastT); out.q.push(lastQ); }
+  return out;
+}
+
+// Мемоизация калькулятора для панелей: одна и та же функция вызывается из
+// трёх мест (кривая W(Q), таблица вариантов, tooltip графика), а
+// mixedAnalyticCalc/numericCalc стоят 2–11 мс на вызов при длинных сериях.
+// Ключ — округление до 0,01 л/с: мельче смысла нет (весь UI в таких шагах).
+//
+// sig — подпись входов станции (гидрографы + выходы вышестоящих). С ней кэш
+// живёт вне результата: перетаскивание Qнс меняет только одну точку, а кривую
+// из 121 точки и таблицу из 50 можно не пересчитывать. Без sig — кэш только
+// внутри вызова (как было): результаты пересоздаются на каждое изменение
+// любого поля схемы, и кэш в них умирал вместе с ними.
+const CALC_CACHE_LIMIT = 8;
+const calcCacheBySig = new Map();
+
+function memoizeCalc(fn, sig) {
+  const map = sig !== undefined && sig !== null && calcCacheBySig.has(sig)
+    ? calcCacheBySig.get(sig)
+    : new Map();
+  if (sig !== undefined && sig !== null) {
+    calcCacheBySig.set(sig, map);
+    if (calcCacheBySig.size > CALC_CACHE_LIMIT) calcCacheBySig.delete(calcCacheBySig.keys().next().value);
+  }
+  return q => {
+    const k = Math.round(q * 100) / 100;
+    let v = map.get(k);
+    if (v === undefined) {
+      v = fn(k);
+      if (map.size > 1024) map.delete(map.keys().next().value);
+      map.set(k, v);
+    }
+    return v;
+  };
+}
+
+// Строковая подпись набора графовых функций. Плотный ряд (t/q) подписать
+// коротко и безопасно нельзя, поэтому для него подпись null — кэш остаётся
+// локальным. Ключ обязан совпадать только тогда, когда совпадают и результаты.
+function gfSignature(list) {
+  const valid = (list || []).filter(Boolean);
+  if (!valid.length) return null; // пусто — общий ключ не нужен
+  let s = "";
+  for (const gf of valid) {
+    if (gf.type === "hydrograph") s += `H${gf.Qr},${gf.tr},${gf.n},${gf.delay || 0};`;
+    else if (gf.type === "piecewise") s += `P${gf.delay || 0}[${gf.segments.map(x => `${x.q},${x.tStart},${x.tEnd}`).join(";")}]`;
+    else return null;
+    if (s.length > 8000) return null;
+  }
+  return s;
 }

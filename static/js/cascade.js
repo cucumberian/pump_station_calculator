@@ -220,7 +220,6 @@ function computeCascadeNow() {
           { q: Q, tStart: r.dry ? 0 : r.tn, tEnd: r.dry ? 0 : r.tk },
           { q: idleQ, tStart: r.dry ? 0 : r.tk, tEnd: tMax },
         ], 0),
-        series: pumpOutSeries(Q, r, tMax, HYDRO_DT, idleQ),
         ownRainGF, inflowGF, flowGFs, hydroGFs: exactGFs, r, Q, Qr, tr, idle: idlePct, mode, eq, nEff: nGlob, lockId: lockIds[0] || null, lockIds,
         approx: mode === "analytic" && !pureRain && !!eq,
       };
@@ -245,7 +244,9 @@ function computeCascadeNow() {
     }
   }
   for (const r of Object.values(res)) {
-    if (r?.gf) r.series = toDense(r.gf, HYDRO_DT);
+    // res.series — только для графиков: сразу ресемплим с сохранением пиков
+    // (35k точек при tr~50 ч на экран бессмысленны и тормозят ECharts).
+    if (r?.gf) r.series = resampleForDisplay(toDense(r.gf, HYDRO_DT));
   }
   for (const [id, r] of Object.entries(res)) {
     if (r?.ownRainGF && data[id]?.name === "pump") {
@@ -335,7 +336,7 @@ function updateSummaries(data = graphData()) {
       if (!inp) continue;
       inp.disabled = isLocked || locked;
       if (locked && document.activeElement !== inp) {
-        inp.value = String(Math.round((k === "qr" ? r.Qr : r.tr) * 100) / 100);
+        inp.value = (k === "qr" ? r.Qr : r.tr).toFixed(2);
       }
     }
     const slider = document.querySelector(`#node-${id} .q-range`);
@@ -440,7 +441,7 @@ window.addEventListener("wheel", e => {
   v = +v.toFixed(dec);
   if (el.min !== "" && v < +el.min) v = +el.min;
   if (el.max !== "" && v > +el.max) v = +el.max;
-  el.value = v;
+  el.value = el.type === "number" ? v.toFixed(Math.max(dec, 2)) : v;
   if (inNode) {
     const id = el.closest(".drawflow-node").id.replace("node-", "");
     syncNodeParam(id, el.type === "range" ? "q" : dfKey(el), v);

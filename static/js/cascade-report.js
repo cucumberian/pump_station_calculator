@@ -3,11 +3,12 @@
 function reportFmt(x, d = 2) {
   const v = Number(x);
   // Малые значения не обнуляем: добавляем знаки до первых значащих цифр.
-  let dec = d;
-  if (v !== 0 && Number.isFinite(v) && Math.abs(v) < 1) {
-    dec = Math.min(8, Math.max(d, 1 - Math.floor(Math.log10(Math.abs(v)))));
-  }
-  return (v === 0 ? 0 : v).toLocaleString("ru-RU", { maximumFractionDigits: dec });
+  // После запятой всегда не менее двух знаков: 13.8 → «13,80», иначе
+  // неотличимо, округление там после последней цифры или точное значение.
+  const dec = v !== 0 && Number.isFinite(v) && Math.abs(v) < 1
+    ? Math.min(8, Math.max(d, 2, 1 - Math.floor(Math.log10(Math.abs(v)))))
+    : Math.max(d, 2);
+  return (v === 0 ? 0 : v).toLocaleString("ru-RU", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 function reportPlural(n, one, few, many) {
@@ -96,7 +97,7 @@ function pumpResultsTable(res) {
   ];
   if (r.dry) {
     rows.push(`| Режим | Регулирование не требуется: приток никогда не превышает Qнс |`);
-    rows.push(`| Wнс | 0 м³ |`);
+    rows.push(`| Wнс | 0,00 м³ |`);
   } else {
     rows.push(`| Tнⁿˢ | ${f(r.tn)} мин |`);
     rows.push(`| Tкⁿˢ | ${f(r.tk)} мин |`);

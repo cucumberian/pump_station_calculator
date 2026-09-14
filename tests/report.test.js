@@ -358,20 +358,24 @@ test("json: JSON из отчёта валиден и парсится", () => {
 // Точность форматирования околонулевых значений
 // ============================================================
 
-test("reportFmt: малое W не обнуляется, крупные числа без изменений", () => {
+test("reportFmt: малое W не обнуляется, всегда минимум два знака после запятой", () => {
   if (H.reportFmt(0.044145) !== "0,044") throw new Error(`reportFmt(0.044145) = ${H.reportFmt(0.044145)}`);
   if (H.reportFmt(4.415) !== "4,42") throw new Error(`reportFmt(4.415) = ${H.reportFmt(4.415)}`);
   if (H.reportFmt(342.345, 2) !== "342,35") throw new Error(`reportFmt(342.345,2) = ${H.reportFmt(342.345, 2)}`);
-  if (H.reportFmt(0) !== "0") throw new Error(`reportFmt(0) = ${H.reportFmt(0)}`);
+  if (H.reportFmt(0) !== "0,00") throw new Error(`reportFmt(0) = ${H.reportFmt(0)}`);
+  if (H.reportFmt(13.8) !== "13,80") throw new Error(`reportFmt(13.8) = ${H.reportFmt(13.8)}`);
+  if (H.reportFmt(10, 1) !== "10,00") throw new Error(`reportFmt(10,1) = ${H.reportFmt(10, 1)}`);
   if (H.reportFmt(0.71) !== "0,71") throw new Error(`reportFmt(0.71) = ${H.reportFmt(0.71)}`);
   if (H.reportFmt(1.23e-8) !== "0,00000001") throw new Error(`reportFmt(1.23e-8) = ${H.reportFmt(1.23e-8)}`); // каппа 8 знаков
 });
 
-test("fmt: карточки W/Q показывают значащие цифры у нуля", () => {
+test("fmt: карточки W/Q показывают значащие цифры у нуля и два знака всегда", () => {
   if (H.fmt(0.044145, 1) !== "0,044") throw new Error(`fmt(0.044145,1) = ${H.fmt(0.044145, 1)}`);
   if (H.fmt(0.000322, 1) !== "0,00032") throw new Error(`fmt(0.000322,1) = ${H.fmt(0.000322, 1)}`);
-  if (H.fmt(4.415, 1) !== "4,4") throw new Error(`fmt(4.415,1) = ${H.fmt(4.415, 1)}`);
+  if (H.fmt(4.415, 1) !== "4,42") throw new Error(`fmt(4.415,1) = ${H.fmt(4.415, 1)}`);
   if (H.fmt(15.61) !== "15,61") throw new Error(`fmt(15.61) = ${H.fmt(15.61)}`);
+  if (H.fmt(13.8) !== "13,80") throw new Error(`fmt(13.8) = ${H.fmt(13.8)}`);
+  if (H.fmt(100, 0) !== "100,00") throw new Error(`fmt(100,0) = ${H.fmt(100, 0)}`);
 });
 
 test("формула Wнс: подстановка 5 значащих цифр сходится с итогом", () => {

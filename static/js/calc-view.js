@@ -3,25 +3,32 @@
 const $view = id => document.getElementById(id);
 
 // Малые значения не обнуляем: добавляем знаки до первых значащих цифр.
-// fmt(0.0441, 1) → «0,044», fmt(4.41, 1) → «4,4» — как раньше для крупных.
+// fmt(0.0441, 1) → «0,044».
+// После запятой всегда не менее двух знаков (min = max): 13.8 → «13,80»,
+// иначе инженеру неотличимо, округление там после последней цифры или нет.
 function fmtDecimals(x, d) {
   const v = Number(x);
-  if (v !== 0 && Number.isFinite(v) && Math.abs(v) < 1) {
-    return Math.min(8, Math.max(d, 1 - Math.floor(Math.log10(Math.abs(v)))));
+  const dd = Math.max(d, 2);
+  if (Number.isFinite(v) && v !== 0 && Math.abs(v) < 1) {
+    return Math.min(8, Math.max(dd, 1 - Math.floor(Math.log10(Math.abs(v)))));
   }
-  return d;
+  return dd;
 }
 const fmt = (x, d = 2) =>
-  Number(x).toLocaleString("ru-RU", { maximumFractionDigits: fmtDecimals(x, d) });
+  Number(x).toLocaleString("ru-RU", {
+    minimumFractionDigits: fmtDecimals(x, d),
+    maximumFractionDigits: fmtDecimals(x, d),
+  });
 
 // Формат с N значащими цифрами — для величин, подставляемых в формулы,
 // чтобы строка вычислений сходилась с итогом даже при вычитании близких чисел.
+// Вывод ровно sig значащих цифр: 10 → «10,000» при sig = 5.
 function fmtSig(x, sig = 4) {
   const v = Number(x);
   if (!Number.isFinite(v)) return "—";
   if (v === 0) return "0";
   const dec = Math.min(10, Math.max(0, sig - 1 - Math.floor(Math.log10(Math.abs(v)))));
-  return v.toLocaleString("ru-RU", { maximumFractionDigits: dec });
+  return v.toLocaleString("ru-RU", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 // Округление для данных графиков/таблиц: малые значения сохраняют 2 знака.

@@ -10,7 +10,7 @@ return {
   shiftSeries, interpAt, combineSeries, numericCalc,
   pumpOutSeries, seriesPeak, hydroInt, mixedAnalyticCalc,
   makeHydroGF, makePiecewiseGF, shiftGF, evalGF, peakGF, durationGF, toDense, combineGF,
-  HYDRO_DT
+  memoizeCalc, gfSignature, HYDRO_DT
 };
 `);
 const H = load();
@@ -1176,6 +1176,106 @@ test("mixedAnalyticCalc: несколько гидрографов — dry ес�
   const gf2 = H.makeHydroGF(50, 8, 0.71, 3);
   const r = H.mixedAnalyticCalc(200, [gf1, gf2], []);
   if (!r.dry) throw new Error("ожидался dry");
+});
+
+// ============================================================
+// memoizeCalc + gfSignature — кэш кривой W(Q) между пересчётами схемы
+// ============================================================
+
+test("gfSignature: разный tr/Qr/n/delay — разные подписи", () => {
+  const base = H.makeHydroGF(100, 10, 0.71, 0);
+  const s0 = H.gfSignature([base]);
+  for (const gf of [H.makeHydroGF(101, 10, 0.71, 0), H.makeHydroGF(100, 11, 0.71, 0),
+                    H.makeHydroGF(100, 10, 0.7, 0), H.makeHydroGF(100, 10, 0.71, 5)]) {
+    if (H.gfSignature([gf]) === s0) throw new Error("подпись не различает входы");
+  }
+});
+
+test("gfSignature: одинаковые входы — одинаковая подпись (кэш попадает)", () => {
+  const a = H.gfSignature([H.makeHydroGF(100, 10, 0.71, 3), H.makePiecewiseGF([{ q: 5, tStart: 0, tEnd: 9 }], 2)]);
+  const b = H.gfSignature([H.makeHydroGF(100, 10, 0.71, 3), H.makePiecewiseGF([{ q: 5, tStart: 0, tEnd: 9 }], 2)]);
+  if (a !== b) throw new Error("одинаковые входы дали разные подписи");
+  if (a === null) throw new Error("подпись аналитических входов не должна быть null");
+});
+
+test("gfSignature: разный сегмент piecewise — разная подпись", () => {
+  const a = H.gfSignature([H.makePiecewiseGF([{ q: 5, tStart: 0, tEnd: 9 }], 0)]);
+  const b = H.gfSignature([H.makePiecewiseGF([{ q: 5, tStart: 0, tEnd: 10 }], 0)]);
+  if (a === b) throw new Error("изменение конца сегмента не попало в подпись");
+});
+
+test("gfSignature: плотный ряд подписать нельзя — null (кэш остаётся локальным)", () => {
+  if (H.gfSignature([{ t: [0, 1], q: [3, 4] }]) !== null) throw new Error("ряд не должен подписываться");
+});
+
+test("memoizeCalc: с подписью кэш переживает новый вызов, без подписи — нет", () => {
+  let n = 0;
+  const f = sig => H.memoizeCalc(q => { n++; return q * 2; }, sig); // sig — уникальная строка теста
+  f("S")(10); f("S")(10);
+  if (n !== 1) throw new Error(`с подписью было ${n} вычислений, ожидалось 1`);
+  f(undefined)(11); f(undefined)(11); // два независимых локальных кэша
+  if (n !== 3) throw new Error(`без подписи вычислений ${n}, ожидалось 3 — кэш не должен разделяться`);
+  f("T")(10);
+  if (n !== 4) throw new Error("другая подпись обязана считать заново (иначе результат протухший)");
+});
+
+test("memoizeCalc: одно и то же Q с шагом 0,01 — тот же ключ", () => {
+  let n = 0;
+  const f = H.memoizeCalc(q => { n++; return q; }, "K");
+  f(12.344); f(12.3449);
+  if (n !== 1) throw new Error("округление ключа до 0,01 не работает");
+});
+
+// ============================================================
+// Адаптивный шаг поиска пересечений в mixedAnalyticCalc
+// Равномерный перебор шагом 0,2 мин на горизонте суток давал 35 000 вычислений
+// на вызов; шаг из локальной оценки |g'| даёт те же результаты в ~40 раз
+// быстрее. Ниже — дифференциальная проверка против прежнего перебора и
+// страховка от вырожденного притока (Qнс ровно на уровне порога).
+// ============================================================
+
+const REF_DT = 0.002; // почти эталонная сетка
+
+test("адаптивный шаг: суточный горизонт — W подтверждён плотной сеткой 0,002", () => {
+  const gfs = [H.makeHydroGF(1360.8, 158.9, 0.35, 0), H.makeHydroGF(11.25, 3021.05, 0.35, 0)];
+  const dense = H.combineGF(gfs, REF_DT, Math.max(...gfs.map(H.durationGF)));
+  for (const Q of [80, 300, 900]) {
+    const a = H.mixedAnalyticCalc(Q, gfs, []);
+    const r = H.numericCalc(Q, dense);
+    if (a.dry !== r.dry) throw new Error(`Q=${Q}: dry не совпал с плотной сеткой`);
+    if (!a.dry) approx(a.W, r.W, Math.max(0.05, r.W * 1e-3));
+  }
+});
+
+test("адаптивный шаг: кривая W(Q) за сутки считается за миллисекунды", () => {
+  const gf = H.makeHydroGF(11.25, 3021, 0.35, 0);
+  const pw = H.makePiecewiseGF([{ q: 3, tStart: 0, tEnd: 1148 }, { q: 6, tStart: 1148, tEnd: 6928 }, { q: 3, tStart: 6928, tEnd: 6953 }], 4.4);
+  const t0 = Date.now();
+  for (let q = 6; q <= 1400; q += 30) H.mixedAnalyticCalc(q, [gf], [pw]);
+  const dt = Date.now() - t0;
+  if (dt > 150) throw new Error(`47 точек кривой за ${dt} мс — шаг снова равномерный`);
+});
+
+test("вырожденный приток: Qнс ровно на плато «вне пика» — расчёт не зависает", () => {
+  const gf = H.makeHydroGF(1360, 133, 0.35, 0);
+  const pw = H.makePiecewiseGF([{ q: 6, tStart: 0, tEnd: 6000 }], 0);
+  const t0 = Date.now();
+  const r = H.mixedAnalyticCalc(6, [gf], [pw]);
+  const dt = Date.now() - t0;
+  if (dt > 300) throw new Error(`${dt} мс — шаг застрял на касании с порогом`);
+  if (r.dry && r.W !== 0) throw new Error("dry обязан иметь W = 0");
+});
+
+test("вырожденный приток: Qнс ровно на пике суммы — завершается и не выдумывает объём", () => {
+  const gfs = [H.makeHydroGF(400, 900, 0.4, 0), H.makeHydroGF(60, 120, 0.4, 880)];
+  const dense = H.combineGF(gfs, REF_DT, Math.max(...gfs.map(H.durationGF)));
+  let qMax = 0;
+  for (const q of dense.q) if (q > qMax) qMax = q;
+  const t0 = Date.now();
+  const a = H.mixedAnalyticCalc(qMax, gfs, []);
+  if (Date.now() - t0 > 300) throw new Error("касание вершины подвешивает расчёт");
+  const r = H.numericCalc(qMax, dense);
+  if (!a.dry) approx(a.W, r.W, Math.max(0.1, Math.abs(r.W) * 1e-3));
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);

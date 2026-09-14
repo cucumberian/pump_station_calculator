@@ -85,15 +85,35 @@ const inflowChart = (() => {
 const sbWqChart = { inner: null };
 const sbQtState = {};
 
+// Подпись входов станции для кэша W(Qнс): кэш переживает пересчёт схемы лишь
+// тогда, когда подписаны ВСЕ входы расчёта. Численный режим замкнут на
+// конкретный ряд притока (его содержимое дешёвой подписью не описать), поэтому
+// остаётся с локальным кэшем — там numericCalc и так долей миллисекунды.
+function calcSig(res) {
+  if (res.mode === "numeric") return null;
+  if (res.eq) return `E${res.eq.Qr},${res.eq.tr},${res.eq.n}`;
+  return gfSignature([...(res.hydroGFs || []), ...(res.flowGFs || [])]);
+}
+
 function sbCalcFn(res) {
-  if (res.mode === "numeric") {
-    const inflowDense = res.inflow || (res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : null);
-    return q => numericCalc(q, inflowDense);
-  }
-  if (!res.eq) {
-    return q => mixedAnalyticCalc(q, res.hydroGFs, res.flowGFs);
-  }
-  return q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
+  // memoizeCalc: ту же функцию вызывают кривая W(Q), таблица вариантов и
+  // tooltip; numericCalc/mixedAnalyticCalc на длинных сериях по 2–11 мс.
+  if (res._calcFn) return res._calcFn;
+  const raw = (() => {
+    if (res.mode === "numeric") {
+      const inflowDense = res.inflow || (res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : null);
+      return q => numericCalc(q, inflowDense);
+    }
+    if (!res.eq) {
+      return q => mixedAnalyticCalc(q, res.hydroGFs, res.flowGFs);
+    }
+    return q => calc(q, res.eq.Qr, res.eq.tr, res.eq.n);
+  })();
+  // Кривая W(Qнс) зависит только от входов станции, а не от её собственного
+  // Qнс: с подписью входов она переживает пересчёт схемы и перетаскивание Q
+  // считается один раз, а не по кадру.
+  res._calcFn = memoizeCalc(raw, calcSig(res));
+  return res._calcFn;
 }
 
 const catchChart = (() => {

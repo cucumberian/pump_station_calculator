@@ -6,12 +6,13 @@ function plural(n, one, few, many) {
 
 function seriesFromResult(res) {
   if (!res) return null;
-  return res.series || (res.gf ? toDense(res.gf, HYDRO_DT, globalTMax || undefined) : null);
+  // только для графиков — ряды в десятки тысяч точек ресемплим с сохранением пиков
+  return resampleForDisplay(res.series || (res.gf ? toDense(res.gf, HYDRO_DT, globalTMax || undefined) : null));
 }
 
 function inflowFromResult(res) {
   if (!res) return null;
-  return res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : seriesFromResult(res);
+  return resampleForDisplay(res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : seriesFromResult(res));
 }
 
 function setTitle(typeLabel) {
@@ -19,6 +20,15 @@ function setTitle(typeLabel) {
   const name = node?.data?.name?.trim();
   $c("sbTitle").textContent = name ? `${name} · ${typeLabel}` : typeLabel;
 }
+
+// Значения в полях ввода: не менее двух знаков после запятой, но точность
+// не режем — 0,634 остаётся 0.634, а 3 превращается в 3.00.
+const padNum = v => {
+  if (typeof v !== "number" || !Number.isFinite(v)) return v;
+  const s = String(v);
+  const dec = (s.split(".")[1] || "").length;
+  return v.toFixed(Math.max(2, dec));
+};
 
 const SB_CATCH_MAP = {
   sbCF: "F", sbCQ20: "q20", sbCP: "P", sbCMr: "mr", sbCGamma: "gamma",
@@ -58,7 +68,7 @@ function renderCatchSidebar(node) {
   const d = node.data || {};
   for (const [elId, key] of Object.entries(SB_CATCH_MAP)) {
     const el = $c(elId);
-    if (document.activeElement !== el) el.value = d[key];
+    if (document.activeElement !== el) el.value = padNum(d[key]);
   }
   for (const rb of document.querySelectorAll('input[name="sbCCoeff"]')) {
     rb.checked = rb.value === (d.coeffMode === "const" ? "const" : "variable");
@@ -122,8 +132,8 @@ function renderDelaySidebar(node) {
   $c("sbContent").hidden = true;
   hidePumpSections();
   const d = node.data || {};
-  if (document.activeElement !== $c("sbV")) $c("sbV").value = d.v;
-  if (document.activeElement !== $c("sbL")) $c("sbL").value = d.l;
+  if (document.activeElement !== $c("sbV")) $c("sbV").value = Number(d.v).toFixed(2);
+  if (document.activeElement !== $c("sbL")) $c("sbL").value = Number(d.l).toFixed(2);
   const dt = delayDt(d);
   $c("sbDt").textContent = `Δt = L / (60·v) = ${fmt(dt, 1)} мин`;
   const srcs = upstreamIds(sbNodeId, graphData()).map(u => results[u]).filter(Boolean);
@@ -132,7 +142,7 @@ function renderDelaySidebar(node) {
   $c("sbDelayChartWrap").hidden = !has;
   $c("sbDelayEmpty").hidden = has;
   if (has) {
-    const inSeries = srcs.length === 1 ? seriesFromResult(srcs[0]) : combineSeries(srcs.map(s => seriesFromResult(s)));
+    const inSeries = srcs.length === 1 ? seriesFromResult(srcs[0]) : resampleForDisplay(combineSeries(srcs.map(s => seriesFromResult(s))));
     delayChart.update(dt, inSeries, seriesFromResult(out));
   }
   applySidebarLock();
@@ -172,14 +182,14 @@ function renderSidebar() {
     $c("sbLockSrc").textContent = ids;
     $c("sbLockMulti").hidden = !(res.lockIds?.length > 1);
   }
-  if (document.activeElement !== $c("sbQ")) $c("sbQ").value = res.Q;
-  if (document.activeElement !== $c("sbQm3h")) $c("sbQm3h").value = +(res.Q * 3.6).toFixed(1);
+  if (document.activeElement !== $c("sbQ")) $c("sbQ").value = Number(res.Q).toFixed(2);
+  if (document.activeElement !== $c("sbQm3h")) $c("sbQm3h").value = (res.Q * 3.6).toFixed(2);
   const inflowSeries = inflowFromResult(res);
   const qMax = seriesPeak(inflowSeries).q;
   const rg = $c("sbQrange");
   rg.max = Math.ceil(qMax);
   if (document.activeElement !== rg) rg.value = Math.min(res.Q, qMax);
-  if (document.activeElement !== $c("sbIdle")) $c("sbIdle").value = res.idle;
+  if (document.activeElement !== $c("sbIdle")) $c("sbIdle").value = Number(res.idle).toFixed(2);
   for (const rb of document.querySelectorAll('input[name="sbMode"]')) {
     rb.checked = rb.value === res.mode;
   }
@@ -190,7 +200,7 @@ function renderSidebar() {
   const ownLabel = res.lockIds?.length > 1
     ? `Водосборы ${res.lockIds.map(x => `#${x}`).join(", ")}`
     : res.lockId ? `Водосбор #${res.lockId}` : "Дождь (собственный)";
-  const ownSeries = res.ownRainGF ? toDense(res.ownRainGF, HYDRO_DT, globalTMax || undefined) : res.ownRain;
+  const ownSeries = res.ownRainGF ? resampleForDisplay(toDense(res.ownRainGF, HYDRO_DT, globalTMax || undefined)) : res.ownRain;
   const comps = [{ label: ownLabel, series: ownSeries }];
   for (const x of upstreamIds(sbNodeId, data)
     .map(u => ({ nd: data[u], r: results[u] }))
@@ -262,9 +272,9 @@ function openSidebar(id) {
   if (inflowRes) {
     const qMax = seriesPeak(inflowRes).q;
     if (!$c("sbFrom").value) {
-      $c("sbFrom").value = Math.max(1, Math.round(qMax / 8));
-      $c("sbTo").value = Math.round(qMax);
-      $c("sbStep").value = Math.max(1, Math.round(qMax / 8));
+      $c("sbFrom").value = Math.max(1, Math.round(qMax / 8)).toFixed(2);
+      $c("sbTo").value = Math.round(qMax).toFixed(2);
+      $c("sbStep").value = Math.max(1, Math.round(qMax / 8)).toFixed(2);
     }
   }
   renderSidebar();
@@ -291,7 +301,9 @@ function syncNodeParam(id, key, value) {
   if (key === "P") delete data.p;
   editor.updateNodeDataFromId(id, data);
   const inp = document.querySelector(`#node-${id} input[df-${key}]`);
-  if (inp && document.activeElement !== inp) inp.value = value;
+  if (inp && document.activeElement !== inp && inp.type === "number") {
+    inp.value = padNum(value);
+  }
   if (IMMEDIATE_KEYS.has(key)) flushCascade();
   else computeCascade();
 }
@@ -396,13 +408,13 @@ $c("sbFitAxis").addEventListener("click", () => {
 });
 
 function fmtSumParts(gfs, labels) {
-  const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
+  const f = v => Number.isFinite(v) ? fmt(v) : v;
   let html = `<div class="gf-segments">`;
   gfs.forEach((gf, i) => {
     if (!gf) return;
     const label = labels[i] ? `${labels[i]}: ` : "";
     if (gf.type === "hydrograph") {
-      html += `<span class="gf-seg">+ ${label}гидрограф Qr = ${f(gf.Qr)} л/с, tr = ${f(gf.tr)} мин, n = ${gf.n}${gf.delay ? `, сдвиг +${f(gf.delay)} мин` : ""}</span>`;
+      html += `<span class="gf-seg">+ ${label}гидрограф Qr = ${f(gf.Qr)} л/с, tr = ${f(gf.tr)} мин, n = ${fmt(gf.n)}${gf.delay ? `, сдвиг +${f(gf.delay)} мин` : ""}</span>`;
     } else if (gf.type === "piecewise") {
       const segs = gf.segments.map(s => `[${f(s.tStart)}; ${f(s.tEnd)}) → ${f(s.q)} л/с`).join("; ");
       html += `<span class="gf-seg">+ ${label}кусочно-постоянная ${segs}${gf.delay ? `, сдвиг +${f(gf.delay)} мин` : ""}</span>`;
@@ -414,12 +426,12 @@ function fmtSumParts(gfs, labels) {
 }
 
 function fmtGF(gf, label) {
-  const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
+  const f = v => Number.isFinite(v) ? fmt(v) : v;
   let html = `<div class="gf-entry"><span class="gf-label">${label}</span> `;
   if (!gf) { html += `<span class="gf-na">нет данных</span></div>`; return html; }
   if (gf.type === "hydrograph") {
     html += `<span class="gf-type">Гидрограф</span>
-      <div class="gf-params">Qr = ${f(gf.Qr)} л/с, tr = ${f(gf.tr)} мин, n = ${gf.n}</div>
+      <div class="gf-params">Qr = ${f(gf.Qr)} л/с, tr = ${f(gf.tr)} мин, n = ${fmt(gf.n)}</div>
       <div class="gf-dur">длительность: ${f(durationGF(gf))} мин</div>`;
     if (gf.delay) html += `<div class="gf-params">сдвиг: +${f(gf.delay)} мин</div>`;
   } else if (gf.type === "piecewise") {
@@ -444,7 +456,7 @@ function fmtGF(gf, label) {
 
 function showGFInfo(nodeId) {
   if (computeTimer !== null) flushCascade(); // в модалке должны быть свежие ряды
-  const f = v => Number.isFinite(v) ? +v.toFixed(2) : v;
+  const f = v => Number.isFinite(v) ? fmt(v) : v;
   const data = graphData();
   const nd = data[nodeId];
   const res = results[nodeId];
@@ -473,7 +485,7 @@ function showGFInfo(nodeId) {
   if (res.ownRainGF) {
     let ownHtml;
     if (res.ownRainGF.type === "dense" && (res.hydroGFs?.length || 0) > 1) {
-      ownHtml = `<div class="gf-entry"><span class="gf-type">Сумма (аналитическая)</span>${fmtSumParts(hydroGfs, hydroLabels)}<div class="gf-dur">для графика свёрнута в ряд: ${res.ownRainGF.t.length} точек, шаг ${HYDRO_DT} мин</div></div>`;
+      ownHtml = `<div class="gf-entry"><span class="gf-type">Сумма (аналитическая)</span>${fmtSumParts(hydroGfs, hydroLabels)}<div class="gf-dur">для графика свёрнута в ряд: ${res.ownRainGF.t.length} точек, шаг ${fmt(HYDRO_DT)} мин</div></div>`;
     } else {
       ownHtml = fmtGF(res.ownRainGF, "");
     }
@@ -483,7 +495,7 @@ function showGFInfo(nodeId) {
     let inHtml;
     if ((res.flowGFs?.length || 0) > 0 || (res.hydroGFs?.length || 0) > 1) {
       const denseNote = res.inflowGF.t
-        ? `<div class="gf-dur">для графика и численного режима свёрнута в ряд: ${res.inflowGF.t.length} точек, шаг ${HYDRO_DT} мин</div>` : "";
+        ? `<div class="gf-dur">для графика и численного режима свёрнута в ряд: ${res.inflowGF.t.length} точек, шаг ${fmt(HYDRO_DT)} мин</div>` : "";
       inHtml = `<div class="gf-entry"><span class="gf-label">Σ</span> <span class="gf-type">Сумма (аналитическая)</span>${fmtSumParts([...hydroGfs, ...flowGfs], [...hydroLabels, ...flowLabels])}${denseNote}</div>`;
     } else {
       inHtml = fmtGF(res.inflowGF, upstreams.length || res.ownRainGF ? "Σ" : "");
@@ -499,7 +511,7 @@ function showGFInfo(nodeId) {
     let methodNote = "";
     const nh = res.hydroGFs?.length || 0, np = res.flowGFs?.length || 0;
     if (res.mode === "numeric") {
-      methodNote = "Метод: численный — пошаговое моделирование уровня резервуара по суммарному ряду (Δt = 0,2 мин).";
+      methodNote = "Метод: численный — пошаговое моделирование уровня резервуара по суммарному ряду (Δt = 0,20 мин).";
     } else if (res.mode === "analytic" && !res.eq) {
       const parts = [];
       if (nh) parts.push(`${nh} ${plural(nh, "дождевой гидрограф", "дождевых гидрографа", "дождевых гидрографов")}`);

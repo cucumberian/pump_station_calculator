@@ -167,16 +167,16 @@ $("hydroHelp").addEventListener("click", () => {
 });
 loadFromStorage();
 let rangeDirty = loadFromUrl();
-{ const q = parseFloat($("Q").value); if (q > 0) $("Qm3h").value = +(q * 3.6).toFixed(1); }
+{ const q = parseFloat($("Q").value); if (q > 0) $("Qm3h").value = (q * 3.6).toFixed(2); }
 for (const id of ["vFrom", "vTo", "vStep"]) {
   $(id).addEventListener("input", () => { rangeDirty = true; render(); });
   $(id).addEventListener("change", () => {
     const Qr = parseFloat($("Qr").value);
     const rc = Qr > 0 && clampRange(Qr);
     if (rc) {
-      $("vFrom").value = +rc.from.toFixed(2);
-      $("vTo").value = +rc.to.toFixed(2);
-      $("vStep").value = +rc.step.toFixed(2);
+      $("vFrom").value = rc.from.toFixed(2);
+      $("vTo").value = rc.to.toFixed(2);
+      $("vStep").value = rc.step.toFixed(2);
     }
   });
 }
@@ -197,21 +197,21 @@ $("Qr").addEventListener("input", () => {
   if (!rangeDirty) {
     const Qr = parseFloat($("Qr").value);
     if (Qr > 0) {
-      $("vFrom").value = Math.max(1, Math.round(Qr / 8));
-      $("vTo").value = Math.round(Qr);
-      $("vStep").value = Math.max(1, Math.round(Qr / 8));
+      $("vFrom").value = Math.max(1, Math.round(Qr / 8)).toFixed(2);
+      $("vTo").value = Math.round(Qr).toFixed(2);
+      $("vStep").value = Math.max(1, Math.round(Qr / 8)).toFixed(2);
     }
   }
 });
 for (const id of ["Qr", "tr", "n"]) $(id).addEventListener("input", render);
 $("Q").addEventListener("input", () => {
   const q = parseFloat($("Q").value);
-  if (q > 0) $("Qm3h").value = +(q * 3.6).toFixed(1);
+  if (q > 0) $("Qm3h").value = (q * 3.6).toFixed(2);
   render();
 });
 $("Qm3h").addEventListener("input", () => {
   const m = parseFloat($("Qm3h").value);
-  if (m > 0) $("Q").value = +(m / 3.6).toFixed(2);
+  if (m > 0) $("Q").value = (m / 3.6).toFixed(2);
   render();
 });
 $("Qrange").addEventListener("input", e => {
@@ -238,7 +238,7 @@ for (const [id, step] of Object.entries(WHEEL_STEPS)) {
     v = +v.toFixed(dec);
     if (el.min !== "" && v < +el.min) v = +el.min;
     if (el.max !== "" && v > +el.max) v = +el.max;
-    el.value = v;
+    el.value = el.type === "number" ? v.toFixed(Math.max(dec, 2)) : v;
     el.dispatchEvent(new Event("input"));
   }, { passive: false });
 }
