@@ -13,8 +13,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="static/js/hydro.js"></script>
-  <script defer src="static/js/calc-view.js?v=8"></script>
-  <script defer src="static/js/app.js?v=3"></script>
+  <script defer src="static/js/calc-view.js?v=9"></script>
+  <script defer src="static/js/app.js?v=4"></script>
 </head>
 
 <body>
@@ -41,14 +41,14 @@
       <div class="field" title="максимальный расчётный расход дождевых вод в коллекторе дождевой канализации в расчётном участке, л/с">
         <label for="Qr">Q<sub>r</sub> — макс. расход дождевого стока</label>
         <div class="dual">
-          <input id="Qr" type="number" step="any" min="1" value="342.3">
+          <input id="Qr" type="number" step="any" min="1" value="342.30">
           <span class="dual-unit">л/с</span>
         </div>
       </div>
       <div class="field" title="расчетная продолжительность дождя, равная продолжительности протекания поверхностных вод по поверхности и трубам до расчетного участка, мин">
         <label for="tr">t<sub>r</sub> — расчётная продолжительность дождя</label>
         <div class="tr-row">
-          <input id="tr" type="number" step="any" min="1" value="10">
+          <input id="tr" type="number" step="any" min="1" value="10.00">
           <span class="dual-unit">мин</span>
           <div class="tr-btns">
             <button class="btn" id="trMinus" type="button">− час</button>
@@ -65,10 +65,10 @@
       <div class="field" title="максимальная производительности насосов в насосной станции, л/с">
         <label for="Q">Q<sub>нс</sub> — производительность насосной станции</label>
         <div class="dual">
-          <input id="Q" type="number" step="any" min="1" value="100">
+          <input id="Q" type="number" step="any" min="1" value="100.00">
           <span class="dual-unit">л/с</span>
           <span class="dual-eq">=</span>
-          <input id="Qm3h" type="number" step="any" min="3.6" value="360" title="Qнс, м³/ч">
+          <input id="Qm3h" type="number" step="any" min="3.6" value="360.00" title="Qнс, м³/ч">
           <span class="dual-unit">м³/ч</span>
         </div>
         <input id="Qrange" type="range" min="1" max="342.3" step="0.5" value="100">
@@ -102,11 +102,11 @@
         <h2>Таблица вариантов</h2>
         <div class="range-controls">
           <div class="field"><label for="vFrom">Q<sub>нс</sub> от, л/с</label><input id="vFrom" type="number" step="any"
-              min="1" value="43"></div>
-          <div class="field"><label for="vTo">до, л/с</label><input id="vTo" type="number" step="any" min="1" value="342">
+              min="1" value="43.00"></div>
+          <div class="field"><label for="vTo">до, л/с</label><input id="vTo" type="number" step="any" min="1" value="342.00">
           </div>
           <div class="field"><label for="vStep">шаг, л/с</label><input id="vStep" type="number" step="any" min="0.5"
-              value="43"></div>
+              value="43.00"></div>
         </div>
         <div class="table-wrap">
           <table id="variants">

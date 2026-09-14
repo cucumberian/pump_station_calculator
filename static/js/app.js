@@ -50,6 +50,7 @@ function render() {
   $("Qrange").max = Qr;
   $("Qrange").value = Math.min(Q, Qr);
   $("nrange").value = n;
+  if (document.activeElement !== $("Q")) $("Q").value = padNum(Q);
   $("Qhint").textContent = Q >= Qr
     ? "Qнс ≥ Qr — резервуар не требуется (сток перекачивается без регулирования)"
     : "";
@@ -84,7 +85,10 @@ function loadFromStorage() {
   try {
     const data = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
     for (const id of PARAM_IDS) {
-      if (data[id] != null && data[id] !== "") $(id).value = data[id];
+      if (data[id] != null && data[id] !== "") {
+        const n = parseFloat(data[id]);
+        $(id).value = Number.isFinite(n) ? padNum(n) : data[id];
+      }
     }
   } catch { /* повреждённые данные игнорируем */ }
 }
@@ -104,7 +108,7 @@ function loadFromUrl() {
   for (const id of PARAM_IDS) {
     const v = parseFloat(p.get(id));
     if (Number.isFinite(v)) {
-      $(id).value = v;
+      $(id).value = padNum(v);
       if (id.startsWith("v")) hasTable = true;
     }
   }
@@ -215,14 +219,19 @@ $("Qm3h").addEventListener("input", () => {
   render();
 });
 $("Qrange").addEventListener("input", e => {
-  $("Q").value = e.target.value;
+  const v = parseFloat(e.target.value);
+  $("Q").value = Number.isFinite(v) ? padNum(v) : e.target.value;
   $("Q").dispatchEvent(new Event("input"));
 });
-$("nrange").addEventListener("input", e => { $("n").value = e.target.value; render(); });
+$("nrange").addEventListener("input", e => {
+  const v = parseFloat(e.target.value);
+  $("n").value = Number.isFinite(v) ? padNum(v) : e.target.value;
+  render();
+});
 
 const shiftTr = dh => {
   const tr = parseFloat($("tr").value) || 0;
-  $("tr").value = Math.max(1, tr + dh * 60);
+  $("tr").value = padNum(Math.max(1, tr + dh * 60));
   render();
 };
 $("trMinus").addEventListener("click", () => shiftTr(-1));

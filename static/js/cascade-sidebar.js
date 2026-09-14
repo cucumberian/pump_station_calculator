@@ -21,15 +21,8 @@ function setTitle(typeLabel) {
   $c("sbTitle").textContent = name ? `${name} · ${typeLabel}` : typeLabel;
 }
 
-// Значения в полях ввода: не менее двух знаков после запятой, но точность
-// не режем — 0,634 остаётся 0.634, а 3 превращается в 3.00.
-const padNum = v => {
-  if (typeof v !== "number" || !Number.isFinite(v)) return v;
-  const s = String(v);
-  const dec = (s.split(".")[1] || "").length;
-  return v.toFixed(Math.max(2, dec));
-};
-
+// Значения в полях ввода форматирует padNum (calc-view.js): не менее двух
+// знаков после запятой, точность исходного числа не режем.
 const SB_CATCH_MAP = {
   sbCF: "F", sbCQ20: "q20", sbCP: "P", sbCMr: "mr", sbCGamma: "gamma",
   sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan",
@@ -352,7 +345,8 @@ $c("sbQm3h").addEventListener("input", () => {
   if (m > 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "q", +(m / 3.6).toFixed(2));
 });
 $c("sbQrange").addEventListener("input", e => {
-  $c("sbQ").value = e.target.value;
+  const v = parseFloat(e.target.value);
+  $c("sbQ").value = Number.isFinite(v) ? padNum(v) : e.target.value;
   $c("sbQ").dispatchEvent(new Event("input", { bubbles: true }));
 });
 $c("sbIdle").addEventListener("input", () => {

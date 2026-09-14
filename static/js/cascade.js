@@ -301,6 +301,14 @@ function updateSummaries(data = graphData()) {
     for (const inp of document.querySelectorAll(`#node-${id} input`)) {
       inp.disabled = isLocked;
     }
+    // Drawflow пишет значения в поля карточек сырыми числами (3.9, 342.3),
+    // а после каждого пересчёта перезаписывает их заново — дописываем нули
+    // здесь, пока поле не в фокусе (иначе мешает вводу).
+    for (const inp of document.querySelectorAll(`#node-${id} input[type="number"]`)) {
+      if (document.activeElement === inp) continue;
+      const n = parseFloat(inp.value);
+      if (Number.isFinite(n)) inp.value = padNum(n);
+    }
     if (nd.name === "delay") {
       const out = document.querySelector(`#node-${id} .delay-out`);
       if (out) out.innerHTML = `Δt = <b>${fmt(delayDt(nd.data || {}), 1)} мин</b>`;

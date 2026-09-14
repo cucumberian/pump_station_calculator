@@ -38,6 +38,15 @@ const smartRound = v => {
   return a > 0 && a < 0.01 ? +v.toPrecision(2) : +v.toFixed(2);
 };
 
+// Значение в поле ввода: не менее двух знаков после запятой, но точность
+// не режем — 0,634 остаётся 0.634, а 3 превращается в 3.00. Точка — поля
+// type="number" требуют её, а не запятую.
+const padNum = v => {
+  if (typeof v !== "number" || !Number.isFinite(v)) return v;
+  const dec = (String(v).split(".")[1] || "").length;
+  return v.toFixed(Math.max(2, dec));
+};
+
 // Почти нулевой объём — не ошибка, а особенный режим: резервуар почти не работает.
 function nearZeroNote(r) {
   if (!r || r.dry || !(r.W > 0)) return null;
@@ -330,7 +339,7 @@ function makeWQChart(el) {
       const ws = qs.map(q => smartRound(fn(q).W));
       ec.update({
         title: { left: "center" },
-        xAxis: { type: "value", name: "Qнс, л/с", nameLocation: "middle", nameGap: 24, min: "dataMin", axisLabel: { formatter: v => +v.toFixed(2) } },
+        xAxis: { type: "value", name: "Qнс, л/с", nameLocation: "middle", nameGap: 24, min: "dataMin", axisLabel: { formatter: v => fmt(v) } },
         yAxis: { type: "value", name: "Wнс, м³", min: 0, nameLocation: "middle", nameGap: 40 },
         tooltip: {
           formatter: params => {

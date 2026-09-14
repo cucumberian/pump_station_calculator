@@ -182,7 +182,7 @@ function applyPayload(payload) {
     cascadeMeta = { custom: [], ...payload.meta };
     if (!Array.isArray(cascadeMeta.custom)) cascadeMeta.custom = [];
   }
-  if (payload.n > 0 && payload.n < 1) $c("globalN").value = payload.n;
+  if (payload.n > 0 && payload.n < 1) $c("globalN").value = padNum(payload.n);
   closeSidebar();
   rebuildScheme(payload.scheme && !payload.nodes ? payload.scheme : payload);
   flushCascade();
@@ -194,7 +194,7 @@ function loadInitial() {
   let stored = null;
   try { stored = JSON.parse(localStorage.getItem(LS_CASCADE) || "null"); } catch { stored = null; }
   const storedN = parseFloat(localStorage.getItem(LS_N));
-  if (storedN > 0 && storedN < 1) $c("globalN").value = storedN;
+  if (storedN > 0 && storedN < 1) $c("globalN").value = padNum(storedN);
   if (stored && !validatePayload(stored, { allowCycle: true }).length) {
     // allowCycle: старая сохранённая схема могла содержать цикл (дыра, закрытая
     // на импорте) — грузим как есть, о цикле предупредит баннер пересчёта.
