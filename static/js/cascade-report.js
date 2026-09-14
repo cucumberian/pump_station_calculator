@@ -281,6 +281,10 @@ function delaySectionMD(node) {
     out.push(`Задержка задана вручную: Δt = ${f(parseFloat(d.dt) || 0)} мин.`);
   }
   out.push("");
+  const dDiam = parseFloat(d.d);
+  if (Number.isFinite(dDiam) && dDiam > 0) {
+    out.push(`Принятый диаметр трубы D = ${f(dDiam, 0)} мм (на расчёт задержки не влияет; задел под проверку скорости по таблице Шевелёва).`, "");
+  }
   out.push("Нода сдвигает входной гидрограф по времени на Δt.");
   out.push("");
   return out.join("\n");
@@ -332,7 +336,7 @@ function reportSchemeMD(graph, n) {
     let params = "";
     if (nd.type === "pump") params = `Qнс=${reportFmt(d.q)} л/с, Qr=${reportFmt(d.qr)} л/с, tr=${reportFmt(d.tr)} мин, режим: ${d.mode === "numeric" ? "числ." : "аналит."}`;
     else if (nd.type === "catch") params = `F=${reportFmt(d.F)} га, q20=${reportFmt(d.q20)} л/с/га`;
-    else if (nd.type === "delay") params = `L=${reportFmt(d.l ?? d.L)} м, v=${reportFmt(d.v)} м/с`;
+    else if (nd.type === "delay") params = `L=${reportFmt(d.l ?? d.L)} м, v=${reportFmt(d.v)} м/с${(() => { const dd = parseFloat(d.d); return Number.isFinite(dd) && dd > 0 ? `, D=${reportFmt(dd, 0)} мм` : ""; })()}`;
     const disabled = d.disabled ? " **(отключена — расчёт не выполняется)**" : "";
     const title = (d.name || "").trim() + ((d.desc || "").trim() ? ` — ${(d.desc || "").trim()}` : "");
     out.push(`| ${nd.id} | ${reportNodeLabel(nd.type)} | ${title || "—"} | ${params}${disabled} |`);

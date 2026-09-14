@@ -29,7 +29,7 @@ const SB_CATCH_MAP = {
   sbCL1: "l1", sbCV1: "v1", sbCL2: "l2", sbCV2: "v2", sbCL3: "l3", sbCV3: "v3",
 };
 
-const SB_LOCK_INPUTS = ["sbQr", "sbTr", "sbQ", "sbQm3h", "sbQrange", "sbIdle", "sbV", "sbL"];
+const SB_LOCK_INPUTS = ["sbQr", "sbTr", "sbQ", "sbQm3h", "sbQrange", "sbIdle", "sbV", "sbL", "sbD"];
 
 function renderNodeMeta(node) {
   const d = node.data || {};
@@ -127,6 +127,12 @@ function renderDelaySidebar(node) {
   const d = node.data || {};
   if (document.activeElement !== $c("sbV")) $c("sbV").value = Number(d.v).toFixed(2);
   if (document.activeElement !== $c("sbL")) $c("sbL").value = Number(d.l).toFixed(2);
+  // D — справочное поле (задел под Шевелёва), в расчёт не входит; пустое = не задано.
+  const dEl = $c("sbD");
+  if (document.activeElement !== dEl) {
+    const dv = parseFloat(d.d);
+    dEl.value = Number.isFinite(dv) ? padNum(dv) : "";
+  }
   const dt = delayDt(d);
   $c("sbDt").textContent = `Δt = L / (60·v) = ${fmt(dt, 1)} мин`;
   const srcs = upstreamIds(sbNodeId, graphData()).map(u => results[u]).filter(Boolean);
@@ -360,6 +366,14 @@ $c("sbV").addEventListener("input", () => {
 $c("sbL").addEventListener("input", () => {
   const v = parseFloat($c("sbL").value);
   if (v >= 0 && sbNodeId !== null) syncNodeParam(sbNodeId, "l", v);
+});
+// D — справочное: пустое поле = не задано, в расчёт не входит (задел под Шевелёва).
+$c("sbD").addEventListener("input", () => {
+  if (sbNodeId === null) return;
+  const raw = $c("sbD").value.trim();
+  if (raw === "") { syncNodeParam(sbNodeId, "d", ""); return; }
+  const v = parseFloat(raw);
+  if (v > 0) syncNodeParam(sbNodeId, "d", v);
 });
 for (const rb of document.querySelectorAll('input[name="sbMode"]')) {
   rb.addEventListener("change", () => {

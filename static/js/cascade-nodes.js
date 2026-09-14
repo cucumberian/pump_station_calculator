@@ -43,6 +43,7 @@ const NODE_HTML = {
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
       <div class="nf"><label>v, м/с</label><input df-v type="number" step="any" min="0.01"></div>
       <div class="nf"><label>L, м</label><input df-l type="number" step="any" min="0"></div>
+      <div class="nf"><label>D, мм</label><input df-d type="number" step="any" min="0"></div>
       <div class="delay-out">Δt = —</div>
     </div>`,
 };
@@ -51,7 +52,7 @@ const NODE_TYPE_LABEL = { pump: "Насосная станция", delay: "Уч�
 
 const NODE_DEFAULTS = {
   pump: { name: "", desc: "", qr: 342.3, tr: 10, q: 100, idle: 50, mode: "analytic" },
-  delay: { name: "", desc: "", v: 1, l: 3600 },
+  delay: { name: "", desc: "", v: 1, l: 3600, d: "" },
   catch: {
     name: "", desc: "",
     F: 3.9, q20: 80, P: 1.0, mr: 150, gamma: 1.54,
@@ -65,8 +66,8 @@ const NODE_PORTS = { pump: [1, 1], delay: [1, 1], catch: [0, 1] };
 const NODE_LABEL = { pump: "КНС", delay: "Участок", catch: "Водосбор" };
 const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#1098ad"];
 
-const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100, F: 0.1, q20: 1, P: 0.1, tcon: 1 };
-const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01, sbCF: 0.1, sbCQ20: 1, sbCP: 0.1, sbCMr: 1, sbCGamma: 0.01, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCL1: 10, sbCV1: 0.1, sbCL2: 10, sbCV2: 0.1, sbCL3: 10, sbCV3: 0.1 };
+const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100, d: 50, F: 0.1, q20: 1, P: 0.1, tcon: 1 };
+const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbD: 50, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01, sbCF: 0.1, sbCQ20: 1, sbCP: 0.1, sbCMr: 1, sbCGamma: 0.01, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCL1: 10, sbCV1: 0.1, sbCL2: 10, sbCV2: 0.1, sbCL3: 10, sbCV3: 0.1 };
 
 const CASCADE_HELP = [
   { p: "Входной гидрограф станции складывается из собственного дождевого стока и выходных гидрографов вышестоящих станций, сдвинутых нодами участков сети. Все составляющие показаны на графике пунктиром." },

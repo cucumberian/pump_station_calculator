@@ -7,7 +7,7 @@ const path = require("path");
 const NODE_PORTS = { pump: [1, 1], delay: [1, 1], catch: [0, 1] };
 const NODE_DEFAULTS = {
   pump: { name: "", desc: "", qr: 342.3, tr: 10, q: 100, idle: 50, mode: "analytic" },
-  delay: { name: "", desc: "", v: 1, l: 3600 },
+  delay: { name: "", desc: "", v: 1, l: 3600, d: "" },
   catch: { name: "", desc: "", F: 3.9, q20: 80, P: 1.0, mr: 150, gamma: 1.54,
     psiMid: 0.634, zMid: 0.201, tcon: 3, tcan: 0,
     l1: 68, v1: 0.7, l2: 133, v2: 1.0, l3: 277, v3: 1.5, coeffMode: "variable" },
