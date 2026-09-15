@@ -148,7 +148,9 @@ $c("shareCascade").addEventListener("click", async () => {
       return;
     }
     const url = location.href.split("#")[0] + "#" + SHARE_PARAM + "=" + code;
-    try { history.replaceState(null, "", url); } catch { /* file://: SecurityError, ссылка и так в буфере */ }
+    // Адрес не трогаем: ссылка живёт только в буфере обмена. Фрагмент,
+    // оставленный в адресной строке, приживался там и на F5 после правок
+    // перезаписывал бы свежую работу старым снимком (баг).
     if (await copyToClipboard(url)) {
       btn.classList.add("copied");
       setTimeout(() => { btn.classList.remove("copied"); }, 1500);
@@ -306,12 +308,27 @@ function applyPayload(payload) {
   fitView();
 }
 
+// Фрагмент #s= — одноразовый носитель: доставляет снимок первому открытию
+// ссылки и сразу убирается из адреса. Иначе он «приживает» в строке и на F5
+// (или при восстановлении сессии) после любых правок перезаписывал бы свежую
+// работу старым снимком. Canonical состояние редактора — localStorage.
+function clearShareFragment() {
+  try {
+    history.replaceState(history.state, "", location.pathname + location.search);
+  } catch {
+    // file://: replaceState кидает SecurityError — мягкий путь, то же самое
+    // событие без перезагрузки (в адресе может остаться пустая «#»).
+    try { location.hash = ""; } catch { /* ignore */ }
+  }
+}
+
 async function loadInitial() {
   loadMeta();
-  // Ссылка важнее локальной копии: «Поделиться» уже записал схему в localStorage,
-  // так что повторная загрузка той же ссылки идемпотентна.
+  // Ссылка выигрывает у локальной копии в том единственном открытии, которое
+  // её потребляет; дальше локальная копия — источник истины.
   const hash = location.hash || "";
   if (hash.startsWith("#" + SHARE_PARAM + "=")) {
+    clearShareFragment();
     try {
       const payload = await decodeShareCode(decodeURIComponent(hash.slice(1 + SHARE_PARAM.length + 1)));
       const errors = validatePayload(payload);

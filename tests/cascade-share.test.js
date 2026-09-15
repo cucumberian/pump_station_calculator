@@ -74,15 +74,39 @@ global.editor = editor;
 global.closeSidebar = () => {};
 global.flushCascade = () => {};
 global.fitView = () => {};
+global.applyTransform = () => {};
 global.padNum = v => String(v);
 global.addNodeOfType = () => {};
 
-const location = { href: "http://site/cascade.html", hash: "" };
+const location = {
+  _href: "http://site/cascade.html", pathname: "/cascade.html", search: "",
+  // Семантика браузера: hash — геттер от href; присваивание "" — мягкая
+  // навигация (страница НЕ перезагружается), в адресе может остаться «#».
+  get hash() { const i = this._href.indexOf("#"); return i < 0 ? "" : this._href.slice(i); },
+  set hash(h) {
+    const base = this._href.split("#")[0];
+    this._href = base + (h === "" ? "" : h.startsWith("#") ? h : "#" + h);
+  },
+  get href() { return this._href; },
+  set href(u) { this._href = u; },
+};
 global.location = location;
-global.history = { replaceState(_s, _t, url) {
-  location.href = url.split("#")[0];
-  location.hash = url.includes("#") ? "#" + url.split("#")[1] : "";
-} };
+function applyUrl(url) {
+  let abs = String(url);
+  // history.replaceState допускает относительный URL — резолвим от текущего
+  // origin, как браузер (clearShareFragment передаёт pathname + search).
+  if (/^\/[^/]/.test(abs)) {
+    const m = location._href.match(/^https?:\/\/[^/]+/);
+    abs = (m ? m[0] : "") + abs;
+  }
+  const [beforeHash, h = ""] = abs.split("#");
+  location._href = beforeHash + (h ? "#" + h : "");
+  const originEnd = beforeHash.indexOf("/", beforeHash.indexOf("//") + 2);
+  location.pathname = originEnd < 0 ? "/" : beforeHash.slice(originEnd).split("?")[0];
+  const qi = beforeHash.indexOf("?", originEnd + 1);
+  location.search = qi >= 0 ? beforeHash.slice(qi) : "";
+}
+global.history = { replaceState(_s, _t, url) { applyUrl(url); } };
 const clipboard = { copied: null, async writeText(t) { this.copied = t; } };
 // В Node 24 глобальный navigator — getter-only, перекрываем через defineProperty.
 Object.defineProperty(global, "navigator", { value: { clipboard }, configurable: true });
@@ -146,8 +170,7 @@ function reset() {
   editor.clear();
   lastAlert = null;
   clipboard.copied = null;
-  location.href = "http://site/cascade.html";
-  location.hash = "";
+  applyUrl("http://site/cascade.html");
   localStorage.clear();
 }
 
@@ -227,7 +250,7 @@ await test("битый код ссылки — явная ошибка, не т�
   }
 });
 
-await test("кнопка «Поделиться»: кликабельна, пишет в буфер ссылку #s=", async () => {
+await test("кнопка «Поделиться»: пишет в буфер ссылку #s= и НЕ трогает адрес", async () => {
   reset();
   editor.nodeId = 0;
   editor.addNode("catch", 0, 1, 60, 120, "catch", { ...NODE_DEFAULTS.catch, F: 7.31 });
@@ -237,12 +260,14 @@ await test("кнопка «Поделиться»: кликабельна, пи�
   const handler = $c("shareCascade").handlers.click;
   if (typeof handler !== "function") throw new Error("обработчик клика не навешан");
   await handler();
-  if (!location.hash.startsWith("#s=")) throw new Error("hash не обновлён: " + location.hash);
   const url = clipboard.copied;
   if (!url || !url.includes("#s=")) throw new Error("в буфер не попало: " + url);
   const back = await ioMod.decodeShareCode(url.split("#s=")[1]);
   if (ioMod.validatePayload(back).length) throw new Error("ссылка ведёт на невалидную схему");
   if (back.nodes.length !== 2) throw new Error("в ссылке " + back.nodes.length + " нод");
+  // Регрессия: кнопка больше не пишет фрагмент в адрес страницы — иначе он
+  // «приживается» там и на F5 перезаписывает свежие правки старым снимком.
+  if (location.hash.startsWith("#s=")) throw new Error("кнопка записала фрагмент в адрес страницы");
 });
 
 await test("обратная связь — галочка через класс .copied (текст в кнопке не нужен)", async () => {
@@ -292,11 +317,14 @@ await test("битый хеш не ломает загрузку: alert + отк
   location.hash = "#s=d.%%%сбой%%%";
   await ioMod.loadInitial(); // не должен бросить
   if (!lastAlert) throw new Error("ожидался alert о битой ссылке");
+  // Фрагмент убирается и при неудаче: битая ссылка не должна «пилить» alert
+  // на каждой перезагрузке — дальше грузится обычная локальная копия.
+  if (location.hash.startsWith("#s=")) throw new Error("битый фрагмент не убран из адреса");
   // loadInitial откатился на обычную ветку: в редакторе есть нода после addNodeOfType?
   // addNodeOfType — мок no-op, так что проверяем только отсутствие падения и alert.
 });
 
-await test("ссылка приоритетнее localStorage (шаринг побеждает локальную копию)", async () => {
+await test("ссылка приоритетнее localStorage в том открытии, что её потребляет", async () => {
   reset();
   // локально лежит одна pump-нода...
   editor.addNode("pump", 0, 1, 320, 160, "pump", { ...NODE_DEFAULTS.pump });
@@ -306,6 +334,29 @@ await test("ссылка приоритетнее localStorage (шаринг п�
   location.hash = "#s=" + await ioMod.encodeShareCode(SCHEME);
   await ioMod.loadInitial();
   eq(editor.nodes.length, 4);
+  // Фрагмент — одноразовый носитель: сразу после применения он убран из адреса.
+  if (location.hash.startsWith("#s=")) throw new Error("фрагмент не убран после применения ссылки");
+});
+
+await test("F5 после правок грузит свежую работу, а не снимок из ссылки (регрессия бага)", async () => {
+  reset();
+  // 1. Открыли ссылку: снимок применён, фрагмент убран из адреса.
+  location.hash = "#s=" + await ioMod.encodeShareCode(SCHEME);
+  await ioMod.loadInitial();
+  if (lastAlert) throw new Error("alert при загрузке ссылки: " + lastAlert);
+  // 2. Правим схему; любая правка уже пишет локальную копию (edit →
+  //    flushCascade → saveScheme) — воспроизводим то же сохранение.
+  const p1 = editor.nodes.find(n => n.data && n.data.name === "КНС-1");
+  if (!p1) throw new Error("КНС-1 не загрузилась из ссылки");
+  p1.data.q = 777;
+  ioMod.saveScheme();
+  // 3. F5: адрес чистый (фрагмент убран на шаге 1) — грузится локальная
+  //    копия, и в ней свежие 777, а не снимок 104.75 из ссылки.
+  editor.clear();
+  await ioMod.loadInitial();
+  const p2 = editor.nodes.find(n => n.data && n.data.name === "КНС-1");
+  if (!p2) throw new Error("локальная копия не загрузилась");
+  eq(p2.data.q, 777);
 });
 
 await test("большая схема (90 нод) влезает в SHARE_LIMIT", async () => {
