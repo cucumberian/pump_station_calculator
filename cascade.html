@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=6">
-  <link rel="stylesheet" href="static/css/cascade.css?v=29">
+  <link rel="stylesheet" href="static/css/cascade.css?v=31">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
@@ -23,7 +23,8 @@
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=6"></script>
   <script defer src="static/js/cascade-sidebar.js?v=17"></script>
-  <script defer src="static/js/cascade-io.js?v=13"></script>
+  <script defer src="static/js/cascade-schemes.js?v=2"></script>
+  <script defer src="static/js/cascade-io.js?v=15"></script>
   <script defer src="static/js/cascade-report.js?v=11"></script>
   <script defer src="static/js/cascade.js?v=39"></script>
 </head>
@@ -39,6 +40,7 @@
     <div class="header-btns" id="headerBtns">
       <button class="btn" id="fullscreen" type="button" title="Полноэкранный режим — скрывает адресную строку браузера">Во весь экран</button>
       <button class="btn" id="metaBtn" type="button" title="Сведения об объекте, авторе и произвольные поля — включаются в экспорт">Сведения</button>
+      <button class="btn" id="schemesBtn" type="button" title="Несколько схем хранятся в браузере: переключение, копии, переименование">Схемы</button>
       <button class="btn" id="exportReport" type="button" title="Скачать отчёт расчёта в Markdown: методика, формулы, исходные данные и результаты по всем нодам">Расчёт</button>
       <button class="btn" id="exportJson" type="button" title="Скачать схему в JSON-файл">Экспорт</button>
       <button class="btn" id="importJson" type="button" title="Загрузить схему из JSON-файла">Импорт</button>
@@ -91,6 +93,10 @@
         <button id="zoomIn" type="button" title="Приблизить">+</button>
         <button id="zoomOut" type="button" title="Отдалить">−</button>
         <button id="zoomFit" type="button" title="Показать всю схему">⤢</button>
+      </div>
+      <div id="storageWarn" class="storage-warn" hidden>
+        <span id="storageWarnText"></span>
+        <button class="btn storage-warn-btn" id="storageWarnBtn" type="button">Схемы</button>
       </div>
     </div>
 
@@ -405,6 +411,16 @@
       <button id="gfClose" class="modal-close" type="button" aria-label="Закрыть"><svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg></button>
       <h2 class="gf-h">Функции ноды <span id="gfNodeTitle"></span> <button class="help-btn" id="gfHelp" type="button" title="Методика расчёта">?</button></h2>
       <div id="gfContent"></div>
+    </div>
+  </div>
+
+  <div id="schemesModal" class="modal" hidden>
+    <div class="modal-box schemes-box">
+      <button id="schemesClose" class="modal-close" type="button" aria-label="Закрыть"><svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg></button>
+      <h2 class="meta-h">Схемы в браузере</h2>
+      <p class="schemes-usage" id="schemesUsage"></p>
+      <div id="schemesList"></div>
+      <button class="btn" id="schemesNew" type="button">+ Новая схема</button>
     </div>
   </div>
 </body>

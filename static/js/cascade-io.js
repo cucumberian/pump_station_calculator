@@ -7,8 +7,20 @@ const LS_META = "kns-cascade-meta";
 const FORMAT = "kns-cascade";
 const FORMAT_VERSION = 2;
 
+// Библиотека схем: реестр + отдельный ключ на каждую схему.
+const LS_INDEX = "kns-cascade:index";
+const LS_SCHEME_PREFIX = "kns-cascade:s:";
+const LS_VIEW_PREFIX = "kns-cascade:v:";
+
+// Предел числа схем: раньше предупреждаем о распухании localStorage.
+const MAX_SCHEMES = 50;
+// Sentinel-идентификатор непреобразованной старой одиночной схемы.
+const LEGACY_ID = "legacy";
+
 let viewReady = false;
 let cascadeMeta = { custom: [] };
+// false — последняя запись схемы не удалась (квота/приватный режим).
+let storageOk = true;
 
 const META_FIELDS = [
   ["metaTitle", "title"],
@@ -28,19 +40,430 @@ function loadMeta() {
   if (!Array.isArray(cascadeMeta.custom)) cascadeMeta.custom = [];
 }
 
-function saveScheme() {
+// ============================================================
+// Устойчивость к переполнению localStorage. Квота у origin ~5 МБ, узнать
+// остаток синхронно нельзя, поэтому:
+//   • запись схемы отделена от записи реестра и вьюпорта — не валим одно
+//     другим; провал записи блоба = схема не сохранилась (помечаем и
+//     показываем баннер), провал индекса/вьюпорта — мягче;
+//   • миграция легаси удаляет старые ключи только после успешной записи
+//     копии и проверки её чтением (read-back);
+//   • операции create/delete держат реестр и блобы согласованными.
+// ============================================================
+
+function isQuotaError(e) {
+  return !!e && (e.name === "QuotaExceededError"
+    || e.name === "NS_ERROR_DOM_QUOTA_REACHED"
+    || e.code === 22 || e.code === 1014);
+}
+
+// UI-хуки определяются в cascade-schemes.js (грузится раньше), но в тестах
+// их может не быть — отсюда typeof-проверки.
+function reportStorageFailure(e) {
+  storageOk = false;
+  if (typeof showStorageWarn === "function") {
+    showStorageWarn(isQuotaError(e)
+      ? "Схема не сохраняется: в браузере закончилось место."
+      : "Схема не сохраняется: хранилище браузера недоступно.");
+  }
+}
+
+function clearStorageError() {
+  if (storageOk) return;
+  storageOk = true;
+  if (typeof hideStorageWarn === "function") hideStorageWarn();
+}
+
+function writeRaw(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch (e) { reportStorageFailure(e); return false; }
+}
+
+// Запись без пользовательского уведомления (вьюпорт, реестр — не критичны).
+function writeQuiet(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch { return false; }
+}
+
+// Запись + проверка чтением: без неё нельзя гарантировать, что копия
+// реально легла, прежде чем удалять оригинал (миграция).
+function writeVerified(key, value) {
+  if (!writeRaw(key, value)) return false;
+  let back = null;
+  try { back = localStorage.getItem(key); } catch { back = null; }
+  if (back !== value) { reportStorageFailure(); return false; }
+  return true;
+}
+
+function touchItem(it, payload, size) {
+  it.updatedAt = Date.now();
+  it.nodeCount = (payload.nodes || []).length;
+  it.size = size;
+}
+
+function requestPersistentStorage() {
   try {
-    localStorage.setItem(LS_CASCADE, JSON.stringify(serializeScheme()));
-    localStorage.setItem(LS_N, $c("globalN").value);
-    localStorage.setItem(LS_META, JSON.stringify(cascadeMeta));
-    if (viewReady) {
-      localStorage.setItem(LS_VIEW, JSON.stringify({
-        x: editor.canvas_x,
-        y: editor.canvas_y,
-        z: editor.zoom,
-      }));
+    if (navigator.storage && typeof navigator.storage.persist === "function") {
+      navigator.storage.persist();
     }
-  } catch { /* приватный режим */ }
+  } catch { /* не критично */ }
+}
+
+async function storageEstimate() {
+  try {
+    if (navigator.storage && typeof navigator.storage.estimate === "function") {
+      return await navigator.storage.estimate();
+    }
+  } catch { /* не критично */ }
+  return null;
+}
+
+function saveScheme() {
+  const idx = ensureIndex();
+  let id = activeId();
+  if (!id) {
+    id = newSchemeId();
+    idx.items.push({ id, name: "", updatedAt: Date.now(), nodeCount: 0, size: 0 });
+    idx.active = id;
+    writeIndex(idx);
+  }
+  const payload = serializeScheme();
+  const json = JSON.stringify(payload);
+  const isLegacy = id === LEGACY_ID;
+  const targetId = isLegacy ? newSchemeId() : id;
+
+  if (!writeRaw(schemeKey(targetId), json)) {
+    // Схема не сохранилась: помечаем запись (если реестр ещё пишется).
+    const it = idx.items.find(x => x.id === id);
+    if (it) { it.unsaved = true; touchItem(it, payload, json.length); writeIndex(idx); }
+    return;
+  }
+
+  if (isLegacy) {
+    // Первое успешное сохранение переводит легаси-схему на реальный ключ;
+    // только после записи реестра убираем старые ключи.
+    const it = idx.items.find(x => x.id === LEGACY_ID);
+    if (it) { it.id = targetId; it.unsaved = false; touchItem(it, payload, json.length); }
+    idx.active = targetId;
+    if (!writeIndex(idx)) {
+      try { localStorage.removeItem(schemeKey(targetId)); } catch { /* ignore */ }
+      reportStorageFailure();
+      return;
+    }
+    removeLegacyKeys();
+    id = targetId;
+  } else {
+    const it = idx.items.find(x => x.id === id);
+    if (it) { it.unsaved = false; touchItem(it, payload, json.length); writeIndex(idx); }
+  }
+
+  if (viewReady) {
+    writeQuiet(viewKey(id), JSON.stringify({
+      x: editor.canvas_x, y: editor.canvas_y, z: editor.zoom,
+    }));
+  }
+  clearStorageError();
+}
+
+// ============================================================
+// Библиотека схем. Несколько независимых схем в localStorage:
+// реестр kns-cascade:index = { active, items: [{id, name, updatedAt,
+// nodeCount, size, unsaved}] }, схема — kns-cascade:s:<id> (blob
+// serializeScheme), вьюпорт — kns-cascade:v:<id>. Старая одиночная схема
+// (ключи kns-cascade / -n / -meta / -view) переносится в реестр, но её
+// ключи удаляются только после успешной проверенной записи копии —
+// сбой записи не уничтожает работу. Открытие ссылки или импорт заводят
+// НОВУЮ схему и не трогают активную. Предел — MAX_SCHEMES.
+// ============================================================
+
+function schemeKey(id) { return LS_SCHEME_PREFIX + id; }
+function viewKey(id) { return LS_VIEW_PREFIX + id; }
+
+function safeParse(json) {
+  try { return JSON.parse(json); } catch { return null; }
+}
+
+function newSchemeId() {
+  return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function readIndex() {
+  const idx = safeParse(localStorage.getItem(LS_INDEX) || "null");
+  return idx && Array.isArray(idx.items) ? idx : null;
+}
+
+function writeIndex(idx) {
+  try { localStorage.setItem(LS_INDEX, JSON.stringify(idx)); return true; }
+  catch { return false; } // квота / приватный режим
+}
+
+function removeLegacyKeys() {
+  try {
+    localStorage.removeItem(LS_CASCADE);
+    localStorage.removeItem(LS_N);
+    localStorage.removeItem(LS_META);
+    localStorage.removeItem(LS_VIEW);
+  } catch { /* ignore */ }
+}
+
+// Временный реестр для непреобразованной легаси-схемы: пока копию не удалось
+// записать, работаем прямо со старым ключом, ничего не удаляя.
+function legacyIndex() {
+  return {
+    active: LEGACY_ID,
+    items: [{ id: LEGACY_ID, name: "", updatedAt: Date.now(), nodeCount: 0, size: 0 }],
+  };
+}
+
+// Старый одиночный ключ → первая схема реестра (однократно).
+// Легаси-ключи удаляются ТОЛЬКО после проверенной записи копии и реестра;
+// при любом сбое работа остаётся на старом ключе и цела.
+function migrateLegacyScheme() {
+  const raw = localStorage.getItem(LS_CASCADE);
+  if (raw === null) return null;
+  const legacy = safeParse(raw);
+  if (!legacy || typeof legacy !== "object") return null;
+  const id = newSchemeId();
+  if (!writeVerified(schemeKey(id), raw)) return legacyIndex();
+  const view = safeParse(localStorage.getItem(LS_VIEW) || "null");
+  if (view && typeof view.x === "number") writeQuiet(viewKey(id), JSON.stringify(view));
+  const idx = {
+    active: id,
+    items: [{
+      id, name: "", updatedAt: Date.now(),
+      nodeCount: (legacy.nodes || []).length, size: raw.length,
+    }],
+  };
+  if (!writeIndex(idx)) {
+    try { localStorage.removeItem(schemeKey(id)); } catch { /* ignore */ }
+    return legacyIndex();
+  }
+  removeLegacyKeys();
+  clearStorageError();
+  return idx;
+}
+
+function ensureIndex() {
+  return readIndex() || migrateLegacyScheme() || { active: null, items: [] };
+}
+
+function schemeItem(id) {
+  return ensureIndex().items.find(it => it.id === id) || null;
+}
+
+function activeId() {
+  const idx = ensureIndex();
+  if (idx.active && idx.items.some(it => it.id === idx.active)) return idx.active;
+  return idx.items[0] ? idx.items[0].id : null;
+}
+
+function ensureActiveScheme() {
+  const idx = ensureIndex();
+  let id = activeId();
+  if (id) return id;
+  id = newSchemeId();
+  idx.items.push({ id, name: "", updatedAt: Date.now(), nodeCount: 0, size: 0 });
+  idx.active = id;
+  writeIndex(idx);
+  return id;
+}
+
+function schemeItemPayload(id) {
+  // Непреобразованная легаси-схема читается прямо из старого ключа.
+  if (id === LEGACY_ID) {
+    const moved = safeParse(localStorage.getItem(schemeKey(LEGACY_ID)) || "null");
+    if (moved) return moved;
+    return safeParse(localStorage.getItem(LS_CASCADE) || "null");
+  }
+  return safeParse(localStorage.getItem(schemeKey(id)) || "null");
+}
+
+function readView(id) {
+  const v = safeParse(localStorage.getItem(viewKey(id)) || "null");
+  return v && typeof v.x === "number" && typeof v.y === "number" && typeof v.z === "number"
+    ? v : null;
+}
+
+function applyStoredView(view) {
+  editor.canvas_x = view.x;
+  editor.canvas_y = view.y;
+  editor.zoom = Math.min(editor.zoom_max, Math.max(editor.zoom_min, view.z));
+  applyTransform();
+}
+
+function defaultSchemeName(id) {
+  const i = ensureIndex().items.findIndex(it => it.id === id);
+  return "Схема " + (i + 1);
+}
+
+function schemeDisplayName(it) {
+  if (!it) return "Схема";
+  if (it.name) return it.name;
+  const p = schemeItemPayload(it.id);
+  if (p && p.meta && p.meta.title) return p.meta.title;
+  return defaultSchemeName(it.id);
+}
+
+function listSchemes() {
+  const act = activeId();
+  return ensureIndex().items.map(it => ({
+    id: it.id,
+    name: it.name,
+    displayName: schemeDisplayName(it),
+    nodeCount: it.nodeCount || 0,
+    size: it.size || 0,
+    unsaved: !!it.unsaved,
+    updatedAt: it.updatedAt || 0,
+    active: it.id === act,
+  }));
+}
+
+function schemeLimitMessage() {
+  return `Достигнут предел: ${MAX_SCHEMES} схем. Удалите ненужные или сделайте «Экспорт».`;
+}
+
+// Создаёт запись схемы из payload (ссылка, импорт, копия).
+// Порядок важен: сначала блоб, только потом запись в реестр — иначе при
+// нехватке места появлялась бы «фантомная» пустая схема. Возвращает id или
+// null (сообщение пользователю уже показано).
+function createSchemeFromPayload(payload, name, activate) {
+  const idx = ensureIndex();
+  if (idx.items.length >= MAX_SCHEMES) {
+    alert(schemeLimitMessage());
+    return null;
+  }
+  const id = newSchemeId();
+  const p = payload.scheme && !payload.nodes ? payload.scheme : payload;
+  const meta = payload.meta && typeof payload.meta === "object" ? payload.meta : { custom: [] };
+  const n = (payload.n > 0 && payload.n < 1) ? payload.n : getGlobalN();
+  const blob = {
+    format: FORMAT,
+    version: FORMAT_VERSION,
+    meta,
+    n,
+    nodes: Array.isArray(p.nodes) ? p.nodes : [],
+    connections: Array.isArray(p.connections) ? p.connections : [],
+  };
+  const json = JSON.stringify(blob);
+  if (!writeRaw(schemeKey(id), json)) return null; // баннер уже показан
+  idx.items.push({
+    id, name: String(name || ""), updatedAt: Date.now(),
+    nodeCount: blob.nodes.length, size: json.length,
+  });
+  if (activate !== false) idx.active = id;
+  if (!writeIndex(idx)) {
+    try { localStorage.removeItem(schemeKey(id)); } catch { /* ignore */ }
+    reportStorageFailure();
+    return null;
+  }
+  clearStorageError();
+  return id;
+}
+
+function loadActiveIntoEditor() {
+  const id = ensureActiveScheme();
+  const payload = schemeItemPayload(id);
+  closeSidebar();
+  editor.clear();
+  if (payload) {
+    cascadeMeta = { custom: [], ...(payload.meta && typeof payload.meta === "object" ? payload.meta : {}) };
+    if (!Array.isArray(cascadeMeta.custom)) cascadeMeta.custom = [];
+    if (payload.n > 0 && payload.n < 1) $c("globalN").value = padNum(payload.n);
+    rebuildScheme(payload, { allowCycle: true });
+  }
+  const view = readView(id);
+  if (view) applyStoredView(view);
+  else fitView();
+  flushCascade();
+}
+
+function switchScheme(id) {
+  const idx = ensureIndex();
+  if (!id || !idx.items.some(it => it.id === id)) return false;
+  if (id === activeId()) return false;
+  saveScheme();
+  const fresh = ensureIndex();
+  fresh.active = id;
+  // Если реестр не записался — переключаемся только в сессии (на F5 active
+  // откатится), но работу не блокируем; сообщение уже показано.
+  if (!writeIndex(fresh)) reportStorageFailure();
+  loadActiveIntoEditor();
+  return true;
+}
+
+function createScheme() {
+  const idx0 = ensureIndex();
+  if (idx0.items.length >= MAX_SCHEMES) {
+    alert(schemeLimitMessage());
+    return null;
+  }
+  saveScheme();
+  const idx = ensureIndex();
+  const id = newSchemeId();
+  idx.items.push({ id, name: "", updatedAt: Date.now(), nodeCount: 0, size: 0 });
+  idx.active = id;
+  writeIndex(idx);
+  cascadeMeta = { custom: [] };
+  closeSidebar();
+  editor.clear();
+  addNodeOfType("pump", 320, 160);
+  fitView();
+  flushCascade();
+  return id;
+}
+
+function renameScheme(id, name) {
+  const idx = ensureIndex();
+  const it = idx.items.find(x => x.id === id);
+  if (!it) return false;
+  const prev = it.name;
+  it.name = String(name || "").trim();
+  it.updatedAt = Date.now();
+  if (!writeIndex(idx)) {
+    it.name = prev;
+    reportStorageFailure();
+    return false;
+  }
+  return true;
+}
+
+function duplicateScheme(id) {
+  saveScheme();
+  const src = schemeItemPayload(id);
+  if (!src) return null;
+  const base = schemeDisplayName(schemeItem(id)) || "Схема";
+  return createSchemeFromPayload(src, base + " (копия)", false);
+}
+
+// Сначала фиксируем реестр, и только при успехе чистим блобы: иначе при
+// провале записи осталась бы запись без блоба («пустая схема»).
+function deleteScheme(id) {
+  const idx = ensureIndex();
+  if (idx.items.length <= 1) return false;
+  const i = idx.items.findIndex(it => it.id === id);
+  if (i < 0) return false;
+  const wasActive = id === activeId();
+  const items = idx.items.slice();
+  items.splice(i, 1);
+  const nextIdx = {
+    active: wasActive ? items[Math.min(i, items.length - 1)].id : idx.active,
+    items,
+  };
+  if (!writeIndex(nextIdx)) {
+    reportStorageFailure();
+    return false;
+  }
+  if (id !== LEGACY_ID) {
+    try {
+      localStorage.removeItem(schemeKey(id));
+      localStorage.removeItem(viewKey(id));
+    } catch { /* ignore */ }
+  }
+  if (wasActive) loadActiveIntoEditor();
+  // Место могло освободиться — пробуем сохранить активную схему ещё раз;
+  // баннер снимется только если запись реально прошла (в saveScheme).
+  if (!storageOk) saveScheme();
+  return true;
 }
 
 // ============================================================
@@ -310,22 +733,29 @@ function validatePayload(p, opts) {
   return errors;
 }
 
-function applyPayload(payload) {
+function applyPayload(payload, opts) {
+  const o = opts || {};
+  // Ссылка и импорт файла заводят отдельную схему — активная не затирается.
+  // Если новую схему сохранить не удалось (место/предел) — НЕ трогаем холст:
+  // иначе flushCascade() перезаписал бы активную схему чужой.
+  if (o.asNewScheme && !createSchemeFromPayload(payload, o.name, true)) return false;
   if (payload.meta && typeof payload.meta === "object") {
     cascadeMeta = { custom: [], ...payload.meta };
     if (!Array.isArray(cascadeMeta.custom)) cascadeMeta.custom = [];
+  } else if (o.asNewScheme) {
+    cascadeMeta = { custom: [] }; // в ссылке meta нет — не тянем мету прошлой схемы
   }
   if (payload.n > 0 && payload.n < 1) $c("globalN").value = padNum(payload.n);
   closeSidebar();
   rebuildScheme(payload.scheme && !payload.nodes ? payload.scheme : payload);
   flushCascade();
-  fitView();
+  if (o.fit !== false) fitView();
 }
 
 // Фрагмент #s= — одноразовый носитель: доставляет снимок первому открытию
 // ссылки и сразу убирается из адреса. Иначе он «приживает» в строке и на F5
-// (или при восстановлении сессии) после любых правок перезаписывал бы свежую
-// работу старым снимком. Canonical состояние редактора — localStorage.
+// плодил бы дубли схемы при каждом обновлении. Canonical состояние — реестр
+// схем в localStorage.
 function clearShareFragment() {
   try {
     history.replaceState(history.state, "", location.pathname + location.search);
@@ -338,8 +768,10 @@ function clearShareFragment() {
 
 async function loadInitial() {
   loadMeta();
-  // Ссылка выигрывает у локальной копии в том единственном открытии, которое
-  // её потребляет; дальше локальная копия — источник истины.
+  requestPersistentStorage(); // best-effort: браузер не вытеснит схемы
+  // Ссылка — одноразовый носитель: она заводит ОТДЕЛЬНУЮ схему, поэтому
+  // незавершённая работа в активной схеме не теряется. Дальше реестр схем —
+  // источник истины, а активную схему пользователь переключает вручную.
   const hash = location.hash || "";
   if (hash.startsWith("#" + SHARE_PARAM + "=")) {
     clearShareFragment();
@@ -348,38 +780,36 @@ async function loadInitial() {
       const errors = validatePayload(payload);
       if (errors.length) {
         alert("Схема из ссылки повреждена:\n" + errors.map(x => "• " + x).join("\n"));
-      } else {
-        applyPayload(payload);
+      } else if (applyPayload(payload, { asNewScheme: true, name: shareSchemeName(payload) })) {
         viewReady = true;
         return;
       }
+      // Новая схема не сохранилась (место/предел) — падаем в обычную загрузку,
+      // активная схема не тронута.
     } catch (err) {
       alert("Не удалось прочитать схему из ссылки: " + err.message);
     }
   }
-  let stored = null;
-  try { stored = JSON.parse(localStorage.getItem(LS_CASCADE) || "null"); } catch { stored = null; }
-  const storedN = parseFloat(localStorage.getItem(LS_N));
-  if (storedN > 0 && storedN < 1) $c("globalN").value = padNum(storedN);
+  const id = ensureActiveScheme();
+  const stored = schemeItemPayload(id);
   if (stored && !validatePayload(stored, { allowCycle: true }).length) {
     // allowCycle: старая сохранённая схема могла содержать цикл (дыра, закрытая
     // на импорте) — грузим как есть, о цикле предупредит баннер пересчёта.
-    rebuildScheme(stored, { allowCycle: true });
+    applyPayload(stored, { fit: false });
   } else {
     addNodeOfType("pump", 320, 160);
-  }
-  let view = null;
-  try { view = JSON.parse(localStorage.getItem(LS_VIEW) || "null"); } catch { view = null; }
-  if (view && typeof view.x === "number" && typeof view.y === "number" && typeof view.z === "number") {
-    editor.canvas_x = view.x;
-    editor.canvas_y = view.y;
-    editor.zoom = Math.min(editor.zoom_max, Math.max(editor.zoom_min, view.z));
-    applyTransform();
-  } else {
     fitView();
   }
-  flushCascade();
+  const view = readView(id);
+  if (view) applyStoredView(view);
+  else if (stored) fitView();
   viewReady = true;
+  flushCascade();
+}
+
+function shareSchemeName(payload) {
+  const t = payload && payload.meta && payload.meta.title;
+  return t ? String(t) : "Схема из ссылки";
 }
 
 function renderMetaCustom() {
@@ -466,7 +896,8 @@ $c("importFile").addEventListener("change", async e => {
       alert("Не удалось загрузить файл:\n" + errors.map(x => "• " + x).join("\n"));
       return;
     }
-    applyPayload(payload);
+    const name = file.name.replace(/\.json$/i, "").slice(0, 80) || "Импортированная схема";
+    applyPayload(payload, { asNewScheme: true, name });
   } catch (err) {
     alert("Не удалось загрузить файл: " + (err instanceof SyntaxError ? "невалидный JSON" : err.message));
   } finally {

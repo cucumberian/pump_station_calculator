@@ -149,6 +149,7 @@ return {
   validatePayload,
   stripSharePayload, encodeShareCode, decodeShareCode,
   serializeScheme, saveScheme, loadInitial, applyPayload,
+  listSchemes, activeId, schemeItemPayload,
   SHARE_PARAM, SHARE_LIMIT, FORMAT, FORMAT_VERSION,
 };
 `,
@@ -325,16 +326,27 @@ await test("битый хеш не ломает загрузку: alert + отк
   // addNodeOfType — мок no-op, так что проверяем только отсутствие падения и alert.
 });
 
-await test("ссылка приоритетнее localStorage в том открытии, что её потребляет", async () => {
+await test("ссылка заводит отдельную схему и НЕ затирает локальную работу", async () => {
   reset();
-  // локально лежит одна pump-нода...
-  editor.addNode("pump", 0, 1, 320, 160, "pump", { ...NODE_DEFAULTS.pump });
+  // локально лежит одна pump-нода; её сохраняем в реестр схем...
+  editor.addNode("pump", 0, 1, 320, 160, "pump", { ...NODE_DEFAULTS.pump, qr: 999 });
   ioMod.saveScheme();
+  const localId = ioMod.activeId();
+  const localCount = ioMod.listSchemes().length;
   editor.clear();
   // ...а в хеше — четырёхузловая SCHEME
   location.hash = "#s=" + await ioMod.encodeShareCode(SCHEME);
   await ioMod.loadInitial();
   eq(editor.nodes.length, 4);
+  // Локальная схема цела и осталась в реестре; активной стала схема из ссылки.
+  const schemes = ioMod.listSchemes();
+  if (schemes.length !== localCount + 1) throw new Error("ссылка не создала новую схему");
+  const local = schemes.find(s => s.id === localId);
+  if (!local) throw new Error("локальная схема пропала из реестра");
+  if (ioMod.activeId() === localId) throw new Error("активной осталась локальная схема");
+  const localPayload = ioMod.schemeItemPayload(localId);
+  eq(localPayload.nodes.length, 1);
+  eq(localPayload.nodes[0].data.qr, 999);
   // Фрагмент — одноразовый носитель: сразу после применения он убран из адреса.
   if (location.hash.startsWith("#s=")) throw new Error("фрагмент не убран после применения ссылки");
 });
