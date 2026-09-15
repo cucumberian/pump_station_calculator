@@ -157,6 +157,19 @@ test("effectiveEdgesOf: legacy drawflow format", () => {
   if (e.length !== 1 || e[0].from !== "1" || e[0].to !== "2") throw new Error(`expected [1→2], got ${JSON.stringify(e)}`);
 });
 
+test("effectiveEdgesOf: flow — известный тип по умолчанию; flow→pump и flow→delay не скидываются", () => {
+  const p1 = { drawflow: { Home: { data: {
+    1: { name: "flow", outputs: { output_1: { connections: [{ node: 2 }] } } },
+    2: { name: "pump", outputs: { output_1: { connections: [] } } },
+  } } } };
+  if (G.effectiveEdgesOf(p1).length !== 1) throw new Error("flow→pump сброшен типом по умолчанию");
+  const p2 = { drawflow: { Home: { data: {
+    1: { name: "flow", outputs: { output_1: { connections: [{ node: 2 }] } } },
+    2: { name: "delay", outputs: { output_1: { connections: [] } } },
+  } } } };
+  if (G.effectiveEdgesOf(p2).length !== 1) throw new Error("flow→delay сброшен (запрет только catch→delay)");
+});
+
 // ============================================================
 // cycleMessage
 // ============================================================

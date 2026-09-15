@@ -146,3 +146,26 @@ const catchChart = (() => {
     },
   };
 })();
+
+// Прямоугольный импульс «Доп. притока»: step без сглаживания — ступенчатая
+// линия честнее, чем сэмплированный ряд с HYDRO_DT на сглаживании.
+const flowChart = (() => {
+  let ec = null;
+  return {
+    update(series) {
+      if (!ec) ec = makeEChart($c("sbFlowChart"), { slider: true, legend: false, toolbox: false });
+      ec.update({
+        xAxis: { type: "value", name: "T, мин", nameLocation: "middle", nameGap: 24, min: 0 },
+        yAxis: { type: "value", name: "Q, л/с", min: 0 },
+        tooltip: { formatter: ecAxisTip("л/с") },
+        series: [
+          { name: "Q притока, л/с", type: "line", showSymbol: false, step: "end",
+            data: series.t.map((t, i) => [+t.toFixed(2), +series.q[i].toFixed(2)]),
+            lineStyle: { color: "#2f9e44", width: 2 }, itemStyle: { color: "#2f9e44" },
+            areaStyle: { color: "rgba(47, 158, 68, 0.12)" },
+          },
+        ],
+      });
+    },
+  };
+})();

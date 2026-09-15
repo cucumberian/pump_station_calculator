@@ -46,13 +46,25 @@ const NODE_HTML = {
       <div class="nf"><label>D, мм</label><input df-d type="number" step="any" min="0"></div>
       <div class="delay-out">Δt = —</div>
     </div>`,
+  flow: `
+    <div class="node-box node-flow">
+      <div class="node-title"><span class="node-num"></span> <span class="node-name">Доп. приток</span></div>
+      <button class="node-disable" type="button" title="Отключить ноду"></button>
+      <button class="node-lock" type="button" title="Заблокировать параметры"></button>
+      <div class="nf"><label>Q, л/с</label><input df-q type="number" step="any" min="0"></div>
+      <div class="nf"><label>t<sub>нач</sub>, мин</label><input df-t1 type="number" step="any" min="0"></div>
+      <div class="nf"><label>t<sub>кон</sub>, мин</label><input df-t2 type="number" step="any" min="0"></div>
+      <div class="flow-out">Q = —</div>
+    </div>`,
 };
 
-const NODE_TYPE_LABEL = { pump: "Насосная станция", delay: "Участок сети", catch: "Водосбор" };
+const NODE_TYPE_LABEL = { pump: "Насосная станция", delay: "Участок сети", catch: "Водосбор", flow: "Дополнительный приток" };
 
 const NODE_DEFAULTS = {
   pump: { name: "", desc: "", qr: 342.3, tr: 10, q: 100, idle: 50, mode: "analytic" },
   delay: { name: "", desc: "", v: 1, l: 3600, d: "" },
+  // t2: "" — «до конца события»: горизонт резолвится в rainHorizon при пересчёте
+  flow: { name: "", desc: "", mode: "constant", q: 50, t1: 0, t2: "" },
   catch: {
     name: "", desc: "",
     F: 3.9, q20: 80, P: 1.0, mr: 150, gamma: 1.54,
@@ -62,18 +74,46 @@ const NODE_DEFAULTS = {
   },
 };
 
-const NODE_PORTS = { pump: [1, 1], delay: [1, 1], catch: [0, 1] };
-const NODE_LABEL = { pump: "КНС", delay: "Участок", catch: "Водосбор" };
+const NODE_PORTS = { pump: [1, 1], delay: [1, 1], catch: [0, 1], flow: [0, 1] };
+const NODE_LABEL = { pump: "КНС", delay: "Участок", catch: "Водосбор", flow: "Доп. приток" };
 const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#1098ad"];
 
-const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100, d: 50, F: 0.1, q20: 1, P: 0.1, tcon: 1 };
-const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbD: 50, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01, sbCF: 0.1, sbCQ20: 1, sbCP: 0.1, sbCMr: 1, sbCGamma: 0.01, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCL1: 10, sbCV1: 0.1, sbCL2: 10, sbCV2: 0.1, sbCL3: 10, sbCV3: 0.1 };
+const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100, d: 50, F: 0.1, q20: 1, P: 0.1, tcon: 1, t1: 1, t2: 1 };
+const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbD: 50, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01, sbCF: 0.1, sbCQ20: 1, sbCP: 0.1, sbCMr: 1, sbCGamma: 0.01, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCL1: 10, sbCV1: 0.1, sbCL2: 10, sbCV2: 0.1, sbCL3: 10, sbCV3: 0.1, sbFQ: 1, sbFT1: 1, sbFT2: 1 };
+
+// Нода «Доп. приток» — источник прямоугольного импульса: Q с t₁ до t₂.
+// Эмитирует кусочно-постоянную GF: изломы [t₁; t₂] попадают в сегментацию
+// mixedAnalyticCalc, и станция остаётся в точной аналитической ветке.
+// Нулевой хвостовой сегмент [t₂; t₂] нулевой длины обязателен: evalGF за
+// последним tEnd возвращает значение последнего сегмента (продление «в
+// бесконечность»), а не ноль — без хвоста сегмент после t₂ дал бы c = q
+// вместо c = 0; нулевой отрезок той же точки делает durationGF равным t₂,
+// а не горизонту. Начальный нулевой сегмент [0; t₁] — что до начала притока
+// читался нулём, а не q. t₂ = "" — «до конца события», горизонт
+// (rainHorizon) передаёт вызывающий; явный t₂ горизонтом НЕ обрезается —
+// приток вправе продолжаться после окончания дождя. Границы half-open:
+// приток действует на [t₁; t₂), ровно в t₂ — уже 0 (как в makePiecewiseGF).
+function flowGF(d, horizon) {
+  if (d.mode !== "constant") return null;
+  const q = parseFloat(d.q);
+  if (!(q >= 0)) return null;
+  const t1 = Math.max(0, parseFloat(d.t1) || 0);
+  const raw2 = d.t2 === "" || d.t2 === null || d.t2 === undefined ? NaN : parseFloat(d.t2);
+  const t2 = Number.isFinite(raw2) ? raw2 : horizon;
+  if (!(t2 > t1)) return null;
+  const segs = [];
+  if (t1 > 0) segs.push({ q: 0, tStart: 0, tEnd: t1 });
+  segs.push({ q, tStart: t1, tEnd: t2 });
+  segs.push({ q: 0, tStart: t2, tEnd: t2 });
+  return makePiecewiseGF(segs, 0);
+}
 
 const CASCADE_HELP = [
   { p: "Входной гидрограф станции складывается из собственного дождевого стока и выходных гидрографов вышестоящих станций, сдвинутых нодами участков сети. Все составляющие показаны на графике пунктиром." },
   { p: "Собственный дождевой сток строится по формулам (2) и (3) Приложения 8 — так же, как в одиночном расчёте:" },
   { tex: "Q(T) = Q_r\\left(\\frac{T}{t_r}\\right)^{1-n}, \\ T \\le t_r; \\qquad Q(T) = Q_r\\left[\\left(\\frac{T}{t_r}\\right)^{1-n} - \\left(\\frac{T}{t_r}-1\\right)^{1-n}\\right], \\ T > t_r" },
   { p: "Нода участка сети сдвигает гидрограф по времени на Δt = L / (60·v) минут, где L — длина участка в метрах, v — скорость протекания в м/с." },
+  { p: "Нода «Доп. приток» добавляет постоянный расход Q на интервале [t₁; t₂) — прямоугольный импульс сверх дождевого стока (промышленный сброс, водооткачка, подвоз). Пустое t₂ означает «до конца расчётного события». У ноды нет входов: приток вливается в станцию напрямую или через участок сети (тогда импульс сдвигается на Δt). Границы импульса попадают в сегментацию точного аналитического расчёта — на точности это не отражается." },
   { p: "Выходной гидрограф станции (принятое упрощение): на интервале [Tнⁿˢ; Tкⁿˢ] станция откачивает полную производительность Qнс, в остальное время — заданный процент от Qнс (параметр «вне пика, %», по умолчанию 50%)." },
   { h: "Аналитический режим — чистый дождь" },
   { p: "Если вход станции — один дождевой гидрограф, Tнⁿˢ, Tкⁿˢ и Wнс считаются точно по формулам (1)–(3) Приложения 8, как в одиночном расчёте." },

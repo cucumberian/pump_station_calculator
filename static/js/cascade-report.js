@@ -51,7 +51,7 @@ function topoNodeOrder(nodes, connections) {
 }
 
 function reportNodeLabel(type) {
-  return { pump: "КНС", delay: "Участок сети", catch: "Водосбор" }[type] || type;
+  return { pump: "КНС", delay: "Участок сети", catch: "Водосбор", flow: "Доп. приток" }[type] || type;
 }
 
 function reportNodeTitle(nd) {
@@ -189,7 +189,11 @@ function pumpSectionMD(node, res, graph, results) {
   const flowSrcs = ups.filter(u => results[u] && !results[u].fromCatch);
   const compRows = [];
   catchSrcs.forEach((u, i) => compRows.push(...gfComponentRows(results[u]?.gf || res.hydroGFs?.[i], `Водосбор/участок #${u}`)));
-  flowSrcs.forEach((u, i) => compRows.push(...gfComponentRows(results[u]?.gf || res.flowGFs?.[i], `Выход КНС #${u}`)));
+  flowSrcs.forEach((u, i) => {
+    const uNd = graph.nodes.find(n => n.id === u);
+    compRows.push(...gfComponentRows(results[u]?.gf || res.flowGFs?.[i],
+      (uNd?.type === "flow" ? "Доп. приток" : "Выход КНС") + ` #${u}`));
+  });
   if (!catchSrcs.length && res.ownRainGF) compRows.push(...gfComponentRows(res.ownRainGF, "Собственный дождь"));
   if (compRows.length) {
     out.push("### Состав входа", "");
@@ -337,6 +341,7 @@ function reportSchemeMD(graph, n) {
     if (nd.type === "pump") params = `Qнс=${reportFmt(d.q)} л/с, Qr=${reportFmt(d.qr)} л/с, tr=${reportFmt(d.tr)} мин, режим: ${d.mode === "numeric" ? "числ." : "аналит."}`;
     else if (nd.type === "catch") params = `F=${reportFmt(d.F)} га, q20=${reportFmt(d.q20)} л/с/га`;
     else if (nd.type === "delay") params = `L=${reportFmt(d.l ?? d.L)} м, v=${reportFmt(d.v)} м/с${(() => { const dd = parseFloat(d.d); return Number.isFinite(dd) && dd > 0 ? `, D=${reportFmt(dd, 0)} мм` : ""; })()}`;
+    else if (nd.type === "flow") params = flowReportParams(d);
     const disabled = d.disabled ? " **(отключена — расчёт не выполняется)**" : "";
     const title = (d.name || "").trim() + ((d.desc || "").trim() ? ` — ${(d.desc || "").trim()}` : "");
     out.push(`| ${nd.id} | ${reportNodeLabel(nd.type)} | ${title || "—"} | ${params}${disabled} |`);
@@ -349,10 +354,49 @@ function reportSchemeMD(graph, n) {
   return out.join("\n");
 }
 
+function flowReportParams(d) {
+  const f = reportFmt;
+  const t2raw = d.t2 === "" || d.t2 === null || d.t2 === undefined ? NaN : parseFloat(d.t2);
+  const t2 = Number.isFinite(t2raw) ? `${f(t2raw)} мин` : "до конца события";
+  return `Q=${f(d.q)} л/с, ${f(parseFloat(d.t1) || 0)} мин → ${t2}`;
+}
+
+function flowSectionMD(node, res) {
+  const f = reportFmt;
+  const d = node.data || {};
+  const out = [`## ${reportNodeTitle(node)}`, "", ...reportNodeDescLine(node)];
+  if (d.disabled) {
+    out.push("> **Нода отключена — в расчёте не участвует.** Расчёт для этой ноды не выполнялся.", "");
+    return out.join("\n");
+  }
+  const gf = res?.gf;
+  out.push("### Исходные данные", "");
+  out.push("| Параметр | Значение |", "|---|---|");
+  out.push(`| Расход Q | ${f(d.q)} л/с |`);
+  out.push(`| Начало t<sub>нач</sub> | ${f(parseFloat(d.t1) || 0)} мин |`);
+  const t2raw = d.t2 === "" || d.t2 === null || d.t2 === undefined ? NaN : parseFloat(d.t2);
+  out.push(`| Окончание t<sub>кон</sub> | ${Number.isFinite(t2raw) ? `${f(t2raw)} мин` : "не указан — до конца расчётного события"} |`);
+  out.push("");
+  if (!gf) {
+    out.push("_Ряд не построен: проверьте параметры (Q ≥ 0, t₂ > t₁; при пустом t₂ в схеме должен быть дождь, задающий горизонт)._ ", "");
+    return out.join("\n");
+  }
+  const segs = gf.segments.map(s => `[${f(s.tStart)}; ${f(s.tEnd)}) → ${f(s.q)} л/с`).join("; ");
+  out.push("### Расчёт", "");
+  out.push("Приток — кусочно-постоянная функция (прямоугольный импульс); границы импульса попадают в сегментацию аналитического расчёта потребителей, точность не снижается:");
+  out.push("");
+  out.push(`$$\nQ(T) = \\begin{cases} ${f(d.q)}, & ${f(parseFloat(d.t1) || 0)} \\le T < ${Number.isFinite(t2raw) ? f(t2raw) : "T_{\\text{конец события}}"}`, "\\\\ 0, & \\text{иначе}\\end{cases}\n$$");
+  out.push("");
+  out.push(`Сегменты ряда: ${segs}. Длительность ряда — ${f(durationGF(gf))} мин.`);
+  out.push("");
+  return out.join("\n");
+}
+
 function nodeSectionMD(node, graph, results, n) {
   const res = results[node.id];
   if (node.type === "catch") return catchSectionMD(node, res, n);
   if (node.type === "delay") return delaySectionMD(node);
+  if (node.type === "flow") return flowSectionMD(node, res);
   if (node.type === "pump") return pumpSectionMD(node, res, graph, results);
   return "";
 }

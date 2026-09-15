@@ -115,6 +115,51 @@ function updateCycleBanner(data, cyclic) {
   el.hidden = false;
 }
 
+// Горизонт расчётного события для нод «Доп. приток» с пустым t₂ («до конца
+// события»). Консервативная рамка, как у ряда водосбора (hydroTailT +
+// totalDelay + 30): максимум хвостов всех включённых гидрографов схемы
+// (водосборы и собственные Qr/tr станций), явно указанных t₂ других
+// притоков и суммы задержек. Выходы станций (piecewise) не учитываются —
+// иначе петля «горизонт flow → вход станции → выход станции». Ни дождя, ни
+// явного t₂ в схеме — горизонт 0, такая нода требует явного t₂.
+function rainHorizon(data, nGlob, totalDelay) {
+  let h = 0;
+  for (const nd of Object.values(data)) {
+    if (nd.data?.disabled) continue;
+    if (nd.name === "catch") {
+      const p = catchParams(nd.data || {}, nGlob);
+      if (p.Qr > 0 && p.tr > 0) h = Math.max(h, hydroTailT(p.Qr, p.tr, nGlob));
+    } else if (nd.name === "pump") {
+      const Qr = parseFloat(nd.data?.qr), tr = parseFloat(nd.data?.tr);
+      if (Qr > 0 && tr > 0) h = Math.max(h, hydroTailT(Qr, tr, nGlob));
+    } else if (nd.name === "flow") {
+      const t2 = parseFloat(nd.data?.t2);
+      if (Number.isFinite(t2)) h = Math.max(h, t2);
+    }
+  }
+  return h > 0 ? h + totalDelay + 30 : 0;
+}
+
+// Строка-итоги на ноде «Доп. приток». Пустой t₂ показывается как «до конца
+// события»; если GF не построилась (нет горизонта — в схеме нет дождя),
+// подсвечиваем причину, а не молчим.
+function flowSummaryHTML(d, res) {
+  const q = parseFloat(d.q);
+  const t1raw = parseFloat(d.t1);
+  const t1 = Number.isFinite(t1raw) && t1raw > 0 ? t1raw : 0;
+  const t2raw = d.t2 === "" || d.t2 === null || d.t2 === undefined ? NaN : parseFloat(d.t2);
+  if (res?.gf) {
+    const seg = res.gf.segments.find(s => s.q > 0) || res.gf.segments[0];
+    const t2 = seg.tEnd;
+    const span = `${fmt(seg.tStart, 0)}…${fmt(t2, 0)} мин`;
+    const open = Number.isFinite(t2raw) ? "" : " <span class=\"hint\">(до конца события)</span>";
+    return `Q = <b>${fmt(q, 1)} л/с</b><br>${span}${open}`;
+  }
+  if (!(q >= 0)) return `<span class="warn">задайте Q</span>`;
+  if (Number.isFinite(t2raw)) return `<span class="warn">проверьте t<sub>нач</sub> и t<sub>кон</sub></span>`;
+  return `<span class="warn">укажите t<sub>кон</sub> — в схеме нет дождя</span>`;
+}
+
 function computeCascadeNow() {
   const data = graphData();
   const nGlob = getGlobalN();
@@ -123,12 +168,18 @@ function computeCascadeNow() {
     .reduce((s, nd) => s + delayDt(nd.data || {}), 0);
 
   const { order, cyclic } = topoOrder(data);
+  const flowHorizon = rainHorizon(data, nGlob, totalDelay);
   const res = {};
   for (const id of order) {
     const nd = data[id];
     const d = nd.data || {};
     if (d.disabled) { res[id] = null; continue; }
-    if (nd.name === "catch") {
+    if (nd.name === "flow") {
+      // Дополнительный приток — источник piecewise-импульса; res.gf без
+      // series-особенностей, ряд для графиков сделает общий цикл ниже.
+      const gf = flowGF(d, flowHorizon);
+      res[id] = gf ? { gf, fromCatch: false } : null;
+    } else if (nd.name === "catch") {
       const p = catchParams(d, nGlob);
       if (!(p.Qr > 0 && p.tr > 0)) { res[id] = null; continue; }
       res[id] = {
@@ -314,6 +365,11 @@ function updateSummaries(data = graphData()) {
       if (out) out.innerHTML = `Δt = <b>${fmt(delayDt(nd.data || {}), 1)} мин</b>`;
       continue;
     }
+    if (nd.name === "flow") {
+      const out = document.querySelector(`#node-${id} .flow-out`);
+      if (out) out.innerHTML = flowSummaryHTML(nd.data || {}, results[id]);
+      continue;
+    }
     if (nd.name === "catch") {
       const out = document.querySelector(`#node-${id} .catch-out`);
       if (!out) continue;
@@ -425,7 +481,7 @@ $c("drawflow").addEventListener("click", e => {
   if (!nodeEl || !mouseDownPos) return;
   if (Math.hypot(e.clientX - mouseDownPos[0], e.clientY - mouseDownPos[1]) > 5) return;
   const id = nodeEl.id.replace("node-", "");
-  if (["pump", "delay", "catch"].includes(editor.getNodeFromId(id)?.name)) openSidebar(id);
+  if (["pump", "delay", "catch", "flow"].includes(editor.getNodeFromId(id)?.name)) openSidebar(id);
 });
 
 function dfKey(el) {
@@ -603,7 +659,8 @@ function showCtxMenu(x, y, { nodeEl = null, connEl = null, fromTouch = false } =
     m.innerHTML = `
       <button type="button" data-add="pump">Насосная станция</button>
       <button type="button" data-add="delay">Участок сети</button>
-      <button type="button" data-add="catch">Водосбор</button>`;
+      <button type="button" data-add="catch">Водосбор</button>
+      <button type="button" data-add="flow">Доп. приток</button>`;
   }
   m.hidden = false;
   m.style.left = Math.min(x, window.innerWidth - 200) + "px";

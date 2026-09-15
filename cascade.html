@@ -11,21 +11,21 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=6">
-  <link rel="stylesheet" href="static/css/cascade.css?v=28">
+  <link rel="stylesheet" href="static/css/cascade.css?v=29">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
-  <script defer src="static/js/hydro.js?v=7"></script>
+  <script defer src="static/js/hydro.js?v=8"></script>
   <script defer src="static/js/calc-view.js?v=11"></script>
-  <script defer src="static/js/cascade-graph.js?v=1"></script>
-  <script defer src="static/js/cascade-nodes.js?v=6"></script>
+  <script defer src="static/js/cascade-graph.js?v=2"></script>
+  <script defer src="static/js/cascade-nodes.js?v=7"></script>
   <script defer src="static/js/cascade-catch.js?v=2"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
-  <script defer src="static/js/cascade-charts.js?v=5"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=16"></script>
-  <script defer src="static/js/cascade-io.js?v=12"></script>
-  <script defer src="static/js/cascade-report.js?v=10"></script>
-  <script defer src="static/js/cascade.js?v=38"></script>
+  <script defer src="static/js/cascade-charts.js?v=6"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=17"></script>
+  <script defer src="static/js/cascade-io.js?v=13"></script>
+  <script defer src="static/js/cascade-report.js?v=11"></script>
+  <script defer src="static/js/cascade.js?v=39"></script>
 </head>
 
 <body class="cascade-page">
@@ -71,6 +71,10 @@
         <div class="pal-node pal-delay" draggable="true" data-node="delay">
           <b><span class="full">Участок сети</span><span class="short">Δt</span></b>
           <span class="addon">v, L</span>
+        </div>
+        <div class="pal-node pal-flow" draggable="true" data-node="flow">
+          <b><span class="full">Доп. приток</span><span class="short">ПР</span></b>
+          <span class="addon">Q, t<sub>нач</sub>…t<sub>кон</sub></span>
         </div>
         <p class="pal-hint">Перетащите ноду на холст. Соединения тянутся от круга выхода к ноде входа.<br>От одной ноды — только одна исходящая связь (разделение потока не поддерживается); входящих связей может быть несколько — потоки суммируются.<br>Каждая КНС имеет собственный дождевой сток (Q<sub>r</sub>, t<sub>r</sub>) — его можно задать вручную или нодой «Водосбор» (подключается только напрямую к КНС).</p>
       </div>
@@ -238,6 +242,39 @@
             <h3 class="sb-h">Гидрограф стока</h3>
             <div class="chart-wrap" id="sbCatchChartWrap"><div id="sbCatchChart" class="echart"></div></div>
             <button class="btn" id="sbCHelp" type="button" title="Все формулы с подставленными значениями">Формулы и расчёт</button>
+          </section>
+        </section>
+        <section id="sbFlow" hidden>
+          <section id="sbFlowParams">
+            <div class="field" title="постоянный расход дополнительного притока, л/с">
+              <label for="sbFQ">Q — расход притока</label>
+              <div class="dual">
+                <input id="sbFQ" type="number" step="any" min="0">
+                <span class="dual-unit">л/с</span>
+              </div>
+            </div>
+            <div class="sb-pair">
+              <div class="field" title="момент начала притока от начала расчётного события, мин">
+                <label for="sbFT1">t<sub>нач</sub> — начало</label>
+                <div class="dual">
+                  <input id="sbFT1" type="number" step="any" min="0">
+                  <span class="dual-unit">мин</span>
+                </div>
+              </div>
+              <div class="field" title="момент окончания притока, мин; пусто — до конца расчётного события (хвост дождя с задержками)">
+                <label for="sbFT2">t<sub>кон</sub> — конец</label>
+                <div class="dual">
+                  <input id="sbFT2" type="number" step="any" min="0">
+                  <span class="dual-unit">мин</span>
+                </div>
+              </div>
+            </div>
+            <p class="sb-dt flow-res" id="sbFOut"></p>
+          </section>
+          <section id="sbFlowChartSection">
+            <h3 class="sb-h">Гидрограф притока</h3>
+            <div class="chart-wrap" id="sbFlowChartWrap"><div id="sbFlowChart" class="echart"></div></div>
+            <p class="sb-empty" id="sbFlowEmpty" hidden>Задайте расход и проверьте границы: без дождя в схеме t<sub>кон</sub> нужно указать вручную.</p>
           </section>
         </section>
         <p class="sb-empty" id="sbEmpty">Задайте Q<sub>r</sub>, t<sub>r</sub> и Q<sub>нс</sub> на ноде станции.</p>

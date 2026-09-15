@@ -207,6 +207,20 @@ function migrateNodeData(type, raw) {
     delete d.L;
     delete d.dt;
   }
+  if (type === "flow") {
+    // Drawflow пишет значения как строки из input; "" в t2 легально — «до
+    // конца события». Числа нормализуем, мусор → дефолт.
+    if (d.mode !== "constant") d.mode = "constant";
+    const q = parseFloat(d.q);
+    d.q = q >= 0 ? q : NODE_DEFAULTS.flow.q;
+    const t1 = parseFloat(d.t1);
+    d.t1 = t1 >= 0 ? t1 : 0;
+    if (d.t2 === "" || d.t2 === null || d.t2 === undefined) d.t2 = "";
+    else {
+      const t2 = parseFloat(d.t2);
+      d.t2 = Number.isFinite(t2) ? t2 : "";
+    }
+  }
   return d;
 }
 

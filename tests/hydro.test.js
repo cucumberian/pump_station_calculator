@@ -339,6 +339,14 @@ test("evalGF piecewise: 1 сегмент — продление за преде�
   approx(H.evalGF(gf, 500), 100);
 });
 
+test("evalGF: неизвестный тип → 0 (регрессия: мёртвый тип constant удалён)", () => {
+  // Тип "constant" объявлялся в раннем декларативном режиме, но ничем не
+  // строился и тестами не использовался — удалён из evalGF. Любая GF с
+  // неизвестным type обязана давать 0, а не пасть и не давать ветку switch.
+  approx(H.evalGF({ type: "constant", q: 50 }, 5), 0);
+  approx(H.evalGF({ type: "whatever" }, 0), 0);
+});
+
 test("evalGF piecewise: 2 сегмента — продление за пределы", () => {
   const gf = H.makePiecewiseGF([
     { q: 0, tStart: 0, tEnd: 10 },

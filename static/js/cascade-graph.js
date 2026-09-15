@@ -51,7 +51,7 @@ function rawEdgesOf(p) {
 // без catch → delay. validTypes — массив допустимых имён типов; по умолчанию
 // словарь узлов приложения (в браузере вызывать как Object.keys(NODE_PORTS)).
 function effectiveEdgesOf(p, validTypes) {
-  const types = validTypes && validTypes.length ? new Set(validTypes) : new Set(["pump", "delay", "catch"]);
+  const types = validTypes && validTypes.length ? new Set(validTypes) : new Set(["pump", "delay", "catch", "flow"]);
   if (!p || typeof p !== "object") return [];
   let ids, type, raw;
   if (Array.isArray(p.nodes)) {

@@ -29,7 +29,11 @@ const SB_CATCH_MAP = {
   sbCL1: "l1", sbCV1: "v1", sbCL2: "l2", sbCV2: "v2", sbCL3: "l3", sbCV3: "v3",
 };
 
-const SB_LOCK_INPUTS = ["sbQr", "sbTr", "sbQ", "sbQm3h", "sbQrange", "sbIdle", "sbV", "sbL", "sbD"];
+// t2 намеренно вне карты: пустое поле — легальное значение «до конца
+// события», привязка у него отдельная.
+const SB_FLOW_MAP = { sbFQ: "q", sbFT1: "t1" };
+
+const SB_LOCK_INPUTS = ["sbQr", "sbTr", "sbQ", "sbQm3h", "sbQrange", "sbIdle", "sbV", "sbL", "sbD", "sbFQ", "sbFT1", "sbFT2"];
 
 function renderNodeMeta(node) {
   const d = node.data || {};
@@ -55,6 +59,7 @@ function renderCatchSidebar(node) {
   setTitle(`Водосбор · нода #${sbNodeId}`);
   $c("sbCatch").hidden = false;
   $c("sbDelay").hidden = true;
+  $c("sbFlow").hidden = true;
   $c("sbEmpty").hidden = true;
   $c("sbContent").hidden = true;
   hidePumpSections();
@@ -82,7 +87,7 @@ function applySidebarLock() {
   btn.classList.toggle("active", isLocked);
   btn.innerHTML = isLocked ? LOCK_CLOSED_SVG : LOCK_OPEN_SVG;
   btn.title = isLocked ? "Разблокировать параметры" : "Заблокировать параметры";
-  for (const id of [...SB_LOCK_INPUTS, ...Object.keys(SB_CATCH_MAP)]) {
+  for (const id of [...SB_LOCK_INPUTS, ...Object.keys(SB_CATCH_MAP), ...Object.keys(SB_FLOW_MAP)]) {
     const el = $c(id);
     if (el) el.disabled = isLocked;
   }
@@ -121,6 +126,7 @@ function renderDelaySidebar(node) {
   setTitle(`Участок сети · нода #${sbNodeId}`);
   $c("sbDelay").hidden = false;
   $c("sbCatch").hidden = true;
+  $c("sbFlow").hidden = true;
   $c("sbEmpty").hidden = true;
   $c("sbContent").hidden = true;
   hidePumpSections();
@@ -148,6 +154,34 @@ function renderDelaySidebar(node) {
   applySidebarDisable();
 }
 
+function renderFlowSidebar(node) {
+  setTitle(`Дополнительный приток · нода #${sbNodeId}`);
+  $c("sbFlow").hidden = false;
+  $c("sbDelay").hidden = true;
+  $c("sbCatch").hidden = true;
+  $c("sbEmpty").hidden = true;
+  $c("sbContent").hidden = true;
+  hidePumpSections();
+  const d = node.data || {};
+  if (document.activeElement !== $c("sbFQ")) $c("sbFQ").value = padNum(parseFloat(d.q));
+  if (document.activeElement !== $c("sbFT1")) $c("sbFT1").value = padNum(parseFloat(d.t1) || 0);
+  const t2El = $c("sbFT2");
+  if (document.activeElement !== t2El) {
+    const t2v = parseFloat(d.t2);
+    t2El.value = Number.isFinite(t2v) ? padNum(t2v) : "";
+  }
+  const res = results[sbNodeId];
+  $c("sbFOut").innerHTML = res?.gf
+    ? flowSummaryHTML(d, res)
+    : "задайте расход и границы притока";
+  const has = !!res?.gf;
+  $c("sbFlowChartWrap").hidden = !has;
+  $c("sbFlowEmpty").hidden = has;
+  if (has) flowChart.update(seriesFromResult(res));
+  applySidebarLock();
+  applySidebarDisable();
+}
+
 function renderSidebar() {
   if (sbNodeId === null) return;
   const node = editor.getNodeFromId(sbNodeId);
@@ -155,8 +189,10 @@ function renderSidebar() {
   renderNodeMeta(node);
   if (node.name === "delay") { renderDelaySidebar(node); return; }
   if (node.name === "catch") { renderCatchSidebar(node); return; }
+  if (node.name === "flow") { renderFlowSidebar(node); return; }
   $c("sbDelay").hidden = true;
   $c("sbCatch").hidden = true;
+  $c("sbFlow").hidden = true;
   const res = results[sbNodeId];
   setTitle(`Насосная станция · нода #${sbNodeId}`);
   if (!node || !res) {
@@ -386,6 +422,20 @@ for (const [elId, key] of Object.entries(SB_CATCH_MAP)) {
     if (!Number.isNaN(v) && sbNodeId !== null) syncNodeParam(sbNodeId, key, v);
   });
 }
+for (const [elId, key] of Object.entries(SB_FLOW_MAP)) {
+  $c(elId).addEventListener("input", () => {
+    const v = parseFloat($c(elId).value);
+    if (!Number.isNaN(v) && sbNodeId !== null) syncNodeParam(sbNodeId, key, v);
+  });
+}
+// t₂ — особое: пустое поле легально и означает «до конца события»
+$c("sbFT2").addEventListener("input", () => {
+  if (sbNodeId === null) return;
+  const raw = $c("sbFT2").value.trim();
+  if (raw === "") { syncNodeParam(sbNodeId, "t2", ""); return; }
+  const v = parseFloat(raw);
+  if (Number.isFinite(v)) syncNodeParam(sbNodeId, "t2", v);
+});
 for (const rb of document.querySelectorAll('input[name="sbCCoeff"]')) {
   rb.addEventListener("change", () => {
     if (sbNodeId !== null && rb.checked) syncNodeParam(sbNodeId, "coeffMode", rb.value);

@@ -329,8 +329,6 @@ function evalGF(gf, t) {
   switch (gf.type) {
     case "hydrograph":
       return hydro(tEff, gf.Qr, gf.tr, gf.n);
-    case "constant":
-      return (tEff >= gf.tStart && tEff <= gf.tEnd) ? gf.q : 0;
     case "piecewise":
       for (let i = 0; i < gf.segments.length; i++) {
         const seg = gf.segments[i];
