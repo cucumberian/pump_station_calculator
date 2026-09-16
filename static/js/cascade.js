@@ -140,23 +140,27 @@ function rainHorizon(data, nGlob, totalDelay) {
   return h > 0 ? h + totalDelay + 30 : 0;
 }
 
-// Строка-итоги на ноде «Доп. приток». Пустой t₂ показывается как «до конца
-// события»; если GF не построилась (нет горизонта — в схеме нет дождя),
+// Строка-итоги на ноде «Доп. приток». Пустое t₁ — «с начала события», пустое
+// t₂ — «до конца события»; оба пустые — поток постоянный на всём времени
+// расчёта. Если GF не построилась (нет горизонта — в схеме нет дождя),
 // подсвечиваем причину, а не молчим.
 function flowSummaryHTML(d, res) {
   const q = parseFloat(d.q);
-  const t1raw = parseFloat(d.t1);
-  const t1 = Number.isFinite(t1raw) && t1raw > 0 ? t1raw : 0;
-  const t2raw = d.t2 === "" || d.t2 === null || d.t2 === undefined ? NaN : parseFloat(d.t2);
+  const t1set = !(d.t1 === "" || d.t1 === null || d.t1 === undefined) && Number.isFinite(parseFloat(d.t1));
+  const t2set = !(d.t2 === "" || d.t2 === null || d.t2 === undefined) && Number.isFinite(parseFloat(d.t2));
+  const t1 = t1set ? parseFloat(d.t1) : 0;
   if (res?.gf) {
     const seg = res.gf.segments.find(s => s.q > 0) || res.gf.segments[0];
     const t2 = seg.tEnd;
     const span = `${fmt(seg.tStart, 0)}…${fmt(t2, 0)} мин`;
-    const open = Number.isFinite(t2raw) ? "" : " <span class=\"hint\">(до конца события)</span>";
-    return `Q = <b>${fmt(q, 1)} л/с</b><br>${span}${open}`;
+    let hint = "";
+    if (!t1set && !t2set) hint = "Поток постоянный на всём времени расчёта";
+    else if (!t1set) hint = `Поток постоянный с начала события до t<sub>кон</sub> = ${fmt(t2, 0)} мин`;
+    else if (!t2set) hint = `Поток постоянный с t<sub>нач</sub> = ${fmt(t1, 0)} мин до конца события`;
+    return `Q = <b>${fmt(q, 1)} л/с</b><br>${span}` + (hint ? `<br><span class="hint">${hint}</span>` : "");
   }
   if (!(q >= 0)) return `<span class="warn">задайте Q</span>`;
-  if (Number.isFinite(t2raw)) return `<span class="warn">проверьте t<sub>нач</sub> и t<sub>кон</sub></span>`;
+  if (t2set) return `<span class="warn">проверьте t<sub>нач</sub> и t<sub>кон</sub></span>`;
   return `<span class="warn">укажите t<sub>кон</sub> — в схеме нет дождя</span>`;
 }
 

@@ -631,13 +631,16 @@ function migrateNodeData(type, raw) {
     delete d.dt;
   }
   if (type === "flow") {
-    // Drawflow пишет значения как строки из input; "" в t2 легально — «до
-    // конца события». Числа нормализуем, мусор → дефолт.
+    // Drawflow пишет значения как строки из input; "" в t1 и t2 легально —
+    // «с начала» и «до конца события». Числа нормализуем, мусор → пустое.
     if (d.mode !== "constant") d.mode = "constant";
     const q = parseFloat(d.q);
     d.q = q >= 0 ? q : NODE_DEFAULTS.flow.q;
-    const t1 = parseFloat(d.t1);
-    d.t1 = t1 >= 0 ? t1 : 0;
+    if (d.t1 === "" || d.t1 === null || d.t1 === undefined) d.t1 = "";
+    else {
+      const t1 = parseFloat(d.t1);
+      d.t1 = Number.isFinite(t1) && t1 >= 0 ? t1 : "";
+    }
     if (d.t2 === "" || d.t2 === null || d.t2 === undefined) d.t2 = "";
     else {
       const t2 = parseFloat(d.t2);

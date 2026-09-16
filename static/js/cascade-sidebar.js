@@ -39,9 +39,9 @@ const SB_CATCH_MAP = {
   sbCL1: "l1", sbCV1: "v1", sbCL2: "l2", sbCV2: "v2", sbCL3: "l3", sbCV3: "v3",
 };
 
-// t2 намеренно вне карты: пустое поле — легальное значение «до конца
-// события», привязка у него отдельная.
-const SB_FLOW_MAP = { sbFQ: "q", sbFT1: "t1" };
+// t1 и t2 намеренно вне карты: пустые поля — легальные значения «с начала» и
+// «до конца события», привязка у них отдельная (см. ниже).
+const SB_FLOW_MAP = { sbFQ: "q" };
 
 const SB_LOCK_INPUTS = ["sbQr", "sbTr", "sbQ", "sbQm3h", "sbQrange", "sbIdle", "sbV", "sbL", "sbD", "sbFQ", "sbFT1", "sbFT2"];
 
@@ -181,7 +181,11 @@ function renderFlowSidebar(node) {
   hidePumpSections();
   const d = node.data || {};
   if (document.activeElement !== $c("sbFQ")) $c("sbFQ").value = padNum(parseFloat(d.q));
-  if (document.activeElement !== $c("sbFT1")) $c("sbFT1").value = padNum(parseFloat(d.t1) || 0);
+  const t1El = $c("sbFT1");
+  if (document.activeElement !== t1El) {
+    const t1v = parseFloat(d.t1);
+    t1El.value = Number.isFinite(t1v) ? padNum(t1v) : "";
+  }
   const t2El = $c("sbFT2");
   if (document.activeElement !== t2El) {
     const t2v = parseFloat(d.t2);
@@ -446,6 +450,14 @@ for (const [elId, key] of Object.entries(SB_FLOW_MAP)) {
     if (!Number.isNaN(v) && sbNodeId !== null) syncNodeParam(sbNodeId, key, v);
   });
 }
+// t₁ — особое: пустое поле легально и означает «с начала события»
+$c("sbFT1").addEventListener("input", () => {
+  if (sbNodeId === null) return;
+  const raw = $c("sbFT1").value.trim();
+  if (raw === "") { syncNodeParam(sbNodeId, "t1", ""); return; }
+  const v = parseFloat(raw);
+  if (Number.isFinite(v)) syncNodeParam(sbNodeId, "t1", v);
+});
 // t₂ — особое: пустое поле легально и означает «до конца события»
 $c("sbFT2").addEventListener("input", () => {
   if (sbNodeId === null) return;

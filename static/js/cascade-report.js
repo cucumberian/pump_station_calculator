@@ -356,9 +356,11 @@ function reportSchemeMD(graph, n) {
 
 function flowReportParams(d) {
   const f = reportFmt;
+  const t1raw = d.t1 === "" || d.t1 === null || d.t1 === undefined ? NaN : parseFloat(d.t1);
   const t2raw = d.t2 === "" || d.t2 === null || d.t2 === undefined ? NaN : parseFloat(d.t2);
+  const t1 = Number.isFinite(t1raw) ? `${f(t1raw)} мин` : "с начала события";
   const t2 = Number.isFinite(t2raw) ? `${f(t2raw)} мин` : "до конца события";
-  return `Q=${f(d.q)} л/с, ${f(parseFloat(d.t1) || 0)} мин → ${t2}`;
+  return `Q=${f(d.q)} л/с, ${t1} → ${t2}`;
 }
 
 function flowSectionMD(node, res) {
@@ -373,7 +375,8 @@ function flowSectionMD(node, res) {
   out.push("### Исходные данные", "");
   out.push("| Параметр | Значение |", "|---|---|");
   out.push(`| Расход Q | ${f(d.q)} л/с |`);
-  out.push(`| Начало t<sub>нач</sub> | ${f(parseFloat(d.t1) || 0)} мин |`);
+  const t1raw = d.t1 === "" || d.t1 === null || d.t1 === undefined ? NaN : parseFloat(d.t1);
+  out.push(`| Начало t<sub>нач</sub> | ${Number.isFinite(t1raw) ? `${f(t1raw)} мин` : "не указано — с начала расчётного события"} |`);
   const t2raw = d.t2 === "" || d.t2 === null || d.t2 === undefined ? NaN : parseFloat(d.t2);
   out.push(`| Окончание t<sub>кон</sub> | ${Number.isFinite(t2raw) ? `${f(t2raw)} мин` : "не указан — до конца расчётного события"} |`);
   out.push("");
@@ -385,7 +388,7 @@ function flowSectionMD(node, res) {
   out.push("### Расчёт", "");
   out.push("Приток — кусочно-постоянная функция (прямоугольный импульс); границы импульса попадают в сегментацию аналитического расчёта потребителей, точность не снижается:");
   out.push("");
-  out.push(`$$\nQ(T) = \\begin{cases} ${f(d.q)}, & ${f(parseFloat(d.t1) || 0)} \\le T < ${Number.isFinite(t2raw) ? f(t2raw) : "T_{\\text{конец события}}"}`, "\\\\ 0, & \\text{иначе}\\end{cases}\n$$");
+  out.push(`$$\nQ(T) = \\begin{cases} ${f(d.q)}, & ${Number.isFinite(t1raw) ? f(t1raw) : "T_{\\text{начало события}}"} \\le T < ${Number.isFinite(t2raw) ? f(t2raw) : "T_{\\text{конец события}}"}`, "\\\\ 0, & \\text{иначе}\\end{cases}\n$$");
   out.push("");
   out.push(`Сегменты ряда: ${segs}. Длительность ряда — ${f(durationGF(gf))} мин.`);
   out.push("");

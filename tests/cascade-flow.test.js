@@ -348,16 +348,22 @@ test("два flow в одну станцию — суммируются в piece
 // cascade-io: миграция и round-trip
 // ============================================================
 
-test("migrateNodeData flow: строки Drawflow → числа, пустой t₂ сохраняется", () => {
+test("migrateNodeData flow: строки Drawflow → числа, пустые t₁ и t₂ сохраняются", () => {
   const d = ioMod.migrateNodeData("flow", { q: "55", t1: "10", t2: "40" });
   approx(d.q, 55); approx(d.t1, 10); approx(d.t2, 40);
   const e = ioMod.migrateNodeData("flow", { q: "55", t1: "", t2: "" });
-  approx(d.q, 55); approx(e.t1, 0);
+  approx(e.q, 55);
+  if (e.t1 !== "") throw new Error("пустой t₁ обязан остаться пустой строкой");
   if (e.t2 !== "") throw new Error("пустой t₂ обязан остаться пустой строкой");
   const bad = ioMod.migrateNodeData("flow", { q: "abc", t1: "-5", t2: "xyz" });
   approx(bad.q, N.NODE_DEFAULTS.flow.q);
-  approx(bad.t1, 0);
+  if (bad.t1 !== "") throw new Error("нечитаемый t₁ → пустое «с начала события»");
   if (bad.t2 !== "") throw new Error("нечитаемый t₂ → пустое «до конца события»");
+});
+
+test("NODE_DEFAULTS.flow: t₁ и t₂ по умолчанию пустые — поток на всём времени", () => {
+  if (N.NODE_DEFAULTS.flow.t1 !== "") throw new Error("t₁ по умолчанию должен быть пуст");
+  if (N.NODE_DEFAULTS.flow.t2 !== "") throw new Error("t₂ по умолчанию должен быть пуст");
 });
 
 test("validatePayload: flow — известный тип; связь flow→pump проходит", () => {
@@ -401,8 +407,9 @@ test("NODE_HTML.flow: карточка с df-q/df-t1/df-t2 и без входо�
 
 const R = new Function("window",
   readSrc("hydro.js") + readSrc("calc-view.js") + graphSrc +
-  readSrc("cascade-nodes.js") + readSrc("cascade-catch.js") + readSrc("cascade-report.js") + `
-return { buildNodeReportMD, buildReportMD, reportFmt };
+  readSrc("cascade-nodes.js") + readSrc("cascade-catch.js") + readSrc("cascade-report.js") +
+  extractFn(cascadeSrc, "flowSummaryHTML") + `
+return { buildNodeReportMD, buildReportMD, reportFmt, flowSummaryHTML };
 `)({ addEventListener() {} });
 
 test("отчёт: секция flow содержит Q, границы и сегменты", () => {
@@ -439,6 +446,37 @@ test("отчёт схемы: таблица нод показывает пара
   const md = R.buildReportMD(graph, results, { meta: {}, n: 0.71 });
   if (!md.includes("Q=25,00 л/с")) throw new Error("в таблице схемы нет параметров flow");
   if (!md.includes("5,00 мин → 65,00 мин")) throw new Error("нет диапазона времени");
+});
+
+// ============================================================
+// Подсказки итоговой строки flow: пустые t₁ / t₂
+// ============================================================
+
+test("flowSummaryHTML: оба времени пусты — поток постоянный на всём времени", () => {
+  const d = { mode: "constant", q: 50, t1: "", t2: "" };
+  const html = R.flowSummaryHTML(d, { gf: N.flowGF(d, 100) });
+  if (!html.includes("Поток постоянный на всём времени расчёта")) throw new Error(`нет подсказки: ${html}`);
+});
+
+test("flowSummaryHTML: пусто только t₁ — с начала события до t₂", () => {
+  const d = { mode: "constant", q: 50, t1: "", t2: 40 };
+  const html = R.flowSummaryHTML(d, { gf: N.flowGF(d, 100) });
+  if (!html.includes("с начала события до")) throw new Error(`нет подсказки: ${html}`);
+  if (!html.includes("40,00")) throw new Error(`нет t₂: ${html}`);
+});
+
+test("flowSummaryHTML: пусто только t₂ — с t₁ до конца события", () => {
+  const d = { mode: "constant", q: 50, t1: 10, t2: "" };
+  const html = R.flowSummaryHTML(d, { gf: N.flowGF(d, 100) });
+  if (!html.includes("до конца события")) throw new Error(`нет подсказки: ${html}`);
+  if (!html.includes("10,00")) throw new Error(`нет t₁: ${html}`);
+});
+
+test("flowSummaryHTML: оба времени заданы — без подсказки, только интервал", () => {
+  const d = { mode: "constant", q: 50, t1: 10, t2: 40 };
+  const html = R.flowSummaryHTML(d, { gf: N.flowGF(d, 100) });
+  if (html.includes("Поток постоянный")) throw new Error(`лишняя подсказка: ${html}`);
+  if (!html.includes("10,00…40,00 мин")) throw new Error(`нет интервала: ${html}`);
 });
 
 // ===================
