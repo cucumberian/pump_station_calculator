@@ -130,6 +130,22 @@
 .pal-node b { display: block; font-size: 14px;}
 .pal-node span { font-size: 12px; color: #5a6572; }
 .pal-node:active { cursor: grabbing; }
+
+/* Ghost перетаскивания из палитры: fixed + transform, двигается за курсором
+   без отставания (нативный HTML5 drag-ghost в Chromium тормозит). */
+.pal-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  margin: 0;
+  pointer-events: none;
+  opacity: 0.9;
+  box-shadow: 0 6px 18px rgba(18, 50, 94, 0.28);
+  will-change: transform;
+}
+.pal-ghost.over { outline: 2px solid var(--pump-accent); outline-offset: 1px; }
+body.pal-dragging { cursor: grabbing; user-select: none; }
 .pal-rain { border-left-color: #0b7285; }
 .pal-pump { border-left-color: var(--pump-pal); }
 .pal-delay { border-left-color: var(--delay-pal); }

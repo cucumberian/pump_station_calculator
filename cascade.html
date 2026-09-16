@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=6">
-  <link rel="stylesheet" href="static/css/cascade.css?v=31">
+  <link rel="stylesheet" href="static/css/cascade.css?v=32">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
@@ -26,7 +26,7 @@
   <script defer src="static/js/cascade-schemes.js?v=2"></script>
   <script defer src="static/js/cascade-io.js?v=15"></script>
   <script defer src="static/js/cascade-report.js?v=11"></script>
-  <script defer src="static/js/cascade.js?v=39"></script>
+  <script defer src="static/js/cascade.js?v=40"></script>
 </head>
 
 <body class="cascade-page">
@@ -62,19 +62,19 @@
 
         </div>
         <h2>Ноды</h2>
-        <div class="pal-node pal-catch" draggable="true" data-node="catch">
+        <div class="pal-node pal-catch" data-node="catch">
           <b><span class="full">Водосбор</span><span class="short">ВД</span></b>
           <span class="addon">F, q₂₀, P → Q<sub>r</sub>, t<sub>r</sub></span>
         </div>
-        <div class="pal-node pal-pump" draggable="true" data-node="pump">
+        <div class="pal-node pal-pump" data-node="pump">
           <b><span class="full">Насосная станция</span><span class="short">НС</span></b>
           <span class="addon">Q<sub>r</sub>, t<sub>r</sub>, Q<sub>нс</sub></span>
         </div>
-        <div class="pal-node pal-delay" draggable="true" data-node="delay">
+        <div class="pal-node pal-delay" data-node="delay">
           <b><span class="full">Участок сети</span><span class="short">Δt</span></b>
           <span class="addon">v, L</span>
         </div>
-        <div class="pal-node pal-flow" draggable="true" data-node="flow">
+        <div class="pal-node pal-flow" data-node="flow">
           <b><span class="full">Доп. приток</span><span class="short">ПР</span></b>
           <span class="addon">Q, t<sub>нач</sub>…t<sub>кон</sub></span>
         </div>

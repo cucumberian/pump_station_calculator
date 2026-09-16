@@ -430,9 +430,89 @@ function updateSummaries(data = graphData()) {
   }
 }
 
+// Перетаскивание нод из палитры на холст — свой pointer-drag, а не нативный
+// HTML5 DnD. У нативного drag-ghost в Chromium заметное отставание от курсора
+// (особенно при большом DOM и внутри скролл-контейнера палитры); ghost из
+// position:fixed, двигаемый через transform, тянется за курсором 1:1 и
+// композитится на GPU. Нативный drag выключаем (draggable=false), иначе он
+// перехватывает указатель и гасит pointermove.
+const PAL_DRAG_THRESHOLD = 4;
+let palDrag = null;
+
+function palPointToCanvas(clientX, clientY) {
+  const rect = editor.precanvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.x) / editor.zoom,
+    y: (clientY - rect.y) / editor.zoom,
+  };
+}
+
+function palOverCanvas(clientX, clientY) {
+  const r = $c("drawflow").getBoundingClientRect();
+  return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+}
+
+function palClearDrag() {
+  if (!palDrag) return;
+  palDrag.ghost.remove();
+  document.removeEventListener("pointermove", palDrag.onMove);
+  document.removeEventListener("pointerup", palDrag.onUp);
+  document.removeEventListener("pointercancel", palDrag.onCancel);
+  document.removeEventListener("keydown", palDrag.onKey);
+  document.body.classList.remove("pal-dragging");
+  palDrag = null;
+}
+
+function palMove(e) {
+  if (!palDrag) return;
+  if (!palDrag.moved) {
+    if (Math.hypot(e.clientX - palDrag.startX, e.clientY - palDrag.startY) < PAL_DRAG_THRESHOLD) return;
+    palDrag.moved = true;
+    document.body.classList.add("pal-dragging");
+  }
+  palDrag.ghost.style.transform =
+    `translate3d(${e.clientX - palDrag.offX}px, ${e.clientY - palDrag.offY}px, 0)`;
+  palDrag.ghost.classList.toggle("over", palOverCanvas(e.clientX, e.clientY));
+}
+
+function palUp(e) {
+  if (!palDrag) return;
+  const drag = palDrag;
+  const inside = palOverCanvas(e.clientX, e.clientY);
+  const moved = drag.moved;
+  palClearDrag();
+  if (!moved || !inside || !NODE_HTML[drag.type]) return;
+  const pos = palPointToCanvas(e.clientX, e.clientY);
+  addNodeOfType(drag.type, pos.x, pos.y);
+  flushCascade();
+}
+
 for (const item of document.querySelectorAll(".pal-node")) {
-  item.addEventListener("dragstart", e => {
-    e.dataTransfer.setData("node", item.dataset.node);
+  item.draggable = false;
+  item.addEventListener("pointerdown", e => {
+    // Только мышь левой кнопкой; тач — прежний клик с постановкой в центр.
+    if (e.pointerType !== "mouse" || e.button !== 0 || palDrag) return;
+    e.preventDefault();
+    const rect = item.getBoundingClientRect();
+    const ghost = item.cloneNode(true);
+    ghost.classList.add("pal-ghost");
+    ghost.style.width = rect.width + "px";
+    ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
+    document.body.append(ghost);
+    palDrag = {
+      type: item.dataset.node,
+      startX: e.clientX, startY: e.clientY,
+      offX: e.clientX - rect.left, offY: e.clientY - rect.top,
+      moved: false, ghost,
+    };
+    palDrag.onMove = ev => palMove(ev);
+    palDrag.onUp = ev => palUp(ev);
+    palDrag.onCancel = () => palClearDrag();
+    palDrag.onKey = ev => { if (ev.key === "Escape") palClearDrag(); };
+    document.addEventListener("pointermove", palDrag.onMove);
+    document.addEventListener("pointerup", palDrag.onUp);
+    document.addEventListener("pointercancel", palDrag.onCancel);
+    document.addEventListener("keydown", palDrag.onKey);
   });
   item.addEventListener("click", () => {
     if (!window.matchMedia("(pointer: coarse)").matches) return;
@@ -443,15 +523,7 @@ for (const item of document.querySelectorAll(".pal-node")) {
     flushCascade();
   });
 }
-$c("drawflow").addEventListener("dragover", e => e.preventDefault());
-$c("drawflow").addEventListener("drop", e => {
-  e.preventDefault();
-  const type = e.dataTransfer.getData("node");
-  if (!NODE_HTML[type]) return;
-  const rect = editor.precanvas.getBoundingClientRect();
-  addNodeOfType(type, (e.clientX - rect.x) / editor.zoom, (e.clientY - rect.y) / editor.zoom);
-  flushCascade();
-});
+window.addEventListener("blur", palClearDrag);
 
 $c("drawflow").addEventListener("mouseup", scheduleSaveView);
 $c("drawflow").addEventListener("touchend", scheduleSaveView);
