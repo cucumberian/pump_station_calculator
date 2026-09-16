@@ -429,7 +429,7 @@ function combineGF(list, dt = HYDRO_DT, tMax) {
 // серии (numericCalc), здесь только отрисовка; маркеры Tн/Tк/Qнс — из r, не из ряда.
 const CHART_MAX_POINTS = 2000;
 
-function resampleForDisplay(s, maxPts = CHART_MAX_POINTS) {
+function resampleForDisplay(s, maxPts = CHART_MAX_POINTS, anchors = []) {
   const n = s.t.length;
   if (!n || n <= maxPts) return s;
   const nb = Math.max(2, Math.floor(maxPts / 2));
@@ -448,6 +448,16 @@ function resampleForDisplay(s, maxPts = CHART_MAX_POINTS) {
   }
   const lastT = s.t[n - 1], lastQ = s.q[n - 1];
   if (out.t[out.t.length - 1] !== lastT) { out.t.push(lastT); out.q.push(lastQ); }
+  // Точные вершины в опорных точках (tn/tk): иначе ломаная пересекает уровень
+  // Qнс на глаз сдвинутой от расчётного маркера на ширину бакета.
+  for (const tA of anchors) {
+    if (!(tA > s.t[0]) || !(tA < lastT)) continue;
+    if (out.t.some(t => Math.abs(t - tA) < 1e-3)) continue;
+    let k = 1;
+    while (k < out.t.length && out.t[k] < tA) k++;
+    out.t.splice(k, 0, tA);
+    out.q.splice(k, 0, interpAt(s, tA));
+  }
   return out;
 }
 

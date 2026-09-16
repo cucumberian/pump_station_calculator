@@ -4,15 +4,25 @@ function plural(n, one, few, many) {
   return n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
 }
 
+function renderAnchors(res) {
+  // Опорные точки ресемплинга: точные вершины в tn/tk, иначе ломаная
+  // пересекает уровень Qнс визуально сдвинутой от расчётных маркеров.
+  const r = res?.r;
+  return !r || r.dry ? [] : [r.tn, r.tk].filter(t => Number.isFinite(t));
+}
+
 function seriesFromResult(res) {
   if (!res) return null;
   // только для графиков — ряды в десятки тысяч точек ресемплим с сохранением пиков
-  return resampleForDisplay(res.series || (res.gf ? toDense(res.gf, HYDRO_DT, globalTMax || undefined) : null));
+  const anchored = res?.r != null;
+  return resampleForDisplay(res.series || (res.gf ? toDense(res.gf, HYDRO_DT, globalTMax || undefined) : null),
+    CHART_MAX_POINTS, anchored ? renderAnchors(res) : []);
 }
 
 function inflowFromResult(res) {
   if (!res) return null;
-  return resampleForDisplay(res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : seriesFromResult(res));
+  const dense = res.inflowGF ? toDense(res.inflowGF, HYDRO_DT, globalTMax || undefined) : seriesFromResult(res);
+  return resampleForDisplay(dense, CHART_MAX_POINTS, renderAnchors(res));
 }
 
 function setTitle(typeLabel) {
@@ -34,6 +44,13 @@ const SB_CATCH_MAP = {
 const SB_FLOW_MAP = { sbFQ: "q", sbFT1: "t1" };
 
 const SB_LOCK_INPUTS = ["sbQr", "sbTr", "sbQ", "sbQm3h", "sbQrange", "sbIdle", "sbV", "sbL", "sbD", "sbFQ", "sbFT1", "sbFT2"];
+
+// Поле параметра для отображения: на заблокированной ноде показываем СВОИ
+// значения инженера (персистентные data ноды), а не переписанные расчётом.
+// Работает для любых параметров — сейчас расчёт переписывает только qr/tr насоса.
+function displayParam(node, res, key) {
+  return node?.data?.locked && node.data[key] != null ? node.data[key] : res[key === "qr" ? "Qr" : "tr"];
+}
 
 function renderNodeMeta(node) {
   const d = node.data || {};
@@ -205,10 +222,11 @@ function renderSidebar() {
   $c("sbContent").hidden = false;
   showPumpSections();
 
-  if (document.activeElement !== $c("sbQr")) $c("sbQr").value = Number(res.Qr).toFixed(2);
-  if (document.activeElement !== $c("sbTr")) $c("sbTr").value = Number(res.tr).toFixed(2);
-  $c("sbQr").disabled = !!res.lockId;
-  $c("sbTr").disabled = !!res.lockId;
+  const manualLock = !!node?.data?.locked;
+  if (document.activeElement !== $c("sbQr")) $c("sbQr").value = Number(displayParam(node, res, "qr")).toFixed(2);
+  if (document.activeElement !== $c("sbTr")) $c("sbTr").value = Number(displayParam(node, res, "tr")).toFixed(2);
+  $c("sbQr").disabled = manualLock || !!res.lockId;
+  $c("sbTr").disabled = manualLock || !!res.lockId;
   const sbQrTrPair = $c("sbParams")?.querySelector(".sb-pair");
   if (sbQrTrPair) sbQrTrPair.classList.toggle("sb-locked", !!res.lockId);
   $c("sbLock").hidden = !res.lockId;
@@ -235,7 +253,7 @@ function renderSidebar() {
   const ownLabel = res.lockIds?.length > 1
     ? `Водосборы ${res.lockIds.map(x => `#${x}`).join(", ")}`
     : res.lockId ? `Водосбор #${res.lockId}` : "Дождь (собственный)";
-  const ownSeries = res.ownRainGF ? resampleForDisplay(toDense(res.ownRainGF, HYDRO_DT, globalTMax || undefined)) : res.ownRain;
+  const ownSeries = res.ownRainGF ? resampleForDisplay(toDense(res.ownRainGF, HYDRO_DT, globalTMax || undefined), CHART_MAX_POINTS, renderAnchors(res)) : res.ownRain;
   const comps = [{ label: ownLabel, series: ownSeries }];
   for (const x of upstreamIds(sbNodeId, data)
     .map(u => ({ nd: data[u], r: results[u] }))

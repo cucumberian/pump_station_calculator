@@ -35,6 +35,15 @@ const inflowChart = (() => {
   return {
     update(Q, r, combined, comps, outSeries, approx) {
       if (!ec) ec = makeEChart($c("sbInflow"), { slider: true, legend: true, toolbox: false });
+      const lastT = combined.t[combined.t.length - 1];
+      // Первое открытие панели: активное окно расчёта [0 .. Tк+25% ширины окна]
+      // вместо всего горизонта, чтобы пик и пересечения не сжимались
+      // длинным хвостом. Пользовательский зум продолжает работать как был:
+      // sharedZoom переопределяем только пока он нетронут (0..100).
+      if (r && !r.dry && Number.isFinite(r.tk)) {
+        const pct = Math.min(99, Math.ceil((r.tk + 0.25 * Math.max(r.tk - (r.tn || 0), 60)) / lastT * 100));
+        if (sharedZoom.start === 0 && sharedZoom.end === 100 && pct >= 5 && pct < 100) sharedZoom.end = pct;
+      }
       const ts = combined.t;
       const qs = combined.q;
       const compSeries = comps.map((c, i) => ({
@@ -47,7 +56,7 @@ const inflowChart = (() => {
         ...compSeries,
         { name: approx ? "Σ вход (эквив.), л/с" : "Σ вход, л/с", type: "line", showSymbol: false,
           data: ts.map((t, i) => [+t.toFixed(2), +qs[i].toFixed(2)]),
-          lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" }, smooth: 0.15,
+          lineStyle: { color: "#1f6feb", width: 2 }, itemStyle: { color: "#1f6feb" },
           markLine: {
             symbol: "none", silent: true, animation: false,
             data: [
@@ -126,7 +135,7 @@ const catchChart = (() => {
         yAxis: { type: "value", name: "Q, л/с", min: 0 },
         tooltip: { formatter: ecAxisTip("л/с") },
         series: [
-          { name: "Q, л/с", type: "line", showSymbol: false, smooth: 0.15,
+          { name: "Q, л/с", type: "line", showSymbol: false,
             data: series.t.map((t, i) => [+t.toFixed(2), +series.q[i].toFixed(2)]),
             lineStyle: { color: "#1098ad", width: 2 }, itemStyle: { color: "#1098ad" },
             areaStyle: { color: "rgba(16, 152, 173, 0.12)" },

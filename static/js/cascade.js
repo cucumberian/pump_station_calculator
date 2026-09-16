@@ -222,7 +222,12 @@ function computeCascadeNow() {
           Qr = ownPeak.q;
           tr = Math.max(ownPeak.t, 0.5);
         }
-        editor.updateNodeDataFromId(id, { ...editor.getNodeFromId(id).data, qr: Qr, tr });
+        // Поля qr/tr перезаписываем только на разблокированной станции:
+        // заблокированные значения заданы инженером вручную и персистентны.
+        // Сам расчёт при этом ВСЕГДА идёт по гидрографам водосборов —
+        // эквивалентный гидрограф точен лишь для одного водосбора, поэтому
+        // водосборы (особенно два и более) отключать при блокировке нельзя.
+        if (!d.locked) editor.updateNodeDataFromId(id, { ...editor.getNodeFromId(id).data, qr: Qr, tr });
       }
       if (!(Qr > 0 && tr > 0 && Q > 0)) { res[id] = null; continue; }
       let idlePct = parseFloat(d.idle);
@@ -399,7 +404,9 @@ function updateSummaries(data = graphData()) {
       const inp = document.querySelector(`#node-${id} input[df-${k}]`);
       if (!inp) continue;
       inp.disabled = isLocked || locked;
-      if (locked && document.activeElement !== inp) {
+      // Заблокированная станция показывает свои персистентные qr/tr, а не
+      // пересчитанные от водосбора (расчёт при этом всё равно идёт по притоку).
+      if (locked && !isLocked && document.activeElement !== inp) {
         inp.value = (k === "qr" ? r.Qr : r.tr).toFixed(2);
       }
     }

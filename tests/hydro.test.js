@@ -10,7 +10,7 @@ return {
   shiftSeries, interpAt, combineSeries, numericCalc,
   pumpOutSeries, seriesPeak, hydroInt, mixedAnalyticCalc,
   makeHydroGF, makePiecewiseGF, shiftGF, evalGF, peakGF, durationGF, toDense, combineGF,
-  memoizeCalc, gfSignature, HYDRO_DT
+  memoizeCalc, gfSignature, resampleForDisplay, HYDRO_DT
 };
 `);
 const H = load();
@@ -1241,6 +1241,23 @@ test("memoizeCalc: одно и то же Q с шагом 0,01 — тот же к
 // быстрее. Ниже — дифференциальная проверка против прежнего перебора и
 // страховка от вырожденного притока (Qнс ровно на уровне порога).
 // ============================================================
+
+test("resampleForDisplay: опорные точки (Тн/Тк) становятся точными вершинами ряда", () => {
+  const dense = H.toDense(H.makeHydroGF(300, 50, 0.5, 0), 0.2);
+  const r = H.resampleForDisplay(dense, 200, [40, 105]);
+  const src = t => H.interpAt(dense, t);
+  let found = 0;
+  for (const a of [40, 105]) {
+    const i = r.t.findIndex(t => Math.abs(t - a) < 1e-9);
+    if (i < 0) throw new Error(`вершина ${a} не попала в ресемпл`);
+    if (Math.abs(r.q[i] - src(a)) > 1e-9) throw new Error(`значение в вершине ${a} не из исходного ряда`);
+    found++;
+  }
+  if (found !== 2) throw new Error("опорных вершин не 2");
+  // ряд остался монотонным по времени и согласованным по длине
+  if (r.t.length !== r.q.length) throw new Error("рассинхрон t/q");
+  if (r.t.some((t, i) => i > 0 && t < r.t[i - 1])) throw new Error("ряд не по возрастанию t");
+});
 
 const REF_DT = 0.002; // почти эталонная сетка
 

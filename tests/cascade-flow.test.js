@@ -68,6 +68,11 @@ let results = {};
 let globalTMax = 0;
 let RT_N = 0.71;
 function run(data, n = 0.71) { RT_N = n; RT_DATA = data; computeCascadeNow(); return { results, globalTMax }; }
+// мок DOM-слоя editor: синк qr/tr от водосбора пишет прямо в данные ноды
+const editor = {
+  getNodeFromId: id => ({ data: (RT_DATA[id] || {}).data || {} }),
+  updateNodeDataFromId: (id, d) => { if (RT_DATA[id]) RT_DATA[id].data = d; },
+};
 return { rainHorizon, computeCascadeNow, run };
 `,
 )();
@@ -434,6 +439,41 @@ test("отчёт схемы: таблица нод показывает пара
   const md = R.buildReportMD(graph, results, { meta: {}, n: 0.71 });
   if (!md.includes("Q=25,00 л/с")) throw new Error("в таблице схемы нет параметров flow");
   if (!md.includes("5,00 мин → 65,00 мин")) throw new Error("нет диапазона времени");
+});
+
+// ===================
+// Насосная с заблокированными параметрами: водосбор сверху не управляет станцией
+// ===================
+
+const lockedPumpData = catchDisabled => dataWith(
+  node(1, "catch", { q20: 240, P: 1, tcon: 10, disabled: catchDisabled }, [], [2]),
+  node(2, "pump", { qr: 222.2, tr: 33.3, q: 100, locked: true }, [1]),
+);
+
+test("заблокированный насос: расчёт идёт по водосбору, поля qr/tr персистентны", () => {
+  const data = lockedPumpData(false);
+  const r2 = RT.run(data).results[2];
+  const fromCatch = data["1"].Qr;
+  if (Math.abs(r2.Qr - fromCatch) > 1e-9) throw new Error(`расчёт не по водосбору: Qr=${r2.Qr}`);
+  if (data["2"].data.qr !== 222.2 || data["2"].data.tr !== 33.3) throw new Error("заблокированные поля qr/tr перезаписаны водосбором");
+  // водосбор одни/выключили — расчёт следует за притоком, поля не меняются
+  data["1"].data.disabled = true;
+  const off = RT.run(data).results[2];
+  if (off.lockId !== null) throw new Error("водосбор выкл, а метка источника на месте");
+  if (Math.abs(off.Qr - 222.2) > 1e-9) throw new Error("после выключения водосбора расчёт должен идти по своим qr/tr");
+  if (data["2"].data.qr !== 222.2 || data["2"].data.tr !== 33.3) throw new Error("поля qr/tr затёрты при выключенном водосборе");
+});
+
+test("разблокированный насос: водосбор синхронизирует qr/tr как раньше", () => {
+  const data = dataWith(
+    node(1, "catch", { q20: 240, P: 1, tcon: 10 }, [], [2]),
+    node(2, "pump", { qr: 222.2, tr: 33.3, q: 100 }, [1]),
+  );
+  const r2 = RT.run(data).results[2];
+  const fromCatch = data["1"].Qr; // параметры, вычисленные по водосбору
+  if (Math.abs(r2.Qr - fromCatch) > 1e-9) throw new Error(`Qr станции ${r2.Qr} ≠ водосбора ${fromCatch}`);
+  if (Math.abs(data["2"].data.qr - fromCatch) > 1e-9) throw new Error("поле qr не синхронизировано");
+  if (String(r2.lockId) !== "1") throw new Error("не маркирован источник параметров");
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);
