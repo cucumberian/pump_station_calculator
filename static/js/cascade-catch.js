@@ -11,6 +11,18 @@ function num(x, fallback, min = -Infinity) {
   return Number.isFinite(v) && v >= min ? v : fallback;
 }
 
+// Участок сети/лотка: {l, v}. В сумму входят только участки с l > 0 и v > 0,
+// мусорные записи отбрасываются (в данных ноды могут остаться как заготовки).
+function parseSections(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const s of raw) {
+    const L = parseFloat(s?.l), V = parseFloat(s?.v);
+    if (Number.isFinite(L) && Number.isFinite(V) && L > 0 && V > 0) out.push({ l: L, v: V });
+  }
+  return out;
+}
+
 function catchParams(d, n) {
   const q20 = num(d.q20, 80, 0.01);
   // Страховка от нижнерегистровых дубликатов f/p, которые Drawflow мог оставить
@@ -22,27 +34,67 @@ function catchParams(d, n) {
   const psiMid = num(d.psiMid, 0.634, 0.001);
   const zMid = num(d.zMid, 0.201, 0.001);
   const tcon = num(d.tcon, 3, 0);
-  const tcan = num(d.tcan, 0, 0);
-  const segs = [];
-  for (const [l, v] of [[d.l1, d.v1], [d.l2, d.v2], [d.l3, d.v3]]) {
-    const L = parseFloat(l), V = parseFloat(v);
-    if (L > 0 && V > 0) segs.push({ l: L, v: V });
-  }
+  const segs = parseSections(d.segs);
+  const trays = parseSections(d.trays);
   const A = q20 * 20 ** n * (1 + Math.log(P) / Math.log(mr)) ** gamma;
+  // tp — протекание по трубам коллектора, формула (17): 0,017·Σ(l/v)
+  // (в СНиП 2.04.03-85 — формула (7)), плюс ручная добавка.
   const lvSum = segs.reduce((s, x) => s + x.l / x.v, 0);
-  const tp = 0.017 * lvSum;
+  const tpManual = num(d.tp, 0, 0);
+  const tpCalc = 0.017 * lvSum;
+  const tp = tpManual + tpCalc;
+  // t_can — протекание по уличным лоткам, формула (16): 0,021·Σ(l/v)
+  // (в СНиП 2.04.03-85 — формула (6)), плюс ручная добавка (если инженер
+  // задал время напрямую).
+  const lvTraySum = trays.reduce((s, x) => s + x.l / x.v, 0);
+  const tcanManual = num(d.tcan, 0, 0);
+  const tcanCalc = 0.021 * lvTraySum;
+  const tcan = tcanManual + tcanCalc;
   const tr = tcon + tcan + tp;
   const variable = d.coeffMode !== "const";
   const Qr = tr > 0
     ? (variable ? zMid * A ** 1.2 * F / tr ** (1.2 * n - 0.1) : psiMid * A * F / tr ** n)
     : 0;
-  return { q20, P, mr, gamma, F, psiMid, zMid, tcon, tcan, segs, A, lvSum, tp, tr, Qr, variable, n };
+  return { q20, P, mr, gamma, F, psiMid, zMid, tcon, segs, trays, A, lvSum, lvTraySum,
+    tp, tpManual, tpCalc, tcan, tcanManual, tcanCalc, tr, Qr, variable, n };
+}
+
+// Справка по t_r: сумма времени поверхностной концентрации, протекания по
+// лоткам (ф. 16) и по трубам (ф. 17) — с подставленными значениями ноды.
+// Открывается отдельной кнопкой «?» у заголовка «Расчётная продолжительность
+// дождя», поэтому в ней нет A и Qr.
+function catchTrHelp(p) {
+  const texSum = sections => sections.length
+    ? sections.map(s => `\\frac{${fmt(s.l, 0)}}{${fmt(s.v, 2)}}`).join(" + ")
+    : "0";
+  const segTex = texSum(p.segs);
+  const trayTex = texSum(p.trays);
+  const manual = p.tcanManual > 0 ? ` + ${fmt(p.tcanManual, 1)}` : "";
+  const manualP = p.tpManual > 0 ? ` + ${fmt(p.tpManual, 1)}` : "";
+  return [
+    { p: "Расчётная продолжительность дождя — сумма времени поверхностной концентрации, протекания по уличным лоткам и по трубам до рассматриваемого сечения (формула (15) п. 5.3.5):" },
+    { tex: `t_r = t_{con} + t_{can} + t_p = ${fmt(p.tcon, 0)} + ${fmt(p.tcan, 1)} + ${fmt(p.tp, 1)} = ${fmt(p.tr, 1)}\\ \\text{мин}` },
+    { ol: [
+      "t_con — продолжительность протекания дождевых вод до уличного лотка (время поверхностной концентрации), мин — задаётся вручную;",
+      "t_can — продолжительность протекания по уличным лоткам до дождеприёмника, мин (см. ниже);",
+      "t_p — продолжительность протекания по трубам до рассматриваемого сечения, мин (см. ниже).",
+    ] },
+    { p: "Время протекания по лоткам (формула (16); в СНиП 2.04.03-85 — формула (6)) — 0,021 на каждый участок лотка длиной l_can со скоростью v_can; при задании времени вручную оно прибавляется:" },
+    { tex: `t_{can} = 0{,}021\\sum \\frac{l_{can}}{v_{can}}${manual} = 0{,}021\\left(${trayTex}\\right)${manual} = ${fmt(p.tcan, 1)}\\ \\text{мин}` },
+    { ol: [
+      "l_can — длина участков лотков, м;",
+      "v_can — расчётная скорость течения на участке, м/с.",
+    ] },
+    { p: "Время протекания по трубам (формула (17); в СНиП 2.04.03-85 — формула (7)) — 0,017 на каждый участок дождевой сети; при задании времени вручную оно прибавляется:" },
+    { tex: `t_p = 0{,}017\\sum \\frac{l_p}{v_p}${manualP} = 0{,}017\\left(${segTex}\\right)${manualP} = ${fmt(p.tp, 1)}\\ \\text{мин}` },
+    { ol: [
+      "lₚ — длина расчётных участков дождевой сети, м;",
+      "vₚ — расчётная скорость течения на участках, м/с (принимается по гидравлическому расчёту сети).",
+    ] },
+  ];
 }
 
 function catchHelp(p) {
-  const segTex = p.segs.length
-    ? p.segs.map(s => `\\frac{${fmt(s.l, 0)}}{${fmt(s.v, 2)}}`).join(" + ")
-    : "0";
   return [
     { p: "Расходы дождевых вод определяются по методу предельных интенсивностей (раздел 5.3 рекомендаций; пример расчёта — п. 2.3.1 пособия)." },
     { p: "Параметр A, характеризующий интенсивность и продолжительность дождя для конкретной местности (п. 5.3.2):" },
@@ -54,19 +106,7 @@ function catchHelp(p) {
       "P — период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3);",
       "γ — показатель степени (таблица Приложения 3).",
     ] },
-    { p: "Продолжительность протекания дождевых вод по трубам до рассматриваемого сечения (формула (17)):" },
-    { tex: `t_p = 0{,}017\\sum \\frac{l_p}{v_p} = 0{,}017\\left(${segTex}\\right) = 0{,}017\\cdot ${fmt(p.lvSum, 1)} = ${fmt(p.tp, 1)}\\ \\text{мин}` },
-    { ol: [
-      "lₚ — длина расчётных участков дождевой сети, м;",
-      "vₚ — расчётная скорость течения на участках, м/с (принимается по гидравлическому расчёту сети).",
-    ] },
-    { p: "Расчётная продолжительность дождя (формула (15) п. 5.3.5):" },
-    { tex: `t_r = t_{con} + t_{can} + t_p = ${fmt(p.tcon, 0)} + ${fmt(p.tcan, 0)} + ${fmt(p.tp, 1)} = ${fmt(p.tr, 1)}\\ \\text{мин}` },
-    { ol: [
-      "t_con — продолжительность протекания дождевых вод до уличного лотка (время поверхностной концентрации), мин;",
-      "t_can — продолжительность протекания по уличным лоткам до дождеприёмника, мин;",
-      "t_p — продолжительность протекания по трубам до рассматриваемого сечения, мин.",
-    ] },
+    ...catchTrHelp(p),
     ...(p.variable ? [
       { p: "Расчётный расход при переменном коэффициенте стока — формула (20):" },
       { tex: `Q_r = \\frac{z_{mid}\\, A^{1{,}2}\\, F}{t_r^{\\,1{,}2n\\,-\\,0{,}1}} = \\frac{${fmt(p.zMid, 3)}\\cdot ${fmt(p.A)}^{1{,}2}\\cdot ${fmt(p.F, 2)}}{${fmt(p.tr, 1)}^{\\,${fmt(1.2 * p.n - 0.1, 3)}}} = ${fmt(p.Qr, 1)}\\ \\text{л/с}` },

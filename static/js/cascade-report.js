@@ -257,8 +257,12 @@ function catchSectionMD(node, res, n) {
   out.push(`| γ | ${f(p.gamma)} |`);
   out.push(p.variable ? `| z_mid (переменный коэфф. стока) | ${f(p.zMid, 3)} |` : `| Ψ_mid (постоянный коэфф. стока) | ${f(p.psiMid, 3)} |`);
   out.push(`| t_con | ${f(p.tcon, 0)} мин |`);
-  out.push(`| t_can | ${f(p.tcan, 0)} мин |`);
+  out.push(`| t_can — ручная добавка | ${f(p.tcanManual, 0)} мин |`);
+  for (let i = 0; i < p.trays.length; i++) out.push(`| Участок лотка ${i + 1} | l=${f(p.trays[i].l, 0)} м, v=${f(p.trays[i].v)} м/с |`);
+  out.push(`| t_can — по лоткам, 0,021·Σ(l/v) | ${f(p.tcanCalc, 1)} мин |`);
+  out.push(`| t_p — ручная добавка | ${f(p.tpManual, 0)} мин |`);
   for (let i = 0; i < p.segs.length; i++) out.push(`| Участок сети ${i + 1} | l=${f(p.segs[i].l, 0)} м, v=${f(p.segs[i].v)} м/с |`);
+  out.push(`| t_p — по трубам, 0,017·Σ(l/v) | ${f(p.tpCalc, 1)} мин |`);
   out.push("");
   out.push("### Расчёт", "");
   out.push(helpBlocksToMD(catchHelp(p)));

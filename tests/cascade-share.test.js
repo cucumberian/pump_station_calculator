@@ -15,8 +15,8 @@ const NODE_DEFAULTS = {
   delay: { name: "", desc: "", v: 1, l: 3600, d: "" },
   flow: { name: "", desc: "", mode: "constant", q: 50, t1: "", t2: "" },
   catch: { name: "", desc: "", F: 3.9, q20: 80, P: 1.0, mr: 150, gamma: 1.54,
-    psiMid: 0.634, zMid: 0.201, tcon: 3, tcan: 0,
-    l1: 68, v1: 0.7, l2: 133, v2: 1.0, l3: 277, v3: 1.5, coeffMode: "variable" },
+    psiMid: 0.634, zMid: 0.201, tcon: 3, tcan: 0, tp: 0,
+    segs: [], trays: [], coeffMode: "variable" },
 };
 
 function makeEl() {
@@ -182,7 +182,8 @@ const SCHEME = {
   nodes: [
     { id: 1, type: "catch", x: 60, y: 120, data: { name: "", desc: "",
         F: 7.31, q20: 80, P: 0.56, mr: 150, gamma: 1.54, psiMid: 0.634, zMid: 0.201,
-        tcon: 3, tcan: 0, l1: 68, v1: 0.7, l2: 133, v2: 1.0, l3: 277, v3: 1.5,
+        tcon: 3, tcan: 0, segs: [{ l: 68, v: 0.7 }, { l: 133, v: 1.0 }, { l: 277, v: 1.5 }],
+        trays: [{ l: 50, v: 0.5 }],
         coeffMode: "variable" } },
     { id: 2, type: "pump", x: 200, y: 400, data: { name: "КНС-1", desc: "",
         qr: 343.29, tr: 10, q: 104.75, idle: 50, mode: "analytic" } },
@@ -201,7 +202,8 @@ await test("stripSharePayload оставляет только отличные �
   eq(s.nodes.find(n => n.id === 2).data, { name: "КНС-1", qr: 343.29, q: 104.75 });
   eq(s.nodes.find(n => n.id === 4).data,
     { name: "КНС-2", qr: 421.5, tr: 12.5, q: 200, idle: 30, mode: "numeric" });
-  eq(s.nodes.find(n => n.id === 1).data, { F: 7.31, P: 0.56 });
+  eq(s.nodes.find(n => n.id === 1).data,
+    { F: 7.31, P: 0.56, segs: [{ l: 68, v: 0.7 }, { l: 133, v: 1.0 }, { l: 277, v: 1.5 }], trays: [{ l: 50, v: 0.5 }] });
 });
 
 await test("round-trip: encode → decode даёт strip схемы + format/version", async () => {

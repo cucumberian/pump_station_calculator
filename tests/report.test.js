@@ -224,6 +224,20 @@ test("buildNodeReportMD: водосбор", () => {
   if (md.includes("## КНС")) throw new Error("попала чужая секция КНС");
 });
 
+test("buildNodeReportMD: водосбор перечисляет участки сети и лотка", () => {
+  const data = {
+    F: 3.9, q20: 80, P: 1, mr: 150, gamma: 1.54, psiMid: 0.634, tcon: 3, tcan: 1,
+    segs: [{ l: 100, v: 1 }], trays: [{ l: 50, v: 0.5 }],
+  };
+  const graph = { nodes: [{ id: 1, type: "catch", data }], connections: [] };
+  const p = H.catchParams(data, N);
+  const md = H.buildNodeReportMD(1, graph, { 1: { params: p, Qr: p.Qr, tr: p.tr } }, { meta: {}, n: N, payload: graph });
+  includes(md, "Участок сети 1");
+  includes(md, "Участок лотка 1");
+  includes(md, "0,021");
+  includes(md, "0,017");
+});
+
 // ============================================================
 // Mermaid-схема и отключённые ноды
 // ============================================================

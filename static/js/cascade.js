@@ -579,9 +579,12 @@ window.addEventListener("wheel", e => {
   if (!(el instanceof HTMLInputElement)) return;
   if (el.disabled) return;
   const inNode = el.closest(".node-box");
+  const inSegList = el.closest(".seg-list");
   let step = null;
   if (inNode) {
     step = el.type === "range" ? 1 : NODE_WHEEL_STEPS[dfKey(el)];
+  } else if (inSegList) {
+    step = parseFloat(el.dataset.step) || 1;
   } else {
     step = SB_WHEEL_STEPS[el.id];
   }

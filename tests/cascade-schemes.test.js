@@ -15,8 +15,8 @@ const NODE_DEFAULTS = {
   delay: { name: "", desc: "", v: 1, l: 3600, d: "" },
   flow: { name: "", desc: "", mode: "constant", q: 50, t1: "", t2: "" },
   catch: { name: "", desc: "", F: 3.9, q20: 80, P: 1.0, mr: 150, gamma: 1.54,
-    psiMid: 0.634, zMid: 0.201, tcon: 3, tcan: 0,
-    l1: 68, v1: 0.7, l2: 133, v2: 1.0, l3: 277, v3: 1.5, coeffMode: "variable" },
+    psiMid: 0.634, zMid: 0.201, tcon: 3, tcan: 0, tp: 0,
+    segs: [], trays: [], coeffMode: "variable" },
 };
 
 function makeEl() {

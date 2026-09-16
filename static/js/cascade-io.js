@@ -621,6 +621,23 @@ function migrateNodeData(type, raw) {
     if (Number.isFinite(pp) && pp > 0) d.P = pp;
     delete d.f;
     delete d.p;
+    // Участки сети раньше хранились фиксированной тройкой l1/v1…l3/v3 —
+    // переносим в массив segs. Участки лотка — новый массив trays. В обоих
+    // массивах держим только числовые {l, v}, прочие записи сохраняем как есть.
+    const norm = arr => Array.isArray(arr)
+      ? arr.map(s => ({ l: parseFloat(s?.l), v: parseFloat(s?.v) }))
+        .filter(s => Number.isFinite(s.l) && Number.isFinite(s.v))
+      : [];
+    const legacy = [];
+    for (const [l, v] of [[d.l1, d.v1], [d.l2, d.v2], [d.l3, d.v3]]) {
+      const L = parseFloat(l), V = parseFloat(v);
+      if (L > 0 && V > 0) legacy.push({ l: L, v: V });
+    }
+    const hasSegs = Object.prototype.hasOwnProperty.call(raw || {}, "segs");
+    const segs = norm(d.segs);
+    d.segs = hasSegs ? segs : (legacy.length ? legacy : segs);
+    d.trays = norm(d.trays);
+    for (const k of ["l1", "v1", "l2", "v2", "l3", "v3"]) delete d[k];
   }
   if (type === "delay") {
     const lOld = parseFloat(d.l ?? d.L);

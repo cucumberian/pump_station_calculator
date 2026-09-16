@@ -35,8 +35,7 @@ function setTitle(typeLabel) {
 // знаков после запятой, точность исходного числа не режем.
 const SB_CATCH_MAP = {
   sbCF: "F", sbCQ20: "q20", sbCP: "P", sbCMr: "mr", sbCGamma: "gamma",
-  sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan",
-  sbCL1: "l1", sbCV1: "v1", sbCL2: "l2", sbCV2: "v2", sbCL3: "l3", sbCV3: "v3",
+  sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan", sbCTp: "tp",
 };
 
 // t1 и t2 намеренно вне карты: пустые поля — легальные значения «с начала» и
@@ -88,6 +87,8 @@ function renderCatchSidebar(node) {
   for (const rb of document.querySelectorAll('input[name="sbCCoeff"]')) {
     rb.checked = rb.value === (d.coeffMode === "const" ? "const" : "variable");
   }
+  renderSegList("sbSegList", "segs", d.segs);
+  renderSegList("sbTrayList", "trays", d.trays);
   const res = results[sbNodeId];
   $c("sbCOut").innerHTML = res
     ? `Q<sub>r</sub> = ${fmt(res.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(res.tr, 2)} мин`
@@ -96,6 +97,94 @@ function renderCatchSidebar(node) {
   if (res) catchChart.update(seriesFromResult(res), res.Qr, res.tr);
   applySidebarLock();
   applySidebarDisable();
+}
+
+// Две строки-списка участков (сеть/лоток) в панели водосбора. DOM
+// перестраиваем только при смене ноды или числа строк: иначе перерисовка
+// панели после каждого ввода сбрасывала бы фокус и каретку.
+const segListState = {};
+function segSub(i) {
+  const subs = "₁₂₃₄₅₆₇₈₉";
+  return i < subs.length ? subs[i] : String(i + 1);
+}
+function renderSegList(containerId, key, arr) {
+  const box = $c(containerId);
+  if (!box) return;
+  const list = Array.isArray(arr) ? arr : [];
+  const st = segListState[containerId];
+  if (!st || st.nodeId !== sbNodeId || st.len !== list.length) {
+    box.innerHTML = "";
+    list.forEach((s, i) => {
+      const row = document.createElement("div");
+      row.className = "seg-row";
+      row.dataset.list = key;
+      row.dataset.idx = String(i);
+      row.innerHTML =
+        `<input type="number" step="any" min="0" data-field="l" data-step="10" placeholder="l${segSub(i)}" title="длина участка ${i + 1}, м">` +
+        `<input type="number" step="any" min="0" data-field="v" data-step="0.1" placeholder="v${segSub(i)}" title="скорость на участке ${i + 1}, м/с">` +
+        `<button class="seg-del" type="button" title="Удалить участок">×</button>`;
+      box.appendChild(row);
+    });
+    segListState[containerId] = { nodeId: sbNodeId, len: list.length };
+  }
+  box.querySelectorAll(".seg-row").forEach((row, i) => {
+    const s = list[i] || {};
+    for (const field of ["l", "v"]) {
+      const inp = row.querySelector(`input[data-field="${field}"]`);
+      if (inp && document.activeElement !== inp) {
+        const v = parseFloat(s[field]);
+        inp.value = Number.isFinite(v) ? padNum(v) : "";
+      }
+    }
+  });
+}
+
+function segListContext(el) {
+  const row = el?.closest?.(".seg-row");
+  if (!row) return null;
+  return { idx: parseInt(row.dataset.idx, 10), key: row.dataset.list, containerId: row.parentElement?.id };
+}
+function updateSegList(key, mut) {
+  if (sbNodeId === null) return;
+  const d = editor.getNodeFromId(sbNodeId)?.data || {};
+  const list = Array.isArray(d[key]) ? d[key].map(s => ({ ...s })) : [];
+  mut(list);
+  syncNodeParam(sbNodeId, key, list);
+}
+
+for (const containerId of ["sbSegList", "sbTrayList"]) {
+  const box = $c(containerId);
+  if (!box) continue;
+  box.addEventListener("input", e => {
+    const inp = e.target.closest("input[data-field]");
+    if (!inp) return;
+    const ctx = segListContext(inp);
+    if (!ctx || ctx.idx < 0) return;
+    const raw = inp.value.trim();
+    const v = raw === "" ? "" : parseFloat(raw);
+    updateSegList(ctx.key, list => {
+      if (!list[ctx.idx]) return;
+      list[ctx.idx][inp.dataset.field] = Number.isFinite(v) ? v : "";
+    });
+  });
+  box.addEventListener("click", e => {
+    const del = e.target.closest(".seg-del");
+    if (!del) return;
+    e.stopPropagation();
+    const ctx = segListContext(del);
+    if (!ctx || ctx.idx < 0) return;
+    updateSegList(ctx.key, list => { list.splice(ctx.idx, 1); });
+    if (segListState[ctx.containerId]) segListState[ctx.containerId].len = -1;
+  });
+}
+for (const [btnId, key] of [["sbSegAdd", "segs"], ["sbTrayAdd", "trays"]]) {
+  $c(btnId).addEventListener("click", e => {
+    e.stopPropagation();
+    if (sbNodeId === null) return;
+    updateSegList(key, list => { list.push({ l: "", v: "" }); });
+    const containerId = key === "segs" ? "sbSegList" : "sbTrayList";
+    if (segListState[containerId]) segListState[containerId].len = -1;
+  });
 }
 
 function applySidebarLock() {
@@ -111,6 +200,11 @@ function applySidebarLock() {
   for (const rb of document.querySelectorAll('input[name="sbMode"], input[name="sbCCoeff"]')) {
     rb.disabled = isLocked;
   }
+  for (const box of document.querySelectorAll("#sbSegList, #sbTrayList")) {
+    for (const el of box.querySelectorAll("input, button")) el.disabled = isLocked;
+  }
+  $c("sbSegAdd").disabled = isLocked;
+  $c("sbTrayAdd").disabled = isLocked;
   if (!isLocked) {
     const res = results[sbNodeId];
     if (res?.lockId) {
@@ -474,6 +568,14 @@ for (const rb of document.querySelectorAll('input[name="sbCCoeff"]')) {
 $c("sbCHelp").addEventListener("click", () => {
   const r = results[sbNodeId];
   if (r?.params) openHelp(catchHelp(r.params), {});
+});
+// «?» у заголовка t_r: подсказка работает и до расчёта — параметры берём из
+// данных ноды, а не из results (там их может ещё не быть).
+$c("sbTrHelp").addEventListener("click", e => {
+  e.stopPropagation();
+  const nd = sbNodeId !== null ? editor.getNodeFromId(sbNodeId) : null;
+  const p = results[sbNodeId]?.params || (nd ? catchParams(nd.data || {}, getGlobalN()) : null);
+  if (p) openHelp(catchTrHelp(p), {});
 });
 
 // Эти поля не меняют граф — перерисовываем только панель, но тоже пачкой
