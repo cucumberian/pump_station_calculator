@@ -4,3 +4,4 @@
 # Lean/Mathlib build artifacts
 formal/.lake/
 .pi-glla/
+/docs

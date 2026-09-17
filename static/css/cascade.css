@@ -558,6 +558,9 @@ body.pal-dragging { cursor: grabbing; user-select: none; }
 .sidebar .seg-list:empty::before { content: "участки не заданы"; color: #98a2b3; font-size: 11px; }
 .sidebar .seg-row { display: flex; gap: 4px; align-items: center; }
 .sidebar .seg-row input { width: 100%; min-width: 0; }
+.sidebar .seg-row select { min-width: 0; flex: 2 1 0; font-size: 12px; }
+.sidebar .surf-row input[data-field="F"] { flex: 0 0 64px; width: 64px; }
+.sidebar .surf-row input[data-field="z"] { flex: 0 0 56px; width: 56px; }
 .sidebar .seg-del {
   flex: 0 0 auto;
   width: 24px;

@@ -226,8 +226,13 @@ tr.active { background: #fff3d6; font-weight: 600; }
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 .modal-box p { margin: 0 0 10px; }
+.modal-box .help-h { margin: 16px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; color: #12325e; }
 .modal-box ol { margin: 0 0 10px; padding-left: 20px; }
 .modal-tex { margin: 6px 0 14px; overflow-x: auto; }
+.help-table-wrap { margin: 6px 0 14px; overflow-x: auto; }
+table.help-table { font-size: 12px; }
+table.help-table th, table.help-table td { padding: 4px 8px; }
+table.help-table th:first-child, table.help-table td:first-child { text-align: left; }
 .modal-box details { margin: 0 0 10px; }
 .modal-box summary { cursor: pointer; font-weight: 600; color: #12325e; margin-bottom: 6px; }
 table.trace { font-size: 12px; }

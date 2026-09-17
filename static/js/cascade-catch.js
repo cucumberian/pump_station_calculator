@@ -23,6 +23,46 @@ function parseSections(raw) {
   return out;
 }
 
+// Коэффициент покрова z водонепроницаемых поверхностей по таблице Ж.7
+// СП 32.13330 (таблица 11 рекомендаций): зависит от параметров A и n.
+// Сами табличные значения — в reference-data.js (Z_TABLE_A/Z_TABLE_N).
+function impermeableZ(A, n) {
+  const row = n < 0.65 ? Z_TABLE_N.low : Z_TABLE_N.high;
+  const a = Math.min(Z_TABLE_A[Z_TABLE_A.length - 1], Math.max(Z_TABLE_A[0], A));
+  let z = row[row.length - 1];
+  for (let i = 0; i < Z_TABLE_A.length - 1; i++) {
+    if (a <= Z_TABLE_A[i + 1]) {
+      const x0 = Z_TABLE_A[i], x1 = Z_TABLE_A[i + 1];
+      z = row[i] + (row[i + 1] - row[i]) * (a - x0) / (x1 - x0);
+      break;
+    }
+  }
+  return { z, outOfRange: A < Z_TABLE_A[0] || A > Z_TABLE_A[Z_TABLE_A.length - 1] };
+}
+
+// Состав поверхностей стока: [{type, F, z?}]. z — ручное переопределение
+// (пусто = авто), имеет смысл только для водонепроницаемых; ψ — константа
+// вида поверхности.
+function parseSurfaces(raw, A, n) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const r of raw) {
+    const t = SURFACE_BY_KEY[r?.type];
+    if (!t) continue;
+    const area = num(r?.F, 0, 0);
+    let z = t.z, zAuto = null, zManual = false;
+    if (t.z == null) {
+      const auto = impermeableZ(A, n);
+      zAuto = auto.z;
+      const ov = r?.z === "" || r?.z === null || r?.z === undefined ? NaN : parseFloat(r.z);
+      zManual = Number.isFinite(ov);
+      z = zManual ? ov : auto.z;
+    }
+    out.push({ type: t.key, label: t.label, F: area, z, psi: t.psi, zAuto, zManual });
+  }
+  return out;
+}
+
 function catchParams(d, n) {
   const q20 = num(d.q20, 80, 0.01);
   // Страховка от нижнерегистровых дубликатов f/p, которые Drawflow мог оставить
@@ -30,13 +70,24 @@ function catchParams(d, n) {
   const P = num(d.P !== undefined ? d.P : d.p, 1, 0.01);
   const mr = num(d.mr, 150, 1.01);
   const gamma = num(d.gamma, 1.54, 0.01);
-  const F = num(d.F !== undefined ? d.F : d.f, 3.9, 0.001);
-  const psiMid = num(d.psiMid, 0.634, 0.001);
-  const zMid = num(d.zMid, 0.201, 0.001);
+  const A = q20 * 20 ** n * (1 + Math.log(P) / Math.log(mr)) ** gamma;
+  // Коэффициенты покрова/стока: вручную (zMid/psiMid) или средневзвешенно
+  // по составу поверхностей zRows (F = ΣFᵢ) — см. п. 6.2.6 рекомендаций.
+  const coeffSource = d.coeffSource === "table" ? "table" : "manual";
+  const surfaces = coeffSource === "table" ? parseSurfaces(d.zRows, A, n) : [];
+  const areaSum = surfaces.reduce((s, x) => s + x.F, 0);
+  const useTable = coeffSource === "table" && areaSum > 0;
+  const zTable = useTable ? surfaces.reduce((s, x) => s + x.F * x.z, 0) / areaSum : null;
+  const psiTable = useTable ? surfaces.reduce((s, x) => s + x.F * x.psi, 0) / areaSum : null;
+  const zImpAuto = coeffSource === "table" ? impermeableZ(A, n) : null;
+  const zMid = useTable ? zTable : num(d.zMid, 0.201, 0.001);
+  const psiMid = useTable ? psiTable : num(d.psiMid, 0.634, 0.001);
+  const manualF = num(d.F !== undefined ? d.F : d.f, 3.9, 0.001);
+  const F = useTable ? areaSum : manualF;
+  const areaOver = useTable && areaSum > 150;
   const tcon = num(d.tcon, 3, 0);
   const segs = parseSections(d.segs);
   const trays = parseSections(d.trays);
-  const A = q20 * 20 ** n * (1 + Math.log(P) / Math.log(mr)) ** gamma;
   // tp — протекание по трубам коллектора, формула (17): 0,017·Σ(l/v)
   // (в СНиП 2.04.03-85 — формула (7)), плюс ручная добавка.
   const lvSum = segs.reduce((s, x) => s + x.l / x.v, 0);
@@ -55,8 +106,9 @@ function catchParams(d, n) {
   const Qr = tr > 0
     ? (variable ? zMid * A ** 1.2 * F / tr ** (1.2 * n - 0.1) : psiMid * A * F / tr ** n)
     : 0;
-  return { q20, P, mr, gamma, F, psiMid, zMid, tcon, segs, trays, A, lvSum, lvTraySum,
-    tp, tpManual, tpCalc, tcan, tcanManual, tcanCalc, tr, Qr, variable, n };
+  return { q20, P, mr, gamma, F, manualF, psiMid, zMid, tcon, segs, trays, A, lvSum, lvTraySum,
+    tp, tpManual, tpCalc, tcan, tcanManual, tcanCalc, tr, Qr, variable, n,
+    coeffSource, surfaces, areaSum, useTable, areaOver, zImpAuto };
 }
 
 // Справка по t_r: сумма времени поверхностной концентрации, протекания по
@@ -94,6 +146,87 @@ function catchTrHelp(p) {
   ];
 }
 
+// Таблицы коэффициентов для справки строятся из тех же массивов, что и расчёт
+// (SURFACE_TYPES, Z_TABLE_A/Z_TABLE_N), чтобы модалка не расходилась с
+// источником истины.
+function coeffTableBlocks() {
+  const allZ = [...Z_TABLE_N.low, ...Z_TABLE_N.high];
+  const zMin = Math.min(...allZ), zMax = Math.max(...allZ);
+  return [
+    { p: "Таблица Ж.6 — значения коэффициентов покрова z и постоянного коэффициента стока ψ для различных видов поверхности стока:" },
+    { table: {
+      head: ["Вид поверхности стока", "z — коэффициент покрова", "ψ — коэффициент стока"],
+      rows: SURFACE_TYPES.map(t => [
+        t.label,
+        t.z == null ? `${fmt(zMin)}–${fmt(zMax)} (по Ж.7)` : fmt(t.z, 3),
+        fmt(t.psi, 2),
+      ]),
+    } },
+    { p: "Таблица Ж.7 — значения коэффициента z для водонепроницаемых поверхностей (кровли, асфальтобетон) в зависимости от параметра A и показателя n:" },
+    { table: {
+      head: ["Параметр n", ...Z_TABLE_A.map(String)],
+      rows: [
+        ["менее 0,65", ...Z_TABLE_N.low.map(v => fmt(v, 2))],
+        ["0,65 и более", ...Z_TABLE_N.high.map(v => fmt(v, 2))],
+      ],
+    } },
+  ];
+}
+
+// Справка по коэффициентам z_mid/ψ_mid: общая формула средневзвешенного
+// значения и — в режиме «по составу поверхностей» — подстановка по строкам.
+function catchCoeffHelp(p) {
+  const rows = p.surfaces || [];
+  const table = p.coeffSource === "table";
+  const head = { p: "Коэффициент покрова z и постоянный коэффициент стока ψ для бассейна стока определяются как средневзвешенные по видам поверхности (п. 6.2.6; таблица Ж.6, для водонепроницаемых z — по таблице Ж.7):" };
+  if (!table || !rows.length) {
+    return [
+      head,
+      { tex: "z_{mid} = \\frac{\\sum F_i z_i}{\\sum F_i}, \\qquad \\Psi_{mid} = \\frac{\\sum F_i \\Psi_i}{\\sum F_i}" },
+      { ol: [
+        "F_i — площадь поверхности i-го вида, га;",
+        "z_i — коэффициент покрова по таблице Ж.6 (для водонепроницаемых — по таблице Ж.7 в зависимости от A и n);",
+        "ψ_i — постоянный коэффициент стока по таблице Ж.6.",
+      ] },
+      table
+        ? { p: "Включён режим «по составу поверхностей», но строки не заданы: в расчёте используются ручные z_mid и ψ_mid." }
+        : { p: `Режим «вручную»: приняты z_mid = ${fmt(p.zMid, 3)} и ψ_mid = ${fmt(p.psiMid, 3)}. Чтобы получить их по таблице Ж.6, переключите источник коэффициентов на «по составу поверхностей» и задайте площади.` },
+      ...coeffTableBlocks(),
+    ];
+  }
+  const zTerms = rows.filter(r => r.F > 0).map(r => `${fmt(r.z, 3)}\\cdot${fmt(r.F, 2)}`).join(" + ") || "0";
+  const psiTerms = rows.filter(r => r.F > 0).map(r => `${fmt(r.psi, 2)}\\cdot${fmt(r.F, 2)}`).join(" + ") || "0";
+  const list = rows.map(r => {
+    const src = r.type !== "imp" ? "" : r.zManual ? " (z задан вручную)" : " (z авто по Ж.7)";
+    return `${r.label}: F = ${fmt(r.F, 2)} га, z = ${fmt(r.z, 3)}${src}, ψ = ${fmt(r.psi, 2)}`;
+  });
+  const imp = rows.find(r => r.type === "imp");
+  return [
+    head,
+    { p: "Площадь стока F = ΣFᵢ, а средневзвешенные коэффициенты — по составу поверхностей:" },
+    { tex: `F = \\sum F_i = ${fmt(p.areaSum, 2)}\\ \\text{га}` },
+    { tex: `z_{mid} = \\frac{\\sum F_i z_i}{\\sum F_i} = \\frac{${zTerms}}{${fmt(p.areaSum, 2)}} = ${fmt(p.zMid, 3)}` },
+    { tex: `\\Psi_{mid} = \\frac{\\sum F_i \\Psi_i}{\\sum F_i} = \\frac{${psiTerms}}{${fmt(p.areaSum, 2)}} = ${fmt(p.psiMid, 3)}` },
+    { ol: list },
+    ...(imp ? [{ p: `Для водонепроницаемых поверхностей z берётся из таблицы Ж.7 по A и n: при A = ${fmt(p.A, 0)} и n = ${fmt(p.n, 2)} получается z = ${fmt(imp.zAuto ?? imp.z, 3)}${imp.zManual ? ` (в расчёте вручную задано ${fmt(imp.z, 3)})` : ""}.` }] : []),
+    ...(p.areaOver ? [{ p: "Внимание: расчётная площадь стока превышает 150 га — ограничение нормы (п. Ж.1)." }] : []),
+    ...coeffTableBlocks(),
+  ];
+}
+
+// Источники формул и таблиц — единый список для пометки в справке.
+const CATCH_SOURCES = [
+  "СП 32.13330.2018 «Канализация. Наружные сети и сооружения» (актуализированная редакция СНиП 2.04.03-85): Приложение Ж — формулы параметра A, таблицы Ж.6 (коэффициенты покрова) и Ж.7 (z водонепроницаемых).",
+  "«Рекомендации по расчёту систем сбора, отведения и очистки поверхностного стока селитебных территорий, площадок предприятий и определению условий выпуска его в водные объекты» (Методическое пособие, НИИ ВОДГЕО, 2015): п. 6.2.6 — формулы Qr, tr, tcan, tp и таблицы 10–11.",
+  "«Пример расчёта количественных характеристик поверхностного стока…», ФГУП НИИ ВОДГЕО, Москва, 2006 — контрольный пример (z_mid = 0,201; ψ_mid = 0,634).",
+];
+function catchSources() {
+  return [
+    { h: "Источники данных и формул" },
+    { ol: CATCH_SOURCES },
+  ];
+}
+
 function catchHelp(p) {
   return [
     { p: "Расходы дождевых вод определяются по методу предельных интенсивностей (раздел 5.3 рекомендаций; пример расчёта — п. 2.3.1 пособия)." },
@@ -107,11 +240,14 @@ function catchHelp(p) {
       "γ — показатель степени (таблица Приложения 3).",
     ] },
     ...catchTrHelp(p),
+    ...catchCoeffHelp(p),
     ...(p.variable ? [
       { p: "Расчётный расход при переменном коэффициенте стока — формула (20):" },
       { tex: `Q_r = \\frac{z_{mid}\\, A^{1{,}2}\\, F}{t_r^{\\,1{,}2n\\,-\\,0{,}1}} = \\frac{${fmt(p.zMid, 3)}\\cdot ${fmt(p.A)}^{1{,}2}\\cdot ${fmt(p.F, 2)}}{${fmt(p.tr, 1)}^{\\,${fmt(1.2 * p.n - 0.1, 3)}}} = ${fmt(p.Qr, 1)}\\ \\text{л/с}` },
       { ol: [
-        "z_mid — среднее значение коэффициента, характеризующего вид поверхности бассейна водосбора (коэффициент покрова); средневзвешенная величина по таблицам 11–12 рекомендаций или СНиП 2.04.03-85;",
+        p.coeffSource === "table"
+          ? "z_mid — средневзвешенный коэффициент покрова по составу поверхностей (таблицы Ж.6 и Ж.7);"
+          : "z_mid — среднее значение коэффициента, характеризующего вид поверхности бассейна водосбора (коэффициент покрова); средневзвешенная величина по таблицам 11–12 рекомендаций или СНиП 2.04.03-85;",
         "A — параметр интенсивности дождя (см. выше);",
         "F — расчётная площадь стока (водосбора), га;",
         "t_r — расчётная продолжительность дождя, мин.",
@@ -120,12 +256,15 @@ function catchHelp(p) {
       { p: "Расчётный расход при постоянном коэффициенте стока — формула (12):" },
       { tex: `Q_r = \\frac{\\Psi_{mid}\\, A\\, F}{t_r^{\\,n}} = \\frac{${fmt(p.psiMid, 3)}\\cdot ${fmt(p.A)}\\cdot ${fmt(p.F, 2)}}{${fmt(p.tr, 1)}^{${fmt(p.n)}}} = ${fmt(p.Qr, 1)}\\ \\text{л/с}` },
       { ol: [
-        "Ψ_mid — средний постоянный коэффициент стока; средневзвешенная величина по таблице 11 рекомендаций или СНиП 2.04.03-85;",
+        p.coeffSource === "table"
+          ? "Ψ_mid — средневзвешенный постоянный коэффициент стока по составу поверхностей (таблица Ж.6);"
+          : "Ψ_mid — средний постоянный коэффициент стока; средневзвешенная величина по таблице 11 рекомендаций или СНиП 2.04.03-85;",
         "A — параметр интенсивности дождя (см. выше);",
         "F — расчётная площадь стока (водосбора), га;",
         "t_r — расчётная продолжительность дождя, мин.",
       ] },
     ]),
     { p: "При подключении к ноде насосной станции её параметры Qr и tr блокируются и принимаются равными рассчитанным здесь значениям." },
+    ...catchSources(),
   ];
 }

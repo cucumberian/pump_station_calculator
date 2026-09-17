@@ -577,7 +577,7 @@ function dfKey(el) {
 window.addEventListener("wheel", e => {
   const el = e.target;
   if (!(el instanceof HTMLInputElement)) return;
-  if (el.disabled) return;
+  if (el.disabled || el.readOnly) return;
   const inNode = el.closest(".node-box");
   const inSegList = el.closest(".seg-list");
   let step = null;

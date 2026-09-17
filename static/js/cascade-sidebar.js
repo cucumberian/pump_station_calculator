@@ -80,16 +80,45 @@ function renderCatchSidebar(node) {
   $c("sbContent").hidden = true;
   hidePumpSections();
   const d = node.data || {};
+  const table = d.coeffSource === "table";
   for (const [elId, key] of Object.entries(SB_CATCH_MAP)) {
     const el = $c(elId);
-    if (document.activeElement !== el) el.value = padNum(d[key]);
+    if (document.activeElement === el) continue;
+    // F/z_mid/ψ_mid в режиме «по составу» — производные, их заполним ниже.
+    if (table && (elId === "sbCF" || elId === "sbCZ" || elId === "sbCPsi")) continue;
+    el.value = padNum(d[key]);
   }
   for (const rb of document.querySelectorAll('input[name="sbCCoeff"]')) {
     rb.checked = rb.value === (d.coeffMode === "const" ? "const" : "variable");
   }
+  for (const rb of document.querySelectorAll('input[name="sbCSource"]')) {
+    rb.checked = rb.value === (table ? "table" : "manual");
+  }
+  $c("sbSurfBlock").hidden = !table;
+  $c("sbCF").readOnly = table;
+  $c("sbCZ").readOnly = table;
+  $c("sbCPsi").readOnly = table;
   renderSegList("sbSegList", "segs", d.segs);
   renderSegList("sbTrayList", "trays", d.trays);
+  renderSurfList(table ? d.zRows : []);
   const res = results[sbNodeId];
+  const p = res?.params;
+  if (table && p) {
+    const rd = (v, d) => Number.isFinite(v) ? Math.round(v * 10 ** d) / 10 ** d : v;
+    if (document.activeElement !== $c("sbCF")) $c("sbCF").value = padNum(rd(p.F, 3));
+    if (document.activeElement !== $c("sbCZ")) $c("sbCZ").value = padNum(rd(p.zMid, 4));
+    if (document.activeElement !== $c("sbCPsi")) $c("sbCPsi").value = padNum(rd(p.psiMid, 4));
+  }
+  const note = $c("sbSurfNote");
+  if (table && p) {
+    const parts = [`ΣF = ${fmt(p.areaSum, 2)} га`];
+    if (p.surfaces.some(s => s.type === "imp")) parts.push(`z водонепроницаемых по Ж.7 = ${fmt(p.zImpAuto.z, 3)}`);
+    if (p.areaOver) parts.push(`<span class="warn">площадь > 150 га</span>`);
+    note.innerHTML = parts.join(" · ");
+    note.hidden = false;
+  } else {
+    note.hidden = true;
+  }
   $c("sbCOut").innerHTML = res
     ? `Q<sub>r</sub> = ${fmt(res.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(res.tr, 2)} мин`
     : "задайте корректные параметры";
@@ -187,6 +216,104 @@ for (const [btnId, key] of [["sbSegAdd", "segs"], ["sbTrayAdd", "trays"]]) {
   });
 }
 
+// Список поверхностей стока (режим «по составу»): вид + площадь Fᵢ, для
+// водонепроницаемых — необязательное поле z (пусто = авто по Ж.7).
+function surfSig(list) {
+  return list.map(s => s?.type || "").join("|");
+}
+function renderSurfList(arr) {
+  const box = $c("sbSurfList");
+  if (!box) return;
+  const list = Array.isArray(arr) ? arr : [];
+  const st = segListState["sbSurfList"];
+  const sig = surfSig(list);
+  if (!st || st.nodeId !== sbNodeId || st.len !== list.length || st.sig !== sig) {
+    box.innerHTML = "";
+    list.forEach((s, i) => {
+      const type = SURFACE_BY_KEY[s?.type] ? s.type : "imp";
+      const opts = SURFACE_TYPES.map(t => `<option value="${t.key}"${t.key === type ? " selected" : ""}>${t.label}</option>`).join("");
+      const row = document.createElement("div");
+      row.className = "seg-row surf-row";
+      row.dataset.list = "zRows";
+      row.dataset.idx = String(i);
+      row.innerHTML =
+        `<select data-field="type" title="вид поверхности стока">${opts}</select>` +
+        `<input type="number" step="any" min="0" data-field="F" data-step="0.1" placeholder="F${segSub(i)}" title="площадь поверхности ${i + 1}, га">` +
+        (type === "imp"
+          ? `<input type="number" step="any" min="0" data-field="z" data-step="0.01" placeholder="z авто" title="z водонепроницаемых; пусто — авто по Ж.7">`
+          : "") +
+        `<button class="seg-del" type="button" title="Удалить поверхность">×</button>`;
+      box.appendChild(row);
+    });
+    segListState["sbSurfList"] = { nodeId: sbNodeId, len: list.length, sig };
+  }
+  box.querySelectorAll(".surf-row").forEach((row, i) => {
+    const s = list[i] || {};
+    const fEl = row.querySelector('input[data-field="F"]');
+    if (fEl && document.activeElement !== fEl) {
+      const v = parseFloat(s.F);
+      fEl.value = Number.isFinite(v) ? padNum(v) : "";
+    }
+    const zEl = row.querySelector('input[data-field="z"]');
+    if (zEl && document.activeElement !== zEl) {
+      const v = parseFloat(s.z);
+      zEl.value = Number.isFinite(v) ? padNum(v) : "";
+    }
+  });
+}
+function forceSurfRebuild() {
+  if (segListState["sbSurfList"]) segListState["sbSurfList"].len = -1;
+}
+{
+  const box = $c("sbSurfList");
+  box.addEventListener("input", e => {
+    const inp = e.target.closest('input[data-field]');
+    if (!inp) return;
+    const ctx = segListContext(inp);
+    if (!ctx || ctx.idx < 0) return;
+    const raw = inp.value.trim();
+    const v = raw === "" ? "" : parseFloat(raw);
+    updateSegList("zRows", list => {
+      if (!list[ctx.idx]) return;
+      list[ctx.idx][inp.dataset.field] = Number.isFinite(v) ? v : "";
+    });
+  });
+  box.addEventListener("change", e => {
+    const sel = e.target.closest('select[data-field="type"]');
+    if (!sel) return;
+    const ctx = segListContext(sel);
+    if (!ctx || ctx.idx < 0) return;
+    updateSegList("zRows", list => {
+      if (!list[ctx.idx]) return;
+      list[ctx.idx].type = sel.value;
+      if (sel.value !== "imp") list[ctx.idx].z = "";
+    });
+    forceSurfRebuild();
+    if (typeof flushCascade === "function") flushCascade();
+  });
+  box.addEventListener("click", e => {
+    const del = e.target.closest(".seg-del");
+    if (!del) return;
+    e.stopPropagation();
+    const ctx = segListContext(del);
+    if (!ctx || ctx.idx < 0) return;
+    updateSegList("zRows", list => { list.splice(ctx.idx, 1); });
+    forceSurfRebuild();
+  });
+}
+$c("sbSurfAdd").addEventListener("click", e => {
+  e.stopPropagation();
+  if (sbNodeId === null) return;
+  updateSegList("zRows", list => { list.push({ type: "imp", F: "", z: "" }); });
+  forceSurfRebuild();
+});
+for (const rb of document.querySelectorAll('input[name="sbCSource"]')) {
+  rb.addEventListener("change", () => {
+    if (sbNodeId === null || !rb.checked) return;
+    syncNodeParam(sbNodeId, "coeffSource", rb.value);
+  });
+}
+
 function applySidebarLock() {
   const isLocked = sbNodeId !== null && nodeLocked(sbNodeId);
   const btn = $c("sbLockBtn");
@@ -197,14 +324,15 @@ function applySidebarLock() {
     const el = $c(id);
     if (el) el.disabled = isLocked;
   }
-  for (const rb of document.querySelectorAll('input[name="sbMode"], input[name="sbCCoeff"]')) {
+  for (const rb of document.querySelectorAll('input[name="sbMode"], input[name="sbCCoeff"], input[name="sbCSource"]')) {
     rb.disabled = isLocked;
   }
-  for (const box of document.querySelectorAll("#sbSegList, #sbTrayList")) {
-    for (const el of box.querySelectorAll("input, button")) el.disabled = isLocked;
+  for (const box of document.querySelectorAll("#sbSegList, #sbTrayList, #sbSurfList")) {
+    for (const el of box.querySelectorAll("input, select, button")) el.disabled = isLocked;
   }
   $c("sbSegAdd").disabled = isLocked;
   $c("sbTrayAdd").disabled = isLocked;
+  $c("sbSurfAdd").disabled = isLocked;
   if (!isLocked) {
     const res = results[sbNodeId];
     if (res?.lockId) {
@@ -575,7 +703,15 @@ $c("sbTrHelp").addEventListener("click", e => {
   e.stopPropagation();
   const nd = sbNodeId !== null ? editor.getNodeFromId(sbNodeId) : null;
   const p = results[sbNodeId]?.params || (nd ? catchParams(nd.data || {}, getGlobalN()) : null);
-  if (p) openHelp(catchTrHelp(p), {});
+  if (p) openHelp([...catchTrHelp(p), ...catchSources()], {});
+});
+// «?» у заголовка коэффициентов: формулы z_mid/ψ_mid с подстановкой по составу
+// поверхностей (и пояснение в ручном режиме), тоже работает до расчёта.
+$c("sbCoeffHelp").addEventListener("click", e => {
+  e.stopPropagation();
+  const nd = sbNodeId !== null ? editor.getNodeFromId(sbNodeId) : null;
+  const p = results[sbNodeId]?.params || (nd ? catchParams(nd.data || {}, getGlobalN()) : null);
+  if (p) openHelp([...catchCoeffHelp(p), ...catchSources()], {});
 });
 
 // Эти поля не меняют граф — перерисовываем только панель, но тоже пачкой

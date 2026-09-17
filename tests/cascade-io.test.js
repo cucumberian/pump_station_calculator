@@ -11,7 +11,7 @@ const NODE_DEFAULTS = {
   flow: { name: "", desc: "", mode: "constant", q: 50, t1: "", t2: "" },
   catch: { name: "", desc: "", F: 3.9, q20: 80, P: 1.0, mr: 150, gamma: 1.54,
     psiMid: 0.634, zMid: 0.201, tcon: 3, tcan: 0, tp: 0,
-    segs: [], trays: [], coeffMode: "variable" },
+    segs: [], trays: [], coeffMode: "variable", coeffSource: "manual", zRows: [] },
 };
 
 // ---- load cascade-nodes (for NODE_HTML) ----

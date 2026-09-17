@@ -6,7 +6,7 @@ const path = require("path");
 const readSrc = f => fs.readFileSync(path.join(__dirname, "..", "static/js", f), "utf8");
 const load = new Function("window",
   readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("cascade-graph.js") +
-  readSrc("cascade-nodes.js") +
+  readSrc("reference-data.js") + readSrc("cascade-nodes.js") +
   readSrc("cascade-catch.js") + readSrc("cascade-report.js") + `
 return {
   buildReportMD, buildNodeReportMD, helpBlocksToMD, reportFmt, CARDS, fmt,
@@ -236,6 +236,21 @@ test("buildNodeReportMD: водосбор перечисляет участки 
   includes(md, "Участок лотка 1");
   includes(md, "0,021");
   includes(md, "0,017");
+});
+
+test("buildNodeReportMD: водосбор — z_mid/ψ_mid по составу поверхностей", () => {
+  const data = {
+    F: 3.9, q20: 80, P: 1, mr: 150, gamma: 1.54, psiMid: 0.634, zMid: 0.201, tcon: 3,
+    coeffSource: "table",
+    zRows: [{ type: "imp", F: 2.45, z: 0.297 }, { type: "lawn", F: 1.45 }],
+  };
+  const graph = { nodes: [{ id: 1, type: "catch", data }], connections: [] };
+  const p = H.catchParams(data, N);
+  const md = H.buildNodeReportMD(1, graph, { 1: { params: p, Qr: p.Qr, tr: p.tr } }, { meta: {}, n: N, payload: graph });
+  includes(md, "по составу поверхностей (Ж.6)");
+  includes(md, "z_mid = Σ(F_i·z_i)/ΣF_i");
+  includes(md, "Ψ_mid = Σ(F_i·Ψ_i)/ΣF_i");
+  includes(md, "Газоны");
 });
 
 // ============================================================

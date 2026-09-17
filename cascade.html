@@ -10,23 +10,24 @@
   <title>Каскад КНС — редактор схемы насосных станций</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
-  <link rel="stylesheet" href="static/css/style.css?v=6">
+  <link rel="stylesheet" href="static/css/style.css?v=8">
   <link rel="stylesheet" href="static/css/cascade.css?v=32">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script defer src="static/js/hydro.js?v=9"></script>
-  <script defer src="static/js/calc-view.js?v=11"></script>
+  <script defer src="static/js/calc-view.js?v=13"></script>
   <script defer src="static/js/cascade-graph.js?v=2"></script>
-  <script defer src="static/js/cascade-nodes.js?v=7"></script>
-  <script defer src="static/js/cascade-catch.js?v=2"></script>
+  <script defer src="static/js/reference-data.js?v=1"></script>
+  <script defer src="static/js/cascade-nodes.js?v=10"></script>
+  <script defer src="static/js/cascade-catch.js?v=7"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=7"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=19"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=22"></script>
   <script defer src="static/js/cascade-schemes.js?v=2"></script>
-  <script defer src="static/js/cascade-io.js?v=15"></script>
-  <script defer src="static/js/cascade-report.js?v=11"></script>
-  <script defer src="static/js/cascade.js?v=42"></script>
+  <script defer src="static/js/cascade-io.js?v=16"></script>
+  <script defer src="static/js/cascade-report.js?v=12"></script>
+  <script defer src="static/js/cascade.js?v=43"></script>
 </head>
 
 <body class="cascade-page">
@@ -235,6 +236,14 @@
                 <input id="sbCGamma" type="number" step="any" min="0.1">
               </div>
             </div>
+          </section>
+          <section id="sbCatchCoeffSection">
+            <h3 class="sb-h">
+              Коэффициенты стока
+              <span>z<sub>mid</sub>, Ψ<sub>mid</sub></span>
+              <button class="help-btn sb-help" id="sbCoeffHelp" type="button"
+                title="Как рассчитываются z_mid и Ψ_mid">?</button>
+            </h3>
             <div class="mode-row">
               <span>Коэффициент стока:</span>
               <label><input type="radio" name="sbCCoeff" value="variable" checked> переменный z (ф. 20)</label>
@@ -250,6 +259,20 @@
                 <label for="sbCPsi">Ψ<sub>mid</sub> — коэффициент стока</label>
                 <input id="sbCPsi" type="number" step="any" min="0.001">
               </div>
+            </div>
+            <div class="mode-row">
+              <span>Коэффициенты:</span>
+              <label><input type="radio" name="sbCSource" value="manual" checked> вручную</label>
+              <label><input type="radio" name="sbCSource" value="table"> по составу поверхностей (Ж.6)</label>
+            </div>
+            <div id="sbSurfBlock" hidden>
+              <div class="field"
+                title="состав поверхностей стока: вид поверхности и площадь Fᵢ, га; z_mid и Ψ_mid считаются средневзвешенно, F = ΣFᵢ (п. 6.2.6 рекомендаций)">
+                <label>Поверхности стока: вид / F, га</label>
+                <div class="seg-list" id="sbSurfList"></div>
+                <button class="btn seg-add" type="button" id="sbSurfAdd">+ Добавить поверхность</button>
+              </div>
+              <p class="num-note" id="sbSurfNote" hidden></p>
             </div>
           </section>
           <section id="sbCatchRainSection">

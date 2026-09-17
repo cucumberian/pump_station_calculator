@@ -638,6 +638,25 @@ function migrateNodeData(type, raw) {
     d.segs = hasSegs ? segs : (legacy.length ? legacy : segs);
     d.trays = norm(d.trays);
     for (const k of ["l1", "v1", "l2", "v2", "l3", "v3"]) delete d[k];
+    // coeffSource = "table": z_mid/ψ_mid считаются по составу поверхностей
+    // zRows = [{ type, F, z? }]; z (ручное переопределение) — только у
+    // водонепроницаемых, у прочих видов пусто.
+    if (d.coeffSource !== "table") d.coeffSource = "manual";
+    d.zRows = Array.isArray(d.zRows)
+      ? d.zRows.map(r => {
+        const type = String(r?.type || "").trim();
+        if (!type) return null;
+        const F = parseFloat(r?.F);
+        const row = { type, F: Number.isFinite(F) && F >= 0 ? F : 0 };
+        const zRaw = r?.z;
+        if (zRaw === "" || zRaw === null || zRaw === undefined) row.z = "";
+        else {
+          const z = parseFloat(zRaw);
+          if (Number.isFinite(z)) row.z = z;
+        }
+        return row;
+      }).filter(Boolean)
+      : [];
   }
   if (type === "delay") {
     const lOld = parseFloat(d.l ?? d.L);

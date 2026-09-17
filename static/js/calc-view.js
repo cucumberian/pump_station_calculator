@@ -82,7 +82,12 @@ function openHelp(blocks, ctx) {
   const body = $view("modalBody");
   body.innerHTML = "";
   for (const b of blocks) {
-    if (b.p) {
+    if (b.h) {
+      const h = document.createElement("h4");
+      h.className = "help-h";
+      h.textContent = b.h;
+      body.append(h);
+    } else if (b.p) {
       const p = document.createElement("p");
       p.textContent = b.p;
       body.append(p);
@@ -99,6 +104,30 @@ function openHelp(blocks, ctx) {
         ol.append(li);
       }
       body.append(ol);
+    } else if (b.table) {
+      const wrap = document.createElement("div");
+      wrap.className = "help-table-wrap";
+      const tbl = document.createElement("table");
+      tbl.className = "help-table";
+      if (b.table.head) {
+        const tr = tbl.createTHead().insertRow();
+        for (const h of b.table.head) {
+          const th = document.createElement("th");
+          th.textContent = h;
+          tr.appendChild(th);
+        }
+      }
+      const tb = tbl.createTBody();
+      for (const row of b.table.rows || []) {
+        const tr = tb.insertRow();
+        for (const cell of row) {
+          const td = document.createElement("td");
+          td.textContent = cell;
+          tr.appendChild(td);
+        }
+      }
+      wrap.append(tbl);
+      body.append(wrap);
     } else if (b.trace) {
       const t = traceTk(ctx.Q, ctx.Qr, ctx.tr, ctx.n);
       const det = document.createElement("details");

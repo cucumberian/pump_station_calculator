@@ -250,12 +250,22 @@ function catchSectionMD(node, res, n) {
   const p = res.params;
   out.push("### Исходные данные", "");
   out.push("| Параметр | Значение |", "|---|---|");
-  out.push(`| Площадь водосбора F | ${f(p.F)} га |`);
+  out.push(`| Площадь водосбора F | ${f(p.F)} га${p.useTable ? " (ΣFᵢ)" : ""} |`);
   out.push(`| q₂₀ | ${f(p.q20)} л/с·га |`);
   out.push(`| P | ${f(p.P, 1)} годы |`);
   out.push(`| mr | ${f(p.mr, 0)} |`);
   out.push(`| γ | ${f(p.gamma)} |`);
-  out.push(p.variable ? `| z_mid (переменный коэфф. стока) | ${f(p.zMid, 3)} |` : `| Ψ_mid (постоянный коэфф. стока) | ${f(p.psiMid, 3)} |`);
+  out.push(`| Источник коэффициентов z и Ψ | ${p.coeffSource === "table" ? "по составу поверхностей (Ж.6)" : "вручную"} |`);
+  if (p.useTable) {
+    for (const s of p.surfaces) {
+      const src = s.type !== "imp" ? "" : s.zManual ? " (z вручную)" : " (z авто, Ж.7)";
+      out.push(`| ${s.label} | F=${f(s.F, 2)} га, z=${f(s.z, 3)}${src}, Ψ=${f(s.psi, 2)} |`);
+    }
+    out.push(`| z_mid = Σ(F_i·z_i)/ΣF_i | ${f(p.zMid, 3)} |`);
+    out.push(`| Ψ_mid = Σ(F_i·Ψ_i)/ΣF_i | ${f(p.psiMid, 3)} |`);
+  } else {
+    out.push(p.variable ? `| z_mid (вручную) | ${f(p.zMid, 3)} |` : `| Ψ_mid (вручную) | ${f(p.psiMid, 3)} |`);
+  }
   out.push(`| t_con | ${f(p.tcon, 0)} мин |`);
   out.push(`| t_can — ручная добавка | ${f(p.tcanManual, 0)} мин |`);
   for (let i = 0; i < p.trays.length; i++) out.push(`| Участок лотка ${i + 1} | l=${f(p.trays[i].l, 0)} м, v=${f(p.trays[i].v)} м/с |`);
