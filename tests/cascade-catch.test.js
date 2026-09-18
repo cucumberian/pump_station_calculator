@@ -11,8 +11,8 @@ const graphSrc = readSrc("cascade-graph.js");
 
 const N = new Function("window",
   readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("reference-data.js") + readSrc("cascade-nodes.js") + readSrc("cascade-catch.js") + `
-return { catchParams, parseSections, catchHelp, catchTrHelp, catchCoeffHelp, catchSources, CATCH_SOURCES,
-  impermeableZ, coeffTableBlocks, Z_TABLE_A, Z_TABLE_N, SURFACE_TYPES, SURFACE_BY_KEY,
+return { catchParams, parseSections, catchHelp, catchTrHelp, catchCoeffHelp, catchSources, coeffModeBlocks,
+  CATCH_SOURCES, fmt, impermeableZ, coeffTableBlocks, Z_TABLE_A, Z_TABLE_N, SURFACE_TYPES, SURFACE_BY_KEY,
   NODE_DEFAULTS, NODE_PORTS, NODE_HTML };
 `)({ addEventListener() {} });
 
@@ -179,6 +179,54 @@ test("catchCoeffHelp: общая формула вручную и подстан
   if (!txt.includes("F = \\\\sum F_i")) throw new Error("нет подстановки F = ΣFᵢ");
   const full = JSON.stringify(N.catchHelp(p));
   if (!full.includes("Ж.6")) throw new Error("в общей справке нет ссылки на Ж.6");
+});
+
+test("catchCoeffHelp: выбор коэффициента — обе формулы, определения и правило 30–40 %", () => {
+  const p = N.catchParams({ ...base(), coeffMode: "variable" }, n);
+  const txt = JSON.stringify(N.catchCoeffHelp(p));
+  if (!txt.includes("(20)")) throw new Error("нет ссылки на формулу (20) — переменный коэффициент");
+  if (!txt.includes("(12)")) throw new Error("нет ссылки на формулу (12) — постоянный коэффициент");
+  if (!txt.includes("A^{1{,}2}")) throw new Error("нет переменной формулы с A^1,2");
+  if (!txt.includes("1{,}2n")) throw new Error("нет показателя 1,2n−0,1");
+  if (!txt.includes("А.25") || !txt.includes("А.26")) throw new Error("нет определений А.25/А.26");
+  if (!txt.includes("30–40")) throw new Error("нет правила 30–40 %");
+  if (!txt.includes("переменный коэффициент")) throw new Error("нет пометки текущего режима");
+  const full = JSON.stringify(N.catchHelp(p));
+  if (!full.includes("контрольный пример")) throw new Error("в источниках нет ссылки на пример 2006");
+});
+
+test("catchCoeffHelp: показанный Q_r выбранного режима совпадает с catchParams", () => {
+  for (const coeffMode of ["variable", "const"]) {
+    const p = N.catchParams({ ...base(), coeffMode }, n);
+    const txt = JSON.stringify(N.catchCoeffHelp(p));
+    const expect = N.fmt(p.Qr, 1);
+    if (!txt.includes(expect)) throw new Error(`режим ${coeffMode}: в справке нет Q_r = ${expect}`);
+  }
+});
+
+test("catchCoeffHelp: доля водонепроницаемых поверхностей в режиме «по составу»", () => {
+  const d = {
+    ...base(), coeffSource: "table",
+    zRows: [{ type: "imp", F: 2.45, z: 0.297 }, { type: "lawn", F: 1.45 }],
+  };
+  const p = N.catchParams(d, n);
+  const txt = JSON.stringify(N.catchCoeffHelp(p));
+  if (!txt.includes("62,8")) throw new Error("нет доли водонепроницаемых 62,8 %");
+  if (!txt.includes("больше 30 %")) throw new Error("нет вывода «больше 30 %»");
+  const manual = N.catchParams({ ...base(), coeffSource: "manual" }, n);
+  const mtxt = JSON.stringify(N.catchCoeffHelp(manual));
+  if (mtxt.includes("Доля водонепроницаемых")) throw new Error("в ручном режиме не должно быть доли");
+});
+
+test("coeffModeBlocks: расхождение Q_r двух режимов согласовано с формулами", () => {
+  const p = N.catchParams({ ...base(), coeffMode: "variable" }, n);
+  const blocks = N.coeffModeBlocks(p);
+  const varQr = p.zMid * p.A ** 1.2 * p.F / p.tr ** (1.2 * p.n - 0.1);
+  const constQr = p.psiMid * p.A * p.F / p.tr ** p.n;
+  const txt = JSON.stringify(blocks);
+  if (!txt.includes(N.fmt(varQr, 1))) throw new Error("нет переменного Q_r в справке о выборе");
+  if (!txt.includes(N.fmt(constQr, 1))) throw new Error("нет постоянного Q_r в справке о выборе");
+  approx(p.Qr, varQr, 1e-9);
 });
 
 test("catchCoeffHelp: таблицы Ж.6/Ж.7 строятся из справочников кода", () => {

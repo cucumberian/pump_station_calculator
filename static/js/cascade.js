@@ -388,11 +388,20 @@ function updateSummaries(data = graphData()) {
     }
     if (nd.name === "catch") {
       const out = document.querySelector(`#node-${id} .catch-out`);
-      if (!out) continue;
       const r = results[id];
-      out.innerHTML = r
-        ? `Q<sub>r</sub> = <b>${fmt(r.Qr, 2)} л/с</b> <br> t<sub>r</sub> = <b>${fmt(r.tr, 2)} мин</b>`
-        : "Q<sub>r</sub> = — <br> t<sub>r</sub> = —";
+      if (out) {
+        out.innerHTML = r
+          ? `Q<sub>r</sub> = <b>${fmt(r.Qr, 2)} л/с</b> <br> t<sub>r</sub> = <b>${fmt(r.tr, 2)} мин</b>`
+          : "Q<sub>r</sub> = — <br> t<sub>r</sub> = —";
+      }
+      // В режиме «по составу поверхностей» площадь — производная (F = ΣFᵢ):
+      // блокируем поле и показываем эквивалентную площадь.
+      const fInp = document.querySelector(`#node-${id} input[df-f]`);
+      if (fInp) {
+        const isTable = nd.data?.coeffSource === "table";
+        fInp.disabled = isLocked || isTable;
+        if (isTable && r?.params && document.activeElement !== fInp) fInp.value = padNum(r.params.F);
+      }
       continue;
     }
     if (nd.name !== "pump") continue;

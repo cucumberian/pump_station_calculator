@@ -248,6 +248,7 @@ test("buildNodeReportMD: водосбор — z_mid/ψ_mid по составу �
   const p = H.catchParams(data, N);
   const md = H.buildNodeReportMD(1, graph, { 1: { params: p, Qr: p.Qr, tr: p.tr } }, { meta: {}, n: N, payload: graph });
   includes(md, "по составу поверхностей (Ж.6)");
+  includes(md, "Источник F, z и Ψ");
   includes(md, "z_mid = Σ(F_i·z_i)/ΣF_i");
   includes(md, "Ψ_mid = Σ(F_i·Ψ_i)/ΣF_i");
   includes(md, "Газоны");

@@ -111,10 +111,13 @@ function renderCatchSidebar(node) {
   }
   const note = $c("sbSurfNote");
   if (table && p) {
-    const parts = [`ΣF = ${fmt(p.areaSum, 2)} га`];
-    if (p.surfaces.some(s => s.type === "imp")) parts.push(`z водонепроницаемых по Ж.7 = ${fmt(p.zImpAuto.z, 3)}`);
+    // Каждая величина — отдельной строкой: рядом «ΣF = …, · z = …» читается
+    // как произведение площади на коэффициент.
+    const parts = [];
+    if (p.surfaces.some(s => s.type === "imp")) parts.push(`z водонепроницаемых по таблице Ж.7 = ${fmt(p.zImpAuto.z, 3)}`);
+    parts.push(`<span class="note-area">ΣF = ${fmt(p.areaSum, 2)} га</span>`);
     if (p.areaOver) parts.push(`<span class="warn">площадь > 150 га</span>`);
-    note.innerHTML = parts.join(" · ");
+    note.innerHTML = parts.join("<br>");
     note.hidden = false;
   } else {
     note.hidden = true;
@@ -334,6 +337,15 @@ function applySidebarLock() {
   $c("sbTrayAdd").disabled = isLocked;
   $c("sbSurfAdd").disabled = isLocked;
   if (!isLocked) {
+    // В расчёт идёт только один из коэффициентов: при переменном z поле Ψ_mid
+    // не нужно, при постоянном Ψ — не нужно z_mid. Блокируем ненужное поле.
+    const d = editor.getNodeFromId(sbNodeId)?.data || {};
+    const isConst = d.coeffMode === "const";
+    $c("sbCZ").disabled = isConst;
+    $c("sbCPsi").disabled = !isConst;
+    // По составу поверхностей площадь — производная (F = ΣFᵢ), поле блокируем
+    // и показываем в нём эквивалентную площадь (заполняется в renderCatchSidebar).
+    $c("sbCF").disabled = d.coeffSource === "table";
     const res = results[sbNodeId];
     if (res?.lockId) {
       $c("sbQr").disabled = true;

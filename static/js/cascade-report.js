@@ -255,7 +255,7 @@ function catchSectionMD(node, res, n) {
   out.push(`| P | ${f(p.P, 1)} годы |`);
   out.push(`| mr | ${f(p.mr, 0)} |`);
   out.push(`| γ | ${f(p.gamma)} |`);
-  out.push(`| Источник коэффициентов z и Ψ | ${p.coeffSource === "table" ? "по составу поверхностей (Ж.6)" : "вручную"} |`);
+  out.push(`| Источник F, z и Ψ | ${p.coeffSource === "table" ? "по составу поверхностей (Ж.6)" : "вручную"} |`);
   if (p.useTable) {
     for (const s of p.surfaces) {
       const src = s.type !== "imp" ? "" : s.zManual ? " (z вручную)" : " (z авто, Ж.7)";
