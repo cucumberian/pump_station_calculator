@@ -6,6 +6,13 @@ editor.zoom_max = 5.0;
 editor.zoom_min = 0.1;
 editor.start();
 
+// Свой pinch-зум (cascade-view.js) конфликтует со встроенным мобильным зумом
+// Drawflow (pointer-события -> zoom_in/zoom_out). Гасим встроенный.
+for (const h of ["onpointerdown", "onpointermove", "onpointerup",
+                 "onpointercancel", "onpointerout", "onpointerleave"]) {
+  $c("drawflow")[h] = null;
+}
+
 let results = {};
 let globalTMax = 0;
 let sbNodeId = null;
@@ -801,6 +808,11 @@ $c("drawflow").addEventListener("touchcancel", () => {
   clearTimeout(lpTimer);
   lpStart = null;
 });
+// Вызывается из pinch-жеста, чтобы контекстное меню не всплывало во время зума.
+window.cancelLongPress = () => {
+  clearTimeout(lpTimer);
+  lpStart = null;
+};
 
 $c("ctxMenu").addEventListener("click", e => {
   if (ctxFromTouch && Date.now() - ctxShownAt < 300) return;

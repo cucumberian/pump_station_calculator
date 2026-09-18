@@ -72,39 +72,84 @@ for (const id of ["zoomIn", "zoomOut", "zoomFit"]) {
   }
 }
 
+// Pinch-зум. Встроенный мобильный зум Drawflow отключён в cascade.js, здесь —
+// единственная реализация жеста: абсолютная привязка к мировой точке под
+// серединой пальцев (без накопления дрожания).
 let pinch = null;
+let pinchRaf = 0;
+
+function syncEditorFromTransform() {
+  const tf = getComputedStyle(editor.precanvas).transform;
+  if (!tf || tf === "none") return;
+  const m = new DOMMatrixReadOnly(tf);
+  if (m.a) {
+    editor.zoom = m.a;
+    editor.canvas_x = m.e;
+    editor.canvas_y = m.f;
+  }
+}
+
+function applyPinch() {
+  pinchRaf = 0;
+  if (!pinch) return;
+  const [a, b] = pinch.touches;
+  const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const midX = (a.clientX + b.clientX) / 2 - pinch.rect.left;
+  const midY = (a.clientY + b.clientY) / 2 - pinch.rect.top;
+  const zNew = Math.min(editor.zoom_max,
+    Math.max(editor.zoom_min, pinch.startZoom * (dist / pinch.startDist)));
+  editor.zoom = zNew;
+  editor.canvas_x = midX - zNew * pinch.wx;
+  editor.canvas_y = midY - zNew * pinch.wy;
+  applyTransform();
+}
+
+function startPinch(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (window.cancelLongPress) window.cancelLongPress();
+  // Drawflow двигает холст одним пальцем, но пишет canvas_x/y только в dragEnd;
+  // берём актуальное состояние из transform, иначе будет рывок.
+  syncEditorFromTransform();
+  editor.editor_selected = false;
+  editor.drag = false;
+  editor.connection = false;
+  editor.drag_point = false;
+  const rect = $c("drawflow").getBoundingClientRect();
+  const [a, b] = e.touches;
+  const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
+  const midX = (a.clientX + b.clientX) / 2 - rect.left;
+  const midY = (a.clientY + b.clientY) / 2 - rect.top;
+  pinch = {
+    rect,
+    startZoom: editor.zoom,
+    startDist: dist,
+    wx: (midX - editor.canvas_x) / editor.zoom,
+    wy: (midY - editor.canvas_y) / editor.zoom,
+    touches: [a, b],
+  };
+}
+
+function movePinch(e) {
+  if (!pinch || e.touches.length < 2) return;
+  e.preventDefault();
+  e.stopPropagation();
+  pinch.touches = [e.touches[0], e.touches[1]];
+  if (!pinchRaf) pinchRaf = requestAnimationFrame(applyPinch);
+}
+
+function endPinch(e) {
+  if (e.touches.length < 2) {
+    pinch = null;
+    if (pinchRaf) { cancelAnimationFrame(pinchRaf); pinchRaf = 0; }
+  }
+  // Пока палец остался, не даём Drawflow подхватить жест со stale-координатами.
+  if (e.touches.length > 0) e.stopPropagation();
+}
+
 $c("drawflow").addEventListener("touchstart", e => {
-  if (e.touches.length === 2) {
-    e.preventDefault();
-    const [a, b] = e.touches;
-    pinch = {
-      dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-      cx: (a.clientX + b.clientX) / 2,
-      cy: (a.clientY + b.clientY) / 2,
-    };
-  }
+  if (e.touches.length === 2) startPinch(e);
 }, { capture: true, passive: false });
-$c("drawflow").addEventListener("touchmove", e => {
-  if (e.touches.length === 2 && pinch) {
-    e.preventDefault();
-    e.stopPropagation();
-    const [a, b] = e.touches;
-    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const cx = (a.clientX + b.clientX) / 2;
-    const cy = (a.clientY + b.clientY) / 2;
-    editor.canvas_x += cx - pinch.cx;
-    editor.canvas_y += cy - pinch.cy;
-    if (pinch.dist > 0) {
-      const rect = $c("drawflow").getBoundingClientRect();
-      setZoomAt(editor.zoom * dist / pinch.dist, cx - rect.left, cy - rect.top);
-    } else {
-      applyTransform();
-    }
-    pinch.dist = dist;
-    pinch.cx = cx;
-    pinch.cy = cy;
-  }
-}, { capture: true, passive: false });
-$c("drawflow").addEventListener("touchend", e => {
-  if (e.touches.length < 2) pinch = null;
-}, true);
+$c("drawflow").addEventListener("touchmove", movePinch, { capture: true, passive: false });
+$c("drawflow").addEventListener("touchend", endPinch, true);
+$c("drawflow").addEventListener("touchcancel", endPinch, true);
