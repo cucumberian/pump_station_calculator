@@ -389,18 +389,35 @@ function updateSummaries(data = graphData()) {
     if (nd.name === "catch") {
       const out = document.querySelector(`#node-${id} .catch-out`);
       const r = results[id];
-      if (out) {
-        out.innerHTML = r
-          ? `Q<sub>r</sub> = <b>${fmt(r.Qr, 2)} л/с</b> <br> t<sub>r</sub> = <b>${fmt(r.tr, 2)} мин</b>`
-          : "Q<sub>r</sub> = — <br> t<sub>r</sub> = —";
+      // Ошибка расчёта (Qr = 0): иконка у заголовка и — отдельно — у правого
+      // края строки результата (не на самом Qr).
+      const errReason = !isDisabled && !r ? catchErrorReason(nd.data) : null;
+      const warnEl = document.querySelector(`#node-${id} .node-warn`);
+      if (warnEl) {
+        warnEl.hidden = !errReason;
+        warnEl.innerHTML = errReason ? WARN_TRIANGLE_SVG : "";
+        warnEl.title = errReason || "";
       }
-      // В режиме «по составу поверхностей» площадь — производная (F = ΣFᵢ):
-      // блокируем поле и показываем эквивалентную площадь.
+      const outWarn = errReason
+        ? `<span class="catch-warn" title="${errReason}">${WARN_TRIANGLE_SVG}</span>`
+        : "";
+      if (out) {
+        const text = r
+          ? `Q<sub>r</sub> = <b>${fmt(r.Qr, 2)} л/с</b> <br> t<sub>r</sub> = <b>${fmt(r.tr, 2)} мин</b>`
+          : `Q<sub>r</sub> = 0 <br> t<sub>r</sub> = 0`;
+        out.innerHTML = `<span class="catch-res-text">${text}</span>${outWarn}`;
+      }
+      // В режиме «по составу поверхностей» площадь производна (F = ΣFᵢ + Fдоб);
+      // при пустом составе F = 0, поле остаётся заблокированным.
       const fInp = document.querySelector(`#node-${id} input[df-f]`);
       if (fInp) {
-        const isTable = nd.data?.coeffSource === "table";
-        fInp.disabled = isLocked || isTable;
-        if (isTable && r?.params && document.activeElement !== fInp) fInp.value = padNum(r.params.F);
+        const derived = nd.data?.coeffSource === "table";
+        fInp.disabled = isLocked || derived;
+        // Производная площадь: из расчёта, а при его отсутствии — 0.
+        if (derived && document.activeElement !== fInp) {
+          const fv = r?.params ? Math.round(r.params.F * 1000) / 1000 : 0;
+          fInp.value = padNum(fv);
+        }
       }
       continue;
     }

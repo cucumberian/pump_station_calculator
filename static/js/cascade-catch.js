@@ -76,15 +76,29 @@ function catchParams(d, n) {
   const coeffSource = d.coeffSource === "table" ? "table" : "manual";
   const surfaces = coeffSource === "table" ? parseSurfaces(d.zRows, A, n) : [];
   const areaSum = surfaces.reduce((s, x) => s + x.F, 0);
-  const useTable = coeffSource === "table" && areaSum > 0;
-  const zTable = useTable ? surfaces.reduce((s, x) => s + x.F * x.z, 0) / areaSum : null;
-  const psiTable = useTable ? surfaces.reduce((s, x) => s + x.F * x.psi, 0) / areaSum : null;
+  // Добавочная площадь просто увеличивает итоговую F = ΣFᵢ + Fдоб, своего
+  // коэффициента у неё нет — средневзвешенные z_mid/Ψ_mid по-прежнему
+  // считаются только по составу поверхностей.
+  const addF = num(d.Fadd, 0, 0);
+  const totalF = areaSum + addF;
+  // В режиме «по составу» площадь берётся только из состава и добавочной.
+  // Коэффициенты: по поверхностям; если их нет, но Fдоб > 0 — из ручных полей
+  // (коэффициент есть, а площадей нет); если и площади нет — 0.
+  const useTable = coeffSource === "table";
+  const zTable = areaSum > 0
+    ? surfaces.reduce((s, x) => s + x.F * x.z, 0) / areaSum
+    : (totalF > 0 ? num(d.zMid, 0.201, 0) : 0);
+  const psiTable = areaSum > 0
+    ? surfaces.reduce((s, x) => s + x.F * x.psi, 0) / areaSum
+    : (totalF > 0 ? num(d.psiMid, 0.634, 0) : 0);
   const zImpAuto = coeffSource === "table" ? impermeableZ(A, n) : null;
-  const zMid = useTable ? zTable : num(d.zMid, 0.201, 0.001);
-  const psiMid = useTable ? psiTable : num(d.psiMid, 0.634, 0.001);
-  const manualF = num(d.F !== undefined ? d.F : d.f, 3.9, 0.001);
-  const F = useTable ? areaSum : manualF;
-  const areaOver = useTable && areaSum > 150;
+  const zMid = useTable ? zTable : num(d.zMid, 0.201, 0);
+  const psiMid = useTable ? psiTable : num(d.psiMid, 0.634, 0);
+  // min = 0: явный ноль — валидное значение (даёт Qr = 0 и пометку ошибки),
+  // а не повод подставить площадь по умолчанию.
+  const manualF = num(d.F !== undefined ? d.F : d.f, 3.9, 0);
+  const F = useTable ? totalF : manualF;
+  const areaOver = useTable && F > 150;
   const tcon = num(d.tcon, 3, 0);
   const segs = parseSections(d.segs);
   const trays = parseSections(d.trays);
@@ -108,7 +122,27 @@ function catchParams(d, n) {
     : 0;
   return { q20, P, mr, gamma, F, manualF, psiMid, zMid, tcon, segs, trays, A, lvSum, lvTraySum,
     tp, tpManual, tpCalc, tcan, tcanManual, tcanCalc, tr, Qr, variable, n,
-    coeffSource, surfaces, areaSum, useTable, areaOver, zImpAuto };
+    coeffSource, surfaces, areaSum, addF, useTable, areaOver, zImpAuto };
+}
+
+// Причина, по которой водосбор не даёт результата (Qr = 0). Возвращает текст
+// или null, если ошибки нет. Используется карточкой ноды, боковой панелью и
+// отчётом, чтобы причина совпадала везде.
+function catchErrorReason(d) {
+  const data = d || {};
+  if (data.coeffSource === "table") {
+    const rows = Array.isArray(data.zRows) ? data.zRows : [];
+    const area = rows.reduce((s, r) => s + (parseFloat(r?.F) || 0), 0);
+    const add = parseFloat(data.Fadd) || 0;
+    if (area + add <= 0) return "не заданы площади поверхностей и добавочная (F = 0)";
+    return "расчёт не выполнен (Qr = 0)";
+  }
+  const f = parseFloat(data.F !== undefined ? data.F : data.f);
+  if (Number.isFinite(f) && !(f > 0)) return "нулевая площадь водосбора (F = 0)";
+  const variable = data.coeffMode !== "const";
+  const k = parseFloat(variable ? data.zMid : data.psiMid);
+  if (Number.isFinite(k) && !(k > 0)) return variable ? "нулевой коэффициент покрова z_mid" : "нулевой коэффициент стока Ψ_mid";
+  return "расчёт не выполнен (Qr = 0)";
 }
 
 // Справка по t_r: сумма времени поверхностной концентрации, протекания по
@@ -193,7 +227,7 @@ function coeffModeBlocks(p) {
     { p: `В расчёте ноды сейчас используется ${p.variable ? "переменный коэффициент — формула (20)" : "постоянный коэффициент — формула (12)"}, то есть Q_r = ${fmt(p.Qr, 1)} л/с. Расхождение двух вариантов на текущих значениях — ${fmt(diff, 1)} %.` },
     { p: "Если водонепроницаемые поверхности составляют более 30–40 % общей площади стока (характерно для промышленных площадок и центральной части городской застройки), допускается упрощённо пользоваться формулой (12) при постоянных коэффициентах стока — расхождение с переменным коэффициентом при этом обычно невелико (в контрольном примере ВОДГЕО (2006) — около 5,5 %) (примечание к п. 6.2.1 рекомендаций ВОДГЕО (2015); п. 2.3.1 примера ВОДГЕО (2006))." },
   ];
-  if (p.useTable) {
+  if (p.useTable && p.areaSum > 0) {
     const impArea = p.surfaces.reduce((s, r) => s + (r.type === "imp" ? r.F : 0), 0);
     const share = p.areaSum > 0 ? impArea / p.areaSum * 100 : 0;
     blocks.push({ p: `Доля водонепроницаемых поверхностей по заданному составу: ${fmt(impArea, 2)} из ${fmt(p.areaSum, 2)} га = ${fmt(share, 1)} % — ${share > 30 ? "больше 30 %" : "меньше 30 %"}, ${share > 30 ? "упрощение по формуле (12) допустимо" : "упрощение по формуле (12) требует обоснования"}.` });
@@ -217,7 +251,9 @@ function catchCoeffHelp(p) {
         "ψ_i — постоянный коэффициент стока по таблице Ж.6.",
       ] },
       table
-        ? { p: "Включён режим «по составу поверхностей», но строки не заданы: в расчёте используются ручные z_mid и ψ_mid." }
+        ? (p.addF > 0
+          ? { p: `Состав поверхностей не задан (ΣFᵢ = 0), задана только добавочная площадь Fдоб = ${fmt(p.addF, 2)} га — она просто увеличивает итоговую F = ${fmt(p.F, 2)} га. Коэффициенты взяты из ручных значений z_mid = ${fmt(p.zMid, 3)} и ψ_mid = ${fmt(p.psiMid, 3)}.` }
+          : { p: "Состав поверхностей и добавочная площадь не заданы: F = 0, поэтому z_mid и Ψ_mid не определены (приняты 0) и расчёт даёт Qr = 0. Добавьте поверхности стока (или добавочную площадь) и укажите площади." })
         : { p: `Режим «вручную»: приняты z_mid = ${fmt(p.zMid, 3)} и ψ_mid = ${fmt(p.psiMid, 3)}. Чтобы получить их по таблице Ж.6, переключите источник площади и коэффициентов на «по составу поверхностей» и задайте площади.` },
       ...coeffModeBlocks(p),
       ...coeffTableBlocks(),
@@ -232,8 +268,8 @@ function catchCoeffHelp(p) {
   const imp = rows.find(r => r.type === "imp");
   return [
     head,
-    { p: "Площадь стока F = ΣFᵢ, а средневзвешенные коэффициенты — по составу поверхностей:" },
-    { tex: `F = \\sum F_i = ${fmt(p.areaSum, 2)}\\ \\text{га}` },
+    { p: "Площадь стока F = ΣFᵢ + Fдоб (добавочная площадь прибавляется без коэффициентов), а средневзвешенные z_mid и Ψ_mid — только по составу поверхностей:" },
+    { tex: `F = \\sum F_i + F_{add} = ${fmt(p.areaSum, 2)}${p.addF > 0 ? ` + ${fmt(p.addF, 2)}` : ""} = ${fmt(p.F, 2)}\\ \\text{га}` },
     { tex: `z_{mid} = \\frac{\\sum F_i z_i}{\\sum F_i} = \\frac{${zTerms}}{${fmt(p.areaSum, 2)}} = ${fmt(p.zMid, 3)}` },
     { tex: `\\Psi_{mid} = \\frac{\\sum F_i \\Psi_i}{\\sum F_i} = \\frac{${psiTerms}}{${fmt(p.areaSum, 2)}} = ${fmt(p.psiMid, 3)}` },
     { ol: list },

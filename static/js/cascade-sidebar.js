@@ -36,6 +36,7 @@ function setTitle(typeLabel) {
 const SB_CATCH_MAP = {
   sbCF: "F", sbCQ20: "q20", sbCP: "P", sbCMr: "mr", sbCGamma: "gamma",
   sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan", sbCTp: "tp",
+  sbCFadd: "Fadd",
 };
 
 // t1 и t2 намеренно вне карты: пустые поля — легальные значения «с начала» и
@@ -81,11 +82,19 @@ function renderCatchSidebar(node) {
   hidePumpSections();
   const d = node.data || {};
   const table = d.coeffSource === "table";
+  const res = results[sbNodeId];
+  const p = res?.params;
+  // В режиме «по составу» F/z_mid/ψ_mid — производные (отката на ручные нет):
+  // заблокированы всегда; заполняются из расчёта, когда он есть.
+  const derived = table;
+  const fromCalc = table && !!p;
   for (const [elId, key] of Object.entries(SB_CATCH_MAP)) {
     const el = $c(elId);
     if (document.activeElement === el) continue;
     // F/z_mid/ψ_mid в режиме «по составу» — производные, их заполним ниже.
-    if (table && (elId === "sbCF" || elId === "sbCZ" || elId === "sbCPsi")) continue;
+    if (fromCalc && (elId === "sbCF" || elId === "sbCZ" || elId === "sbCPsi")) continue;
+    // Нет расчёта — производные без состава равны нулю.
+    if (derived && (elId === "sbCF" || elId === "sbCZ" || elId === "sbCPsi")) { el.value = padNum(0); continue; }
     el.value = padNum(d[key]);
   }
   for (const rb of document.querySelectorAll('input[name="sbCCoeff"]')) {
@@ -95,36 +104,46 @@ function renderCatchSidebar(node) {
     rb.checked = rb.value === (table ? "table" : "manual");
   }
   $c("sbSurfBlock").hidden = !table;
-  $c("sbCF").readOnly = table;
-  $c("sbCZ").readOnly = table;
-  $c("sbCPsi").readOnly = table;
+  $c("sbCF").readOnly = derived;
+  $c("sbCZ").readOnly = derived;
+  $c("sbCPsi").readOnly = derived;
   renderSegList("sbSegList", "segs", d.segs);
   renderSegList("sbTrayList", "trays", d.trays);
   renderSurfList(table ? d.zRows : []);
-  const res = results[sbNodeId];
-  const p = res?.params;
-  if (table && p) {
+  if (fromCalc) {
     const rd = (v, d) => Number.isFinite(v) ? Math.round(v * 10 ** d) / 10 ** d : v;
     if (document.activeElement !== $c("sbCF")) $c("sbCF").value = padNum(rd(p.F, 3));
     if (document.activeElement !== $c("sbCZ")) $c("sbCZ").value = padNum(rd(p.zMid, 4));
     if (document.activeElement !== $c("sbCPsi")) $c("sbCPsi").value = padNum(rd(p.psiMid, 4));
   }
   const note = $c("sbSurfNote");
-  if (table && p) {
+  if (table) {
     // Каждая величина — отдельной строкой: рядом «ΣF = …, · z = …» читается
     // как произведение площади на коэффициент.
     const parts = [];
-    if (p.surfaces.some(s => s.type === "imp")) parts.push(`z водонепроницаемых по таблице Ж.7 = ${fmt(p.zImpAuto.z, 3)}`);
-    parts.push(`<span class="note-area">ΣF = ${fmt(p.areaSum, 2)} га</span>`);
-    if (p.areaOver) parts.push(`<span class="warn">площадь > 150 га</span>`);
+    if (p && (p.areaSum + p.addF) > 0) {
+      if (p.surfaces.some(s => s.type === "imp")) parts.push(`z водонепроницаемых по таблице Ж.7 = ${fmt(p.zImpAuto.z, 3)}`);
+      parts.push(`ΣFᵢ = ${fmt(p.areaSum, 2)} га${p.addF > 0 ? ` + Fдоб = ${fmt(p.addF, 2)} га` : ""}`);
+      parts.push(`<span class="note-area">F = ${fmt(p.F, 2)} га</span>`);
+      if (p.areaSum <= 0) parts.push(`коэффициенты ручные: z<sub>mid</sub> = ${fmt(p.zMid, 3)}, Ψ<sub>mid</sub> = ${fmt(p.psiMid, 3)}`);
+      if (p.areaOver) parts.push(`<span class="warn">площадь > 150 га</span>`);
+    } else {
+      parts.push(`<span class="warn">ΣFᵢ = 0 и Fдоб = 0 — задайте площадь</span>`);
+      parts.push(`F = 0, z<sub>mid</sub> = Ψ<sub>mid</sub> = 0`);
+    }
     note.innerHTML = parts.join("<br>");
     note.hidden = false;
   } else {
     note.hidden = true;
   }
+  // Признак состояния ошибки: нет результата (Qr = 0) — иконка в шапке секции
+  // и в строке результата, чтобы было видно, что в результате 0.
+  const errReason = !nodeDisabled(sbNodeId) && !res ? catchErrorReason(d) : null;
+  const headWarn = $c("sbCoeffWarn");
+  if (headWarn) { headWarn.hidden = !errReason; headWarn.innerHTML = errReason ? WARN_TRIANGLE_SVG : ""; headWarn.title = errReason || ""; }
   $c("sbCOut").innerHTML = res
     ? `Q<sub>r</sub> = ${fmt(res.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(res.tr, 2)} мин`
-    : "задайте корректные параметры";
+    : `<span class="warn">${WARN_TRIANGLE_SVG} Q<sub>r</sub> = 0 — ${errReason || "расчёт не выполнен"}</span>`;
   $c("sbCatchChartWrap").hidden = !res;
   if (res) catchChart.update(seriesFromResult(res), res.Qr, res.tr);
   applySidebarLock();
@@ -234,13 +253,16 @@ function renderSurfList(arr) {
     box.innerHTML = "";
     list.forEach((s, i) => {
       const type = SURFACE_BY_KEY[s?.type] ? s.type : "imp";
-      const opts = SURFACE_TYPES.map(t => `<option value="${t.key}"${t.key === type ? " selected" : ""}>${t.label}</option>`).join("");
+      const coeffOf = t => `z ${t.z == null ? "по Ж.7" : "= " + fmt(t.z, 3)}, Ψ = ${fmt(t.psi, 2)}`;
+      const opts = SURFACE_TYPES.map(t =>
+        `<option value="${t.key}"${t.key === type ? " selected" : ""}>${t.label} (${coeffOf(t)})</option>`).join("");
+      const cur = SURFACE_BY_KEY[type];
       const row = document.createElement("div");
       row.className = "seg-row surf-row";
       row.dataset.list = "zRows";
       row.dataset.idx = String(i);
       row.innerHTML =
-        `<select data-field="type" title="вид поверхности стока">${opts}</select>` +
+        `<select data-field="type" title="${cur.label} (${coeffOf(cur)})">${opts}</select>` +
         `<input type="number" step="any" min="0" data-field="F" data-step="0.1" placeholder="F${segSub(i)}" title="площадь поверхности ${i + 1}, га">` +
         (type === "imp"
           ? `<input type="number" step="any" min="0" data-field="z" data-step="0.01" placeholder="z авто" title="z водонепроницаемых; пусто — авто по Ж.7">`
@@ -343,8 +365,8 @@ function applySidebarLock() {
     const isConst = d.coeffMode === "const";
     $c("sbCZ").disabled = isConst;
     $c("sbCPsi").disabled = !isConst;
-    // По составу поверхностей площадь — производная (F = ΣFᵢ), поле блокируем
-    // и показываем в нём эквивалентную площадь (заполняется в renderCatchSidebar).
+    // По составу поверхностей площадь — производная (F = ΣFᵢ + Fдоб), поле
+    // всегда заблокировано; при пустом составе F = 0.
     $c("sbCF").disabled = d.coeffSource === "table";
     const res = results[sbNodeId];
     if (res?.lockId) {

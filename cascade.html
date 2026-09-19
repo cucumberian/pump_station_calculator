@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=8">
-  <link rel="stylesheet" href="static/css/cascade.css?v=35">
+  <link rel="stylesheet" href="static/css/cascade.css?v=45">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
@@ -19,15 +19,15 @@
   <script defer src="static/js/calc-view.js?v=13"></script>
   <script defer src="static/js/cascade-graph.js?v=2"></script>
   <script defer src="static/js/reference-data.js?v=1"></script>
-  <script defer src="static/js/cascade-nodes.js?v=10"></script>
-  <script defer src="static/js/cascade-catch.js?v=8"></script>
+  <script defer src="static/js/cascade-nodes.js?v=14"></script>
+  <script defer src="static/js/cascade-catch.js?v=12"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=7"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=26"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=31"></script>
   <script defer src="static/js/cascade-schemes.js?v=2"></script>
-  <script defer src="static/js/cascade-io.js?v=16"></script>
-  <script defer src="static/js/cascade-report.js?v=13"></script>
-  <script defer src="static/js/cascade.js?v=44"></script>
+  <script defer src="static/js/cascade-io.js?v=17"></script>
+  <script defer src="static/js/cascade-report.js?v=15"></script>
+  <script defer src="static/js/cascade.js?v=51"></script>
 </head>
 
 <body class="cascade-page">
@@ -202,13 +202,6 @@
         <section id="sbCatch" hidden>
           <section id="sbCatchParams">
             <div class="sb-pair">
-              <div class="field" title="расчётная площадь стока (водосбора), га; в режиме «по составу поверхностей» рассчитывается как ΣFᵢ, поле только для чтения">
-                <label for="sbCF">F — площадь водосбора</label>
-                <div class="dual">
-                  <input id="sbCF" type="number" step="any" min="0.01">
-                  <span class="dual-unit">га</span>
-                </div>
-              </div>
               <div class="field"
                 title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
                 <label for="sbCQ20">q₂₀ — интенсивность дождя</label>
@@ -243,8 +236,9 @@
               <span>F, z<sub>mid</sub>, Ψ<sub>mid</sub></span>
               <button class="help-btn sb-help" id="sbCoeffHelp" type="button"
                 title="Как задаются и рассчитываются F, z_mid и Ψ_mid">?</button>
+              <span class="sb-head-warn" id="sbCoeffWarn" hidden></span>
             </h3>
-            <div class="mode-row">
+            <div class="mode-row stacked">
               <span>Коэффициент стока:</span>
               <label title="Переменный коэффициент (коэффициент покрова z) учитывает вид поверхности, а также интенсивность и продолжительность дождя. Q_r = z_mid·A^1,2·F / t_r^(1,2n−0,1) — формула (20) примера ВОДГЕО (2006) / формула (4) рекомендаций (2015)."><input type="radio" name="sbCCoeff" value="variable" checked> переменный z</label>
               <label title="Постоянный коэффициент стока Ψ учитывает только вид поверхности. Q_r = Ψ_mid·A·F / t_r^n — формула (12) примера ВОДГЕО (2006) / формула (5) рекомендаций (2015). Упрощение допустимо, когда водонепроницаемые поверхности >30–40 % площади: расхождение обычно невелико (в примере ВОДГЕО — около 5,5 %)."><input type="radio" name="sbCCoeff" value="const"> постоянный Ψ</label>
@@ -260,17 +254,34 @@
                 <input id="sbCPsi" type="number" step="any" min="0.001">
               </div>
             </div>
-            <div class="mode-row">
+            <div class="mode-row stacked">
               <span>Площадь и коэффициенты:</span>
               <label><input type="radio" name="sbCSource" value="manual" checked> вручную (F, z, Ψ)</label>
               <label><input type="radio" name="sbCSource" value="table"> по составу поверхностей (F = ΣFᵢ, z, Ψ)</label>
             </div>
+            <div class="sb-pair">
+              <div class="field" title="расчётная площадь стока (водосбора), га; в режиме «по составу поверхностей» рассчитывается как ΣFᵢ, поле только для чтения">
+                <label for="sbCF">F — площадь водосбора</label>
+                <div class="dual">
+                  <input id="sbCF" type="number" step="any" min="0.01">
+                  <span class="dual-unit">га</span>
+                </div>
+              </div>
+            </div>
             <div id="sbSurfBlock" hidden>
               <div class="field"
-                title="состав поверхностей стока: вид поверхности и площадь Fᵢ, га; z_mid и Ψ_mid считаются средневзвешенно, F = ΣFᵢ (п. 6.2.6 рекомендаций)">
+                title="состав поверхностей стока: вид поверхности и площадь Fᵢ, га; z_mid и Ψ_mid считаются средневзвешенно, F = ΣFᵢ + Fдоб (п. 6.2.6 рекомендаций)">
                 <label>Поверхности стока: вид / F, га</label>
                 <div class="seg-list" id="sbSurfList"></div>
                 <button class="btn seg-add" type="button" id="sbSurfAdd">+ Добавить поверхность</button>
+              </div>
+              <div class="field"
+                title="добавочная площадь, га; прибавляется к итоговой F без коэффициентов — не участвует в средневзвешенных z_mid и Ψ_mid">
+                <label for="sbCFadd">F<sub>доб</sub> — добавочная площадь (без коэффициентов)</label>
+                <div class="dual">
+                  <input id="sbCFadd" type="number" step="any" min="0">
+                  <span class="dual-unit">га</span>
+                </div>
               </div>
               <p class="num-note" id="sbSurfNote" hidden></p>
             </div>

@@ -6,6 +6,8 @@ const LOCK_OPEN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height
 const LOCK_CLOSED_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.5"/></svg>`;
 const DISABLE_ON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><line x1="2.5" y1="13.5" x2="13.5" y2="2.5" stroke="currentColor" stroke-width="1.5"/></svg>`;
 const DISABLE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/></svg>`;
+// TriangleExclamationFill (gravity-ui) — признак состояния ошибки расчёта.
+const WARN_TRIANGLE_SVG = `<svg class="ic ic-warn" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5.835 2.244c.963-1.665 3.367-1.665 4.33 0l4.916 8.505c.964 1.666-.24 3.751-2.164 3.751H3.083c-1.925 0-3.128-2.085-2.165-3.751zM8 5a.75.75 0 0 1 .75.75v2a.75.75 0 1 1-1.5 0v-2A.75.75 0 0 1 8 5m1 5.75a1 1 0 1 1-2 0 1 1 0 0 1 2 0" clip-rule="evenodd"/></svg>`;
 
 const XMARK_HTML = `<svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg>`;
 
@@ -26,7 +28,7 @@ const NODE_HTML = {
     </div>`,
   catch: `
     <div class="node-box node-catch">
-      <div class="node-title"><span class="node-num"></span> <span class="node-name">Водосбор</span></div>
+      <div class="node-title"><span class="node-num"></span> <span class="node-name">Водосбор</span><span class="node-warn" hidden></span></div>
       <button class="node-disable" type="button" title="Отключить ноду"></button>
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
       <div class="nf"><label>F, га</label><input df-f type="number" step="any" min="0.01"></div>
@@ -82,6 +84,9 @@ const NODE_DEFAULTS = {
     // сохраняются для режима "manual".
     coeffSource: "manual",
     zRows: [],
+    // Добавочная площадь, га: прибавляется к итоговой F = ΣFᵢ + Fadd, но
+    // НЕ участвует в средневзвешенных z_mid/Ψ_mid (идёт «без коэффициентов»).
+    Fadd: 0,
   },
 };
 

@@ -657,6 +657,9 @@ function migrateNodeData(type, raw) {
         return row;
       }).filter(Boolean)
       : [];
+    // Добавочная площадь Fдоб, га: прибавляется к F без коэффициентов.
+    const fadd = parseFloat(d.Fadd);
+    d.Fadd = Number.isFinite(fadd) && fadd >= 0 ? fadd : 0;
   }
   if (type === "delay") {
     const lOld = parseFloat(d.l ?? d.L);

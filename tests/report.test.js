@@ -241,7 +241,7 @@ test("buildNodeReportMD: водосбор перечисляет участки 
 test("buildNodeReportMD: водосбор — z_mid/ψ_mid по составу поверхностей", () => {
   const data = {
     F: 3.9, q20: 80, P: 1, mr: 150, gamma: 1.54, psiMid: 0.634, zMid: 0.201, tcon: 3,
-    coeffSource: "table",
+    coeffSource: "table", Fadd: 1.1,
     zRows: [{ type: "imp", F: 2.45, z: 0.297 }, { type: "lawn", F: 1.45 }],
   };
   const graph = { nodes: [{ id: 1, type: "catch", data }], connections: [] };
@@ -249,9 +249,17 @@ test("buildNodeReportMD: водосбор — z_mid/ψ_mid по составу �
   const md = H.buildNodeReportMD(1, graph, { 1: { params: p, Qr: p.Qr, tr: p.tr } }, { meta: {}, n: N, payload: graph });
   includes(md, "по составу поверхностей (Ж.6)");
   includes(md, "Источник F, z и Ψ");
+  includes(md, "Fдоб = 1,10 га");
   includes(md, "z_mid = Σ(F_i·z_i)/ΣF_i");
   includes(md, "Ψ_mid = Σ(F_i·Ψ_i)/ΣF_i");
   includes(md, "Газоны");
+});
+
+test("buildNodeReportMD: водосбор без состава — причина «не заданы поверхности»", () => {
+  const data = { F: 3.9, q20: 80, P: 1, mr: 150, gamma: 1.54, coeffSource: "table", zRows: [] };
+  const graph = { nodes: [{ id: 1, type: "catch", data }], connections: [] };
+  const md = H.buildNodeReportMD(1, graph, { 1: null }, { meta: {}, n: N, payload: graph });
+  includes(md, "не заданы площади");
 });
 
 // ============================================================
