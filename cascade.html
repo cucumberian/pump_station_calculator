@@ -11,23 +11,24 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
   <link rel="stylesheet" href="static/css/style.css?v=8">
-  <link rel="stylesheet" href="static/css/cascade.css?v=45">
+  <link rel="stylesheet" href="static/css/cascade.css?v=47">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script defer src="static/js/hydro.js?v=9"></script>
   <script defer src="static/js/calc-view.js?v=13"></script>
   <script defer src="static/js/cascade-graph.js?v=2"></script>
-  <script defer src="static/js/reference-data.js?v=1"></script>
-  <script defer src="static/js/cascade-nodes.js?v=14"></script>
-  <script defer src="static/js/cascade-catch.js?v=12"></script>
+  <script defer src="static/js/reference-data.js?v=2"></script>
+  <script defer src="static/js/cascade-nodes.js?v=16"></script>
+  <script defer src="static/js/cascade-catch.js?v=13"></script>
+  <script defer src="static/js/cascade-rain.js?v=2"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=7"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=31"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=32"></script>
   <script defer src="static/js/cascade-schemes.js?v=2"></script>
-  <script defer src="static/js/cascade-io.js?v=17"></script>
-  <script defer src="static/js/cascade-report.js?v=15"></script>
-  <script defer src="static/js/cascade.js?v=51"></script>
+  <script defer src="static/js/cascade-io.js?v=19"></script>
+  <script defer src="static/js/cascade-report.js?v=16"></script>
+  <script defer src="static/js/cascade.js?v=53"></script>
 </head>
 
 <body class="cascade-page">
@@ -68,20 +69,10 @@
   <div class="cascade-main">
     <aside class="palette" id="palette">
       <div id="paletteBody">
-        <h2>Параметры схемы</h2>
-        <div id="gnSlot">
-          <div class="field global-n"
-            title="Параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности — общий для всей схемы.">
-            <label for="globalN">n — климатический параметр</label>
-            <span class="n-short">n</span>
-            <input id="globalN" type="number" step="0.01" min="0.01" max="0.99" value="0.71">
-          </div>
-
-        </div>
         <h2>Ноды</h2>
         <div class="pal-node pal-catch" data-node="catch">
           <b><span class="full">Водосбор</span><span class="short">ВД</span></b>
-          <span class="addon">F, q₂₀, P → Q<sub>r</sub>, t<sub>r</sub></span>
+          <span class="addon">F, t<sub>con</sub> → Q<sub>r</sub>, t<sub>r</sub></span>
         </div>
         <div class="pal-node pal-pump" data-node="pump">
           <b><span class="full">Насосная станция</span><span class="short">НС</span></b>
@@ -111,6 +102,62 @@
       <div class="n-float" id="nFloat" hidden>
         <button class="palette-toggle" id="paletteExpand" type="button" aria-label="Развернуть панель"
           title="Развернуть панель">›</button>
+      </div>
+      <div class="rain-float">
+        <button class="btn rain-btn" id="rainBtn" type="button" title="Дождь схемы — общие параметры для всех водосборов: q₂₀, P, m_r, γ">🌧 Дождь</button>
+        <div class="rain-panel panel" id="rainPanel" hidden>
+          <div class="rain-head">
+            <h2>Дождь схемы</h2>
+            <div class="rain-head-btns">
+              <button class="help-btn sb-help" id="rainHelp" type="button"
+                title="Формула A и источники параметров (Приложения 2–3 рекомендаций)">?</button>
+              <button class="modal-close rain-close" id="rainClose" type="button" title="Закрыть"></button>
+            </div>
+          </div>
+          <div class="rain-profiles" id="rainProfilesRow" hidden>
+            <select id="rainSelect" title="Активный профиль дождя"></select>
+            <button class="btn rain-pbtn" id="rainAdd" type="button" title="Добавить профиль">+</button>
+            <button class="btn rain-pbtn" id="rainDup" type="button" title="Дублировать профиль">⧉</button>
+            <button class="btn rain-pbtn" id="rainDel" type="button" title="Удалить профиль">🗑</button>
+          </div>
+          <div class="field">
+            <label for="rainName">Имя профиля</label>
+            <input id="rainName" type="text" placeholder="Без имени">
+          </div>
+          <div class="field" title="показатель степени, климатический параметр местности (таблица Ж.1 СП 32.13330.2018; при P < 1 и P ≥ 1 — разные значения)">
+            <label for="rainN">n — климатический параметр</label>
+            <input id="rainN" type="number" step="0.01" min="0.01" max="0.99">
+          </div>
+          <div class="field" title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
+            <label for="rainQ20">q₂₀ — интенсивность дождя</label>
+            <div class="dual">
+              <input id="rainQ20" type="number" step="any" min="1">
+              <span class="dual-unit">л/с с га</span>
+            </div>
+          </div>
+          <div class="field" title="период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3)">
+            <label for="rainP">P — период превышения</label>
+            <div class="dual">
+              <input id="rainP" type="number" step="any" min="0.1">
+              <span class="dual-unit">лет</span>
+            </div>
+          </div>
+          <div class="field" title="среднее количество дождей за год (таблица Приложения 3)">
+            <label for="rainMr">m<sub>r</sub> — дождей за год</label>
+            <input id="rainMr" type="number" step="any" min="1">
+          </div>
+          <div class="field" title="показатель степени (таблица Приложения 3)">
+            <label for="rainGamma">γ — показатель степени</label>
+            <input id="rainGamma" type="number" step="any" min="0.1">
+          </div>
+          <div class="field" title="подставить n, m_r и γ по району из таблицы Ж.1 СП 32.13330.2018; q₂₀ подсказки не задаются — он определяется по рисунку Ж.1 (карта)">
+            <label for="rainDistrict">Район (таблица Ж.1)</label>
+            <select id="rainDistrict">
+              <option value="">— вручную —</option>
+            </select>
+          </div>
+          <p class="rain-note">Общий для всех водосборов схемы. Показатель n — над нодами слева.</p>
+        </div>
       </div>
       <div class="zoom-controls">
         <button id="zoomIn" type="button" title="Приблизить">+</button>
@@ -200,36 +247,6 @@
           </section>
         </section>
         <section id="sbCatch" hidden>
-          <section id="sbCatchParams">
-            <div class="sb-pair">
-              <div class="field"
-                title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
-                <label for="sbCQ20">q₂₀ — интенсивность дождя</label>
-                <div class="dual">
-                  <input id="sbCQ20" type="number" step="any" min="1">
-                  <span class="dual-unit">л/с с га</span>
-                </div>
-              </div>
-            </div>
-            <div class="sb-pair">
-              <div class="field"
-                title="период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3)">
-                <label for="sbCP">P — период превышения</label>
-                <div class="dual">
-                  <input id="sbCP" type="number" step="any" min="0.1">
-                  <span class="dual-unit">лет</span>
-                </div>
-              </div>
-              <div class="field" title="среднее количество дождей за год (таблица Приложения 3)">
-                <label for="sbCMr">m<sub>r</sub> — дождей за год</label>
-                <input id="sbCMr" type="number" step="any" min="1">
-              </div>
-              <div class="field" title="показатель степени (таблица Приложения 3)">
-                <label for="sbCGamma">γ — показатель степени</label>
-                <input id="sbCGamma" type="number" step="any" min="0.1">
-              </div>
-            </div>
-          </section>
           <section id="sbCatchCoeffSection">
             <h3 class="sb-h">
               Площадь и коэффициенты стока

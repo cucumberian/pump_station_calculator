@@ -33,8 +33,10 @@ function setTitle(typeLabel) {
 
 // Значения в полях ввода форматирует padNum (calc-view.js): не менее двух
 // знаков после запятой, точность исходного числа не режем.
+// Климатические параметры дождя (q20, P, mr, γ) — общие для схемы
+// (cascade-rain.js), в панель водосбора больше не входят.
 const SB_CATCH_MAP = {
-  sbCF: "F", sbCQ20: "q20", sbCP: "P", sbCMr: "mr", sbCGamma: "gamma",
+  sbCF: "F",
   sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan", sbCTp: "tp",
   sbCFadd: "Fadd",
 };
@@ -736,7 +738,7 @@ $c("sbCHelp").addEventListener("click", () => {
 $c("sbTrHelp").addEventListener("click", e => {
   e.stopPropagation();
   const nd = sbNodeId !== null ? editor.getNodeFromId(sbNodeId) : null;
-  const p = results[sbNodeId]?.params || (nd ? catchParams(nd.data || {}, getGlobalN()) : null);
+  const p = results[sbNodeId]?.params || (nd ? catchParams(nd.data || {}, getGlobalN(), getActiveRain()) : null);
   if (p) openHelp([...catchTrHelp(p), ...catchSources()], {});
 });
 // «?» у заголовка коэффициентов: формулы z_mid/ψ_mid с подстановкой по составу
@@ -744,7 +746,7 @@ $c("sbTrHelp").addEventListener("click", e => {
 $c("sbCoeffHelp").addEventListener("click", e => {
   e.stopPropagation();
   const nd = sbNodeId !== null ? editor.getNodeFromId(sbNodeId) : null;
-  const p = results[sbNodeId]?.params || (nd ? catchParams(nd.data || {}, getGlobalN()) : null);
+  const p = results[sbNodeId]?.params || (nd ? catchParams(nd.data || {}, getGlobalN(), getActiveRain()) : null);
   if (p) openHelp([...catchCoeffHelp(p), ...catchSources()], {});
 });
 

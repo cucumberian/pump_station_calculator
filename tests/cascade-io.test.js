@@ -72,6 +72,9 @@ const NODE_DEFAULTS = ${JSON.stringify(NODE_DEFAULTS)};
 const NODE_HTML = ${JSON.stringify(nodesMod.NODE_HTML)};
 
 function getGlobalN() { return 0.71; }
+function padNum(v) { return String(v); }
+
+${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-rain.js"), "utf8")}
 
 ${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-graph.js"), "utf8")}
 `;
@@ -412,7 +415,7 @@ test("serializeScheme: correct format and version", () => {
   const out = ioMod.serializeScheme();
   global.graphData = savedGraphData;
   if (out.format !== "kns-cascade") throw new Error(`format should be kns-cascade, got ${out.format}`);
-  if (out.version !== 2) throw new Error(`version should be 2, got ${out.version}`);
+  if (out.version !== 3) throw new Error(`version should be 3, got ${out.version}`);
   if (!Array.isArray(out.nodes)) throw new Error("nodes should be array");
 });
 

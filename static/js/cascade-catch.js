@@ -63,13 +63,16 @@ function parseSurfaces(raw, A, n) {
   return out;
 }
 
-function catchParams(d, n) {
-  const q20 = num(d.q20, 80, 0.01);
+function catchParams(d, n, rain) {
+  // rain (профиль дождя схемы) имеет приоритет; без него — параметры ноды
+  // (легаси-вызовы и тесты). Поля rain нормализуются normRain заранее.
+  const r = rain || d;
+  const q20 = num(r.q20, 80, 0.01);
   // Страховка от нижнерегистровых дубликатов f/p, которые Drawflow мог оставить
   // в старых схемах (см. migrateNodeData): canonical приоритетен, дубль — fallback.
-  const P = num(d.P !== undefined ? d.P : d.p, 1, 0.01);
-  const mr = num(d.mr, 150, 1.01);
-  const gamma = num(d.gamma, 1.54, 0.01);
+  const P = num(r.P !== undefined ? r.P : r.p, 1, 0.01);
+  const mr = num(r.mr, 150, 1.01);
+  const gamma = num(r.gamma, 1.54, 0.01);
   const A = q20 * 20 ** n * (1 + Math.log(P) / Math.log(mr)) ** gamma;
   // Коэффициенты покрова/стока: вручную (zMid/psiMid) или средневзвешенно
   // по составу поверхностей zRows (F = ΣFᵢ) — см. п. 6.2.6 рекомендаций.

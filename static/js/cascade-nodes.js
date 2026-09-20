@@ -32,8 +32,6 @@ const NODE_HTML = {
       <button class="node-disable" type="button" title="Отключить ноду"></button>
       <button class="node-lock" type="button" title="Заблокировать параметры"></button>
       <div class="nf"><label>F, га</label><input df-f type="number" step="any" min="0.01"></div>
-      <div class="nf"><label>q₂₀, л/с·га</label><input df-q20 type="number" step="any" min="1"></div>
-      <div class="nf"><label>P, лет</label><input df-p type="number" step="any" min="0.1"></div>
       <div class="nf"><label>t<sub>con</sub>, мин</label><input df-tcon type="number" step="any" min="0"></div>
       <div class="catch-out">Q<sub>r</sub> = — <br> t<sub>r</sub> = —</div>
       <button class="catch-info" type="button" title="Формулы расчёта Qr и tr (п. 2.3.1)">?</button>
@@ -94,8 +92,8 @@ const NODE_PORTS = { pump: [1, 1], delay: [1, 1], catch: [0, 1], flow: [0, 1] };
 const NODE_LABEL = { pump: "КНС", delay: "Участок", catch: "Водосбор", flow: "Доп. приток" };
 const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#1098ad"];
 
-const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100, d: 50, F: 0.1, q20: 1, P: 0.1, tcon: 1, t1: 1, t2: 1 };
-const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbD: 50, sbFrom: 1, sbTo: 1, sbStep: 1, globalN: 0.01, sbCF: 0.1, sbCQ20: 1, sbCP: 0.1, sbCMr: 1, sbCGamma: 0.01, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCTp: 1, sbFQ: 1, sbFT1: 1, sbFT2: 1 };
+const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100, d: 50, F: 0.1, tcon: 1, t1: 1, t2: 1 };
+const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbD: 50, sbFrom: 1, sbTo: 1, sbStep: 1, sbCF: 0.1, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCTp: 1, sbFQ: 1, sbFT1: 1, sbFT2: 1 };
 
 // Нода «Доп. приток» — источник прямоугольного импульса: Q с t₁ до t₂.
 // Пустое t₁ означает «с начала события» (эквивалент 0). Эмитирует

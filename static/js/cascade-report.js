@@ -353,7 +353,7 @@ function reportSchemeMD(graph, n) {
     const d = nd.data || {};
     let params = "";
     if (nd.type === "pump") params = `Qнс=${reportFmt(d.q)} л/с, Qr=${reportFmt(d.qr)} л/с, tr=${reportFmt(d.tr)} мин, режим: ${d.mode === "numeric" ? "числ." : "аналит."}`;
-    else if (nd.type === "catch") params = `F=${reportFmt(d.F)} га, q20=${reportFmt(d.q20)} л/с/га`;
+    else if (nd.type === "catch") params = `F=${reportFmt(d.F)} га`;
     else if (nd.type === "delay") params = `L=${reportFmt(d.l ?? d.L)} м, v=${reportFmt(d.v)} м/с${(() => { const dd = parseFloat(d.d); return Number.isFinite(dd) && dd > 0 ? `, D=${reportFmt(dd, 0)} мм` : ""; })()}`;
     else if (nd.type === "flow") params = flowReportParams(d);
     const disabled = d.disabled ? " **(отключена — расчёт не выполняется)**" : "";
@@ -364,7 +364,8 @@ function reportSchemeMD(graph, n) {
   if (graph.connections.length) {
     out.push(`**Связи:** ${graph.connections.map(c => `#${c.from} → #${c.to}`).join(", ")}`, "");
   }
-  out.push(`**Общий климатический параметр:** n = ${reportFmt(n)}; **шаг дискретизации рядов:** Δt = ${reportFmt(HYDRO_DT)} мин.`, "");
+  const rain = getActiveRain();
+  out.push(`**Дождь схемы:** профиль ${rain.name?.trim() ? `«${rain.name}»` : "по умолчанию"}: q₂₀ = ${reportFmt(rain.q20)} л/с·га, P = ${reportFmt(rain.P, 1)} лет, m_r = ${reportFmt(rain.mr, 0)}, γ = ${reportFmt(rain.gamma)}. **Общий климатический параметр:** n = ${reportFmt(n)}; **шаг дискретизации рядов:** Δt = ${reportFmt(HYDRO_DT)} мин.`, "");
   return out.join("\n");
 }
 

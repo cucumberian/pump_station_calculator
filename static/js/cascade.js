@@ -21,10 +21,8 @@ function graphData() {
   return editor.export().drawflow.Home.data;
 }
 
-function getGlobalN() {
-  const n = parseFloat($c("globalN").value);
-  return n > 0 && n < 1 ? n : 0.71;
-}
+// n — климатический параметр активного профиля дождя (cascade-rain.js);
+// объявлена там же — здесь дубль не нужен.
 
 function nextNodeId() {
   const data = graphData();
@@ -134,7 +132,7 @@ function rainHorizon(data, nGlob, totalDelay) {
   for (const nd of Object.values(data)) {
     if (nd.data?.disabled) continue;
     if (nd.name === "catch") {
-      const p = catchParams(nd.data || {}, nGlob);
+      const p = catchParams(nd.data || {}, nGlob, getActiveRain());
       if (p.Qr > 0 && p.tr > 0) h = Math.max(h, hydroTailT(p.Qr, p.tr, nGlob));
     } else if (nd.name === "pump") {
       const Qr = parseFloat(nd.data?.qr), tr = parseFloat(nd.data?.tr);
@@ -191,7 +189,7 @@ function computeCascadeNow() {
       const gf = flowGF(d, flowHorizon);
       res[id] = gf ? { gf, fromCatch: false } : null;
     } else if (nd.name === "catch") {
-      const p = catchParams(d, nGlob);
+      const p = catchParams(d, nGlob, getActiveRain());
       if (!(p.Qr > 0 && p.tr > 0)) { res[id] = null; continue; }
       res[id] = {
         gf: makeHydroGF(p.Qr, p.tr, nGlob, 0),
@@ -727,20 +725,14 @@ editor.on("nodeRemoved", id => {
 editor.on("nodeDataChanged", () => computeCascade());
 editor.on("nodeMoved", () => saveScheme());
 
-$c("globalN").addEventListener("input", computeCascade);
+// Панель дождя схемы (cascade-rain.js): кнопка + профили + параметры.
+bindRainPanel();
 $c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
 
 const LS_PALETTE = "kns-palette-collapsed";
-const gnField = document.querySelector(".palette .global-n");
 function setPaletteCollapsed(collapsed) {
   $c("palette").classList.toggle("collapsed", collapsed);
-  if (collapsed) {
-    $c("nFloat").insertBefore(gnField, $c("paletteExpand").nextSibling);
-    $c("nFloat").hidden = false;
-  } else {
-    $c("gnSlot").appendChild(gnField);
-    $c("nFloat").hidden = true;
-  }
+  $c("nFloat").hidden = !collapsed;
   try { localStorage.setItem(LS_PALETTE, collapsed ? "1" : "0"); } catch { /* приватный режим */ }
 }
 $c("paletteToggle").addEventListener("click", () => setPaletteCollapsed(true));

@@ -55,7 +55,6 @@
   padding: 14px;
   overflow-y: auto;
 }
-.palette #gnSlot {display: flex; flex-direction: column; gap: 0.4rem;}
 .palette.collapsed { display: none; }
 .palette-toggle {
   position: absolute;
@@ -95,18 +94,54 @@
   user-select: none;
   box-shadow: 0 1px 4px rgba(18, 50, 94, 0.15);
 }
-.n-float[hidden] { display: none; }
-.n-float .palette-toggle { position: static; }
-.n-float .global-n {
-  margin: 0;
+
+/* Панель дождя: кнопка + разворачивающаяся панелька в левом верхнем углу
+   канваса (под n-float, чтобы не пересекаться с ней при свёрнутой палитре). */
+.rain-float {
+  position: absolute;
+  top: 56px;
+  left: 10px;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.rain-btn {
+  box-shadow: 0 1px 4px rgba(18, 50, 94, 0.15);
+}
+.rain-panel {
+  margin-top: 6px;
+  width: 264px;
+  max-width: calc(100vw - 20px);
+  padding: 12px 14px;
+  box-shadow: 0 3px 14px rgba(18, 50, 94, 0.2);
+}
+.rain-panel h2 { margin: 0; }
+.rain-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.rain-head-btns { display: flex; align-items: center; gap: 6px; }
+.rain-close { position: static; }
+.rain-profiles {
   display: flex;
   align-items: center;
   gap: 4px;
-  width: 84px;
+  margin-bottom: 10px;
 }
-.n-float .global-n label { display: none; }
-.n-float .global-n .n-short { display: inline; font-size: 13px; color: #5a6572; }
-.n-float .global-n input { padding: 4px 6px; font-size: 13px; }
+.rain-profiles select { flex: 1; min-width: 0; }
+.rain-pbtn { padding: 3px 8px; }
+.rain-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #5a6572;
+  line-height: 1.35;
+}
+.n-float[hidden] { display: none; }
+.n-float .palette-toggle { position: static; }
 .palette h2 {
   font-size: 14px;
   text-transform: uppercase;
@@ -693,7 +728,6 @@ body.pal-dragging { cursor: grabbing; user-select: none; }
 .drawflow .connection .main-path:hover,
 .drawflow .connection .main-path.selected { stroke: #d6336c; }
 
-.palette .global-n .n-short { display: none; }
 
 .ctx-menu {
   position: fixed;
@@ -772,12 +806,6 @@ body.pal-dragging { cursor: grabbing; user-select: none; }
   .palette .btn { flex-shrink: 0; }
   .pal-node .addon { display: none; }
   .pal-node b { font-size: 12px; }
-  .palette #gnSlot { flex-direction: row; align-items: center; }
-  .palette #gnSlot .field { margin: 0; }
-  .palette .global-n { margin-bottom: 0; width: 84px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
-  .palette .global-n label { display: none; }
-  .palette .global-n .n-short { display: inline; font-size: 13px; color: #5a6572; }
-  .palette .global-n input { padding: 4px 6px; font-size: 13px; }
   #clearAll .full { display: none; }
   #clearAll .short { display: inline; }
   .sidebar .sb-pair .field label { font-size: 12px; }

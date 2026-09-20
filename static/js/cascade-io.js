@@ -5,7 +5,7 @@ const LS_N = "kns-cascade-n";
 const LS_VIEW = "kns-cascade-view";
 const LS_META = "kns-cascade-meta";
 const FORMAT = "kns-cascade";
-const FORMAT_VERSION = 2;
+const FORMAT_VERSION = 3;
 
 // Библиотека схем: реестр + отдельный ключ на каждую схему.
 const LS_INDEX = "kns-cascade:index";
@@ -336,11 +336,15 @@ function createSchemeFromPayload(payload, name, activate) {
   const p = payload.scheme && !payload.nodes ? payload.scheme : payload;
   const meta = payload.meta && typeof payload.meta === "object" ? payload.meta : { custom: [] };
   const n = (payload.n > 0 && payload.n < 1) ? payload.n : getGlobalN();
+  // Профили дождя: из payload; в схеме v2 и старше их нет — миграция
+  // (данные первого водосбора) выполняется уже при загрузке.
   const blob = {
     format: FORMAT,
     version: FORMAT_VERSION,
     meta,
     n,
+    rains: Array.isArray(p.rains) ? p.rains : [],
+    rainActive: p.rainActive || 1,
     nodes: Array.isArray(p.nodes) ? p.nodes : [],
     connections: Array.isArray(p.connections) ? p.connections : [],
   };
@@ -368,7 +372,8 @@ function loadActiveIntoEditor() {
   if (payload) {
     cascadeMeta = { custom: [], ...(payload.meta && typeof payload.meta === "object" ? payload.meta : {}) };
     if (!Array.isArray(cascadeMeta.custom)) cascadeMeta.custom = [];
-    if (payload.n > 0 && payload.n < 1) $c("globalN").value = padNum(payload.n);
+    setRainsFromPayload(payload);
+    renderRainPanel();
     rebuildScheme(payload, { allowCycle: true });
   }
   const view = readView(id);
@@ -404,6 +409,9 @@ function createScheme() {
   idx.active = id;
   writeIndex(idx);
   cascadeMeta = { custom: [] };
+  rainProfiles = [{ id: 1, ...RAIN_DEFAULTS }];
+  rainActive = 1;
+  renderRainPanel();
   closeSidebar();
   editor.clear();
   addNodeOfType("pump", 320, 160);
@@ -484,6 +492,8 @@ const SHARE_LIMIT = 6000;
 function stripSharePayload(payload) {
   return {
     n: payload.n,
+    rains: payload.rains || [],
+    rainActive: payload.rainActive || rainActive,
     nodes: payload.nodes.map(nd => {
       const def = NODE_DEFAULTS[nd.type] || {};
       const d = {};
@@ -539,7 +549,7 @@ async function decodeShareCode(code) {
   }
   const p = JSON.parse(json);
   return { format: FORMAT, version: FORMAT_VERSION,
-    n: p.n, nodes: p.nodes, connections: p.connections };
+    n: p.n, rains: p.rains, rainActive: p.rainActive, nodes: p.nodes, connections: p.connections };
 }
 
 async function copyToClipboard(text) {
@@ -600,6 +610,8 @@ function serializeScheme() {
     version: FORMAT_VERSION,
     meta: cascadeMeta,
     n: getGlobalN(),
+    rains: rainProfiles,
+    rainActive,
     nodes,
     connections,
   };
@@ -787,7 +799,8 @@ function applyPayload(payload, opts) {
   } else if (o.asNewScheme) {
     cascadeMeta = { custom: [] }; // в ссылке meta нет — не тянем мету прошлой схемы
   }
-  if (payload.n > 0 && payload.n < 1) $c("globalN").value = padNum(payload.n);
+  setRainsFromPayload(payload.scheme && !payload.nodes ? payload.scheme : payload);
+  renderRainPanel();
   closeSidebar();
   rebuildScheme(payload.scheme && !payload.nodes ? payload.scheme : payload);
   flushCascade();

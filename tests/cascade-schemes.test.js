@@ -145,6 +145,9 @@ const NODE_DEFAULTS = ${JSON.stringify(NODE_DEFAULTS)};
 const NODE_HTML = {};
 
 function getGlobalN() { return parseFloat($c("globalN").value); }
+function padNum(v) { return String(v); }
+
+${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-rain.js"), "utf8")}
 
 ${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-graph.js"), "utf8")}
 `;
