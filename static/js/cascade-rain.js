@@ -12,7 +12,7 @@
 // активный профиль; переключение профиля пересчитывает всю схему.
 // ============================================================
 
-const RAIN_DEFAULTS = { name: "", n: 0.71, q20: 80, P: 1.0, mr: 150, gamma: 1.54 };
+const RAIN_DEFAULTS = { name: "", district: null, n: 0.71, q20: 80, P: 1.0, mr: 150, gamma: 1.54 };
 let rainProfiles = [{ id: 1, ...RAIN_DEFAULTS }];
 let rainActive = 1;
 
@@ -27,6 +27,7 @@ function normRain(r) {
   if (!r || typeof r !== "object") return { ...RAIN_DEFAULTS };
   return {
     name: typeof r.name === "string" ? r.name : "",
+    district: Number.isInteger(r.district) && r.district >= 0 && r.district < (typeof RAIN_CLIMATE !== "undefined" ? RAIN_CLIMATE.length : 0) ? r.district : null,
     n: rainNum(r.n, RAIN_DEFAULTS.n, 0.01),
     q20: rainNum(r.q20, RAIN_DEFAULTS.q20, 0.01),
     P: rainNum(r.P !== undefined ? r.P : r.p, RAIN_DEFAULTS.P, 0.01),
@@ -48,6 +49,58 @@ function getGlobalN() {
 
 function rainNextId(existing = rainProfiles) {
   return existing.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1;
+}
+
+// Формула A с подставленными значениями активного профиля — живёт в панели
+// дождя, не только в справочной модалке. fmt есть в браузере (calc-view.js),
+// в изолированных тестовых окружениях (cascade-io) — запасной String().
+const rainFmt = (v, d = 2) => (typeof fmt === "function" ? fmt(v, d) : String(v));
+const rainA = r => r.q20 * 20 ** r.n * (1 + Math.log(r.P) / Math.log(r.mr)) ** r.gamma;
+function rainFormulaHTML(r) {
+  const A = rainA(r);
+  return `A = q<sub>20</sub>·20<sup>n</sup>·(1 + lg P / lg m<sub>r</sub>)<sup>γ</sup> = ` +
+    `${rainFmt(r.q20)}·20<sup>${rainFmt(r.n)}</sup>·(1 + lg ${rainFmt(r.P, 1)} / lg ${rainFmt(r.mr, 0)})<sup>${rainFmt(r.gamma)}</sup> = ` +
+    `<b>${rainFmt(A)}</b> л/(с·га)`;
+}
+
+// На кнопке дождя — имя профиля жирно, значение A — обычным начертанием.
+function updateRainBtn() {
+  const r = getActiveRain();
+  const btn = $c("rainBtn");
+  btn.textContent = "";
+  const name = document.createElement("b");
+  name.textContent = `🌧 ${r.name.trim() || `Дождь ${r.id}`}`;
+  const val = document.createElement("span");
+  val.className = "rain-btn-val";
+  val.textContent = ` ${rainFmt(rainA(r))} л/(с·га)`;
+  btn.append(name, val);
+}
+
+// Район таблицы Ж.1 в профиле: подсвечиваем поля, отклонившиеся от табличных,
+// и показываем у каждого такого поля «↺» — вернуть табличное значение.
+// q₂₀ и P кнопки не имеют: их в таблице Ж.1 нет (q₂₀ — по карте, P — по условиям объекта).
+const RAIN_RESETS = [
+  ["n", "rainN", "rainResetN"],
+  ["mr", "rainMr", "rainResetMr"],
+  ["gamma", "rainGamma", "rainResetGamma"],
+];
+function rainRegionRow(r) {
+  return r.district !== null && r.district >= 0 && typeof RAIN_CLIMATE !== "undefined" ? RAIN_CLIMATE[r.district] || null : null;
+}
+function rainRegionValue(row, key, P) {
+  if (!row) return null;
+  return key === "n" ? (P < 1 ? row.nLow : row.nHigh) : row[key];
+}
+function updateRegionHints(act) {
+  const row = rainRegionRow(act);
+  for (const [key, inputId, btnId] of RAIN_RESETS) {
+    const std = rainRegionValue(row, key, act.P);
+    const dev = std !== null && Math.abs(act[key] - std) > 1e-9;
+    const btn = $c(btnId);
+    btn.hidden = !dev;
+    if (dev) btn.title = `Вернуть значение из таблицы Ж.1: ${rainFmt(std)}`;
+    $c(inputId).classList.toggle("rain-dev", dev);
+  }
 }
 
 // Профили из payload. Без rains (схема v2 и старше) — миграция: параметры
@@ -84,49 +137,67 @@ function firstCatchData(payload) {
 
 const RAIN_FIELDS = { rainN: "n", rainQ20: "q20", rainP: "P", rainMr: "mr", rainGamma: "gamma" };
 
-function renderRainPanel() {
-  const act = rainProfiles.find(x => x.id === rainActive);
-  const multi = rainProfiles.length > 1;
-  $c("rainProfilesRow").hidden = !multi;
-  if (multi && document.activeElement !== $c("rainSelect")) {
-    const sel = $c("rainSelect");
+// force=true — перерисовать селект даже если он в фокусе (после add/dup/del:
+// в Safari/Firefox клик по кнопке не забирает фокус у селекта, и без force
+// удалённый профиль остался бы в списке).
+function renderRainPanel(force = false) {
+  const act = rainProfiles.find(x => x.id === rainActive) || rainProfiles[0];
+  rainActive = act.id;
+  const sel = $c("rainSelect");
+  if (force || document.activeElement !== sel) {
     sel.innerHTML = rainProfiles
       .map(r => `<option value="${r.id}">${r.name?.trim() ? r.name : `Дождь ${r.id}`}</option>`)
       .join("");
     sel.value = String(rainActive);
   }
-  // Summary name field (hidden? name field label) — имя
+  // Последний профиль не удаляем: дождь нужен для расчёта всегда.
+  $c("rainDel").disabled = rainProfiles.length === 1;
   const nameEl = $c("rainName");
   if (document.activeElement !== nameEl) nameEl.value = act.name || "";
   for (const [elId, key] of Object.entries(RAIN_FIELDS)) {
     const el = $c(elId);
     if (document.activeElement !== el) el.value = padNum(act[key]);
   }
+  $c("rainFormula").innerHTML = rainFormulaHTML(normRain(act));
+  updateRainBtn();
+  const nrm = normRain(act);
+  $c("rainDistrict").value = nrm.district === null ? "" : String(nrm.district);
+  updateRegionHints(nrm);
 }
 
 function updateActiveRain(key, value) {
   const r = rainProfiles.find(x => x.id === rainActive);
   if (!r) return;
   r[key] = value;
+  $c("rainFormula").innerHTML = rainFormulaHTML(getActiveRain());
+  updateRainBtn();
+  updateRegionHints(getActiveRain());
   saveScheme();
   computeCascade();
 }
 
+function setRainPanel(open) {
+  $c("rainPanel").hidden = !open;
+  document.body.classList.toggle("rain-open", open);
+  // На мобильном панель дождя перекрывает холст — панель нод справа закрываем.
+  if (open && window.matchMedia("(max-width: 900px)").matches) closeSidebar();
+}
+
 function bindRainPanel() {
   $c("rainClose").innerHTML = XMARK_HTML;
-  $c("rainClose").addEventListener("click", e => { e.stopPropagation(); $c("rainPanel").hidden = true; });
+  $c("rainClose").addEventListener("click", e => { e.stopPropagation(); setRainPanel(false); });
   $c("rainBtn").addEventListener("click", e => {
     e.stopPropagation();
-    $c("rainPanel").hidden = !$c("rainPanel").hidden;
+    setRainPanel($c("rainPanel").hidden);
   });
   // Клик мимо (по канвасу/палитре) закрывает; клики внутри панели — нет.
   document.addEventListener("click", e => {
     if ($c("rainPanel").hidden) return;
     if (e.target.closest("#rainPanel") || e.target.closest("#rainBtn")) return;
-    $c("rainPanel").hidden = true;
+    setRainPanel(false);
   });
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape") $c("rainPanel").hidden = true;
+    if (e.key === "Escape") setRainPanel(false);
   });
 
   $c("rainSelect").addEventListener("change", () => {
@@ -140,7 +211,7 @@ function bindRainPanel() {
     const id = rainNextId();
     rainProfiles.push({ id, ...RAIN_DEFAULTS, name: `Дождь ${rainProfiles.length + 1}` });
     rainActive = id;
-    renderRainPanel();
+    renderRainPanel(true);
     saveScheme();
     flushCascade();
   });
@@ -150,7 +221,7 @@ function bindRainPanel() {
     const id = rainNextId();
     rainProfiles.push({ ...normRain(src), id, name: `${src?.name || `Дождь ${rainActive}`} (копия)` });
     rainActive = id;
-    renderRainPanel();
+    renderRainPanel(true);
     saveScheme();
     flushCascade();
   });
@@ -161,7 +232,7 @@ function bindRainPanel() {
     const i = rainProfiles.findIndex(x => x.id === rainActive);
     rainProfiles.splice(i, 1);
     rainActive = rainProfiles[Math.max(0, i - 1)].id;
-    renderRainPanel();
+    renderRainPanel(true);
     saveScheme();
     flushCascade();
   });
@@ -172,8 +243,13 @@ function bindRainPanel() {
     RAIN_CLIMATE.map((r, i) => `<option value="${i}">${r.district}</option>`).join("");
   districtSel.addEventListener("change", () => {
     const row = RAIN_CLIMATE[parseInt(districtSel.value, 10)];
-    if (!row) return;
+    if (!row) { // «вручную»: район сбрасываем, кнопки «↺» прячутся
+      updateActiveRain("district", null);
+      updateRegionHints(getActiveRain());
+      return;
+    }
     const P = parseFloat($c("rainP").value);
+    updateActiveRain("district", parseInt(districtSel.value, 10));
     updateActiveRain("n", Number.isFinite(P) && P < 1 ? row.nLow : row.nHigh);
     updateActiveRain("mr", row.mr);
     updateActiveRain("gamma", row.gamma);
@@ -181,6 +257,17 @@ function bindRainPanel() {
     computeCascade();
     renderRainPanel();
   });
+  // «↺» у отклонившегося поля — вернуть табличное значение Ж.1.
+  for (const [key, inputId, btnId] of RAIN_RESETS) {
+    $c(btnId).addEventListener("click", e => {
+      e.stopPropagation();
+      const act = getActiveRain();
+      const std = rainRegionValue(rainRegionRow(act), key, act.P);
+      if (std === null) return;
+      updateActiveRain(key, std);
+      renderRainPanel();
+    });
+  }
 
   const nameEl = $c("rainName");
   nameEl.addEventListener("input", () => {
@@ -198,7 +285,15 @@ function bindRainPanel() {
 
   $c("rainHelp").addEventListener("click", e => {
     e.stopPropagation();
-    openHelp(rainHelpBlocks(), {});
+    openHelp(rainHelpBlocks(), { title: "Справка: дождь схемы" });
+  });
+  // Глобус у q₂₀ — карта изолиний интенсивностей дождя (Приложение Б).
+  $c("rainQ20Map").addEventListener("click", e => {
+    e.stopPropagation();
+    openHelp([
+      { p: "Значения величины интенсивности дождя q₂₀ (20 мин), л/(с·га) — карта изолиний (линий равных значений; на картах осадков — изоплеты). Приложение Б (обязательное) рекомендаций НИИ ВОДГЕО (2015); в СП 32.13330.2018 — рисунок Ж.1. Для Сахалинской области, Камчатского края и Крыма — «Таблицы параметров предельной интенсивности дождя»." },
+      { img: "static/img/q20-map.webp", alt: "Карта значений q₂₀, л/(с·га)" },
+    ], { title: "Карта q₂₀ (Приложение Б)" });
   });
 }
 
@@ -210,7 +305,7 @@ function rainHelpBlocks() {
   const A = r.q20 * 20 ** n * (1 + Math.log(r.P) / Math.log(r.mr)) ** r.gamma;
   return [
     { h: "Параметры дождя схемы" },
-    { p: "Дождь — общий для всех водосборов схемы: n, q₂₀, P, m_r и γ хранятся профилем в самой схеме, а не в нодах «Водосбор»." },
+    { p: "Дождь — общий для всех водосборов схемы: n, q₂₀, P, m_r и γ хранятся в дождевом профиле схемы." },
     { p: "Параметр A, характеризующий интенсивность и продолжительность дождя для конкретной местности (п. 5.3.2; формула (1) рекомендаций ВОДГЕО (2015)), с текущими значениями активного профиля:" },
     { tex: `A = q_{20}\\,20^{\\,n}\\left(1+\\frac{\\lg P}{\\lg m_r}\\right)^{\\!\\gamma} = ${fmt(r.q20)}\\cdot20^{${fmt(n)}}\\left(1+\\frac{\\lg ${fmt(r.P, 1)}}{\\lg ${fmt(r.mr, 0)}}\\right)^{${fmt(r.gamma)}} = ${fmt(A)}` },
     { ol: [

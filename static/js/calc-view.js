@@ -81,6 +81,10 @@ function traceTk(Q, Qr, tr, n) {
 function openHelp(blocks, ctx) {
   const body = $view("modalBody");
   body.innerHTML = "";
+  const box = $view("modalBox");
+  if (box) box.style.left = box.style.top = ""; // после drag'а вернуть на штатное место
+  const title = $view("modalTitle");
+  if (title) title.textContent = (ctx && ctx.title) || "Справка";
   for (const b of blocks) {
     if (b.h) {
       const h = document.createElement("h4");
@@ -95,6 +99,16 @@ function openHelp(blocks, ctx) {
       const d = document.createElement("div");
       d.className = "modal-tex";
       katex.render(b.tex, d, { displayMode: true, throwOnError: false });
+      body.append(d);
+    } else if (b.img) {
+      const d = document.createElement("div");
+      d.className = "modal-img";
+      const im = document.createElement("img");
+      im.src = b.img;
+      im.alt = b.alt || "";
+      im.loading = "lazy";
+      im.addEventListener("click", () => openLightbox(b.img, b.alt || ""));
+      d.append(im);
       body.append(d);
     } else if (b.ol) {
       const ol = document.createElement("ol");
@@ -157,10 +171,127 @@ function openHelp(blocks, ctx) {
   $view("modal").hidden = false;
 }
 
+// Полноэкранный просмотр картинки с зумом (карта q₂₀ и т.п.).
+// Пинч двумя пальцами / колесо — масштаб, один палец/мышь — панорама,
+// двойной клик/тап — быстрый зум, клик по фону, Esc или ✕ — закрыть.
+function openLightbox(src, alt) {
+  let v = document.getElementById("imgViewer");
+  if (!v) {
+    v = document.createElement("div");
+    v.id = "imgViewer";
+    v.className = "img-viewer";
+    const close = document.createElement("button");
+    close.className = "modal-close iv-close";
+    close.type = "button";
+    close.setAttribute("aria-label", "Закрыть");
+    close.textContent = "✕";
+    const im = document.createElement("img");
+    v.append(close, im);
+    document.body.append(v);
+    bindLightbox(v);
+  }
+  const im = v.querySelector("img");
+  im.src = src;
+  im.alt = alt;
+  im.style.transform = "";
+  v.dataset.scale = "1";
+  v.dataset.x = "0";
+  v.dataset.y = "0";
+  v.hidden = false;
+}
+
+function bindLightbox(v) {
+  const im = v.querySelector("img");
+  const pts = new Map();
+  let pinch0 = null, pan0 = null;
+  const apply = () => {
+    const s = +v.dataset.scale, x = +v.dataset.x, y = +v.dataset.y;
+    im.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+  };
+  const resetIfFit = () => {
+    if (+v.dataset.scale === 1) { v.dataset.x = 0; v.dataset.y = 0; apply(); }
+  };
+  const close = () => { v.hidden = true; };
+  v.querySelector(".iv-close").addEventListener("click", close);
+  v.addEventListener("click", e => { if (e.target === v) close(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !v.hidden) { v.hidden = true; e.stopPropagation(); }
+  });
+  v.addEventListener("wheel", e => {
+    e.preventDefault();
+    const s = Math.min(8, Math.max(1, +v.dataset.scale * (e.deltaY < 0 ? 1.15 : 0.87)));
+    v.dataset.scale = s;
+    resetIfFit();
+    apply();
+  }, { passive: false });
+  v.addEventListener("dblclick", e => {
+    e.preventDefault();
+    v.dataset.scale = +v.dataset.scale > 1.2 ? "1" : "3";
+    resetIfFit();
+    apply();
+  });
+  v.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      pinch0 = {
+        d: Math.hypot(a.x - b.x, a.y - b.y), s: +v.dataset.scale,
+        mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2,
+        x: +v.dataset.x, y: +v.dataset.y,
+      };
+      pan0 = null;
+    } else if (pts.size === 1) {
+      const p = pts.get(e.pointerId);
+      pan0 = { x: p.x - +v.dataset.x, y: p.y - +v.dataset.y };
+    }
+  });
+  v.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2 && pinch0) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      v.dataset.scale = Math.min(8, Math.max(1, pinch0.s * d / pinch0.d));
+      v.dataset.x = pinch0.x + ((a.x + b.x) / 2 - pinch0.mx);
+      v.dataset.y = pinch0.y + ((a.y + b.y) / 2 - pinch0.my);
+      apply();
+    } else if (pts.size === 1 && pan0) {
+      const p = pts.get(e.pointerId);
+      v.dataset.x = p.x - pan0.x;
+      v.dataset.y = p.y - pan0.y;
+      apply();
+    }
+  });
+  const up = e => {
+    pts.delete(e.pointerId);
+    pinch0 = null;
+    pan0 = null;
+    resetIfFit();
+  };
+  v.addEventListener("pointerup", up);
+  v.addEventListener("pointercancel", up);
+}
+
 function bindModal() {
   $view("modalClose").addEventListener("click", () => { $view("modal").hidden = true; });
   $view("modal").addEventListener("click", e => { if (e.target === $view("modal")) $view("modal").hidden = true; });
   document.addEventListener("keydown", e => { if (e.key === "Escape") $view("modal").hidden = true; });
+  // Справка — плавающее окно: тянется за шапку (pointer-события — и мышь, и тач).
+  $view("modalHead").addEventListener("pointerdown", e => {
+    if (e.target.closest(".modal-close")) return;
+    const box = $view("modalBox");
+    const r = box.getBoundingClientRect();
+    const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const move = ev => {
+      box.style.left = Math.max(0, Math.min(innerWidth - 60, ev.clientX - dx)) + "px";
+      box.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy)) + "px";
+    };
+    const stop = () => document.removeEventListener("pointermove", move);
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", stop, { once: true });
+    e.preventDefault();
+  });
 }
 
 const CARDS = [

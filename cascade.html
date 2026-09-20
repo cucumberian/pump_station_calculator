@@ -10,18 +10,18 @@
   <title>Каскад КНС — редактор схемы насосных станций</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.css">
-  <link rel="stylesheet" href="static/css/style.css?v=8">
-  <link rel="stylesheet" href="static/css/cascade.css?v=47">
+  <link rel="stylesheet" href="static/css/style.css?v=13">
+  <link rel="stylesheet" href="static/css/cascade.css?v=51">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script defer src="static/js/hydro.js?v=9"></script>
-  <script defer src="static/js/calc-view.js?v=13"></script>
+  <script defer src="static/js/calc-view.js?v=16"></script>
   <script defer src="static/js/cascade-graph.js?v=2"></script>
   <script defer src="static/js/reference-data.js?v=2"></script>
   <script defer src="static/js/cascade-nodes.js?v=16"></script>
   <script defer src="static/js/cascade-catch.js?v=13"></script>
-  <script defer src="static/js/cascade-rain.js?v=2"></script>
+  <script defer src="static/js/cascade-rain.js?v=12"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=7"></script>
   <script defer src="static/js/cascade-sidebar.js?v=32"></script>
@@ -105,59 +105,72 @@
       </div>
       <div class="rain-float">
         <button class="btn rain-btn" id="rainBtn" type="button" title="Дождь схемы — общие параметры для всех водосборов: q₂₀, P, m_r, γ">🌧 Дождь</button>
-        <div class="rain-panel panel" id="rainPanel" hidden>
-          <div class="rain-head">
-            <h2>Дождь схемы</h2>
-            <div class="rain-head-btns">
-              <button class="help-btn sb-help" id="rainHelp" type="button"
-                title="Формула A и источники параметров (Приложения 2–3 рекомендаций)">?</button>
-              <button class="modal-close rain-close" id="rainClose" type="button" title="Закрыть"></button>
-            </div>
+      </div>
+      <div class="rain-panel panel" id="rainPanel" hidden>
+        <div class="rain-head">
+          <h2>Дождь схемы</h2>
+          <div class="rain-head-btns">
+            <button class="help-btn sb-help" id="rainHelp" type="button"
+              title="Формула A и источники параметров (Приложения 2–3 рекомендаций)">?</button>
+            <button class="modal-close rain-close" id="rainClose" type="button" title="Закрыть"></button>
           </div>
-          <div class="rain-profiles" id="rainProfilesRow" hidden>
-            <select id="rainSelect" title="Активный профиль дождя"></select>
-            <button class="btn rain-pbtn" id="rainAdd" type="button" title="Добавить профиль">+</button>
-            <button class="btn rain-pbtn" id="rainDup" type="button" title="Дублировать профиль">⧉</button>
-            <button class="btn rain-pbtn" id="rainDel" type="button" title="Удалить профиль">🗑</button>
-          </div>
-          <div class="field">
-            <label for="rainName">Имя профиля</label>
-            <input id="rainName" type="text" placeholder="Без имени">
-          </div>
-          <div class="field" title="показатель степени, климатический параметр местности (таблица Ж.1 СП 32.13330.2018; при P < 1 и P ≥ 1 — разные значения)">
-            <label for="rainN">n — климатический параметр</label>
-            <input id="rainN" type="number" step="0.01" min="0.01" max="0.99">
-          </div>
-          <div class="field" title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
-            <label for="rainQ20">q₂₀ — интенсивность дождя</label>
-            <div class="dual">
-              <input id="rainQ20" type="number" step="any" min="1">
-              <span class="dual-unit">л/с с га</span>
-            </div>
-          </div>
-          <div class="field" title="период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3)">
-            <label for="rainP">P — период превышения</label>
-            <div class="dual">
-              <input id="rainP" type="number" step="any" min="0.1">
-              <span class="dual-unit">лет</span>
-            </div>
-          </div>
-          <div class="field" title="среднее количество дождей за год (таблица Приложения 3)">
-            <label for="rainMr">m<sub>r</sub> — дождей за год</label>
-            <input id="rainMr" type="number" step="any" min="1">
-          </div>
-          <div class="field" title="показатель степени (таблица Приложения 3)">
-            <label for="rainGamma">γ — показатель степени</label>
-            <input id="rainGamma" type="number" step="any" min="0.1">
-          </div>
-          <div class="field" title="подставить n, m_r и γ по району из таблицы Ж.1 СП 32.13330.2018; q₂₀ подсказки не задаются — он определяется по рисунку Ж.1 (карта)">
-            <label for="rainDistrict">Район (таблица Ж.1)</label>
-            <select id="rainDistrict">
-              <option value="">— вручную —</option>
-            </select>
-          </div>
-          <p class="rain-note">Общий для всех водосборов схемы. Показатель n — над нодами слева.</p>
         </div>
+        <div class="rain-profiles" id="rainProfilesRow">
+          <select id="rainSelect" title="Активный профиль дождя"></select>
+          <button class="btn rain-pbtn" id="rainAdd" type="button" title="Добавить профиль">+</button>
+          <button class="btn rain-pbtn" id="rainDup" type="button" title="Дублировать профиль">⧉</button>
+          <button class="btn rain-pbtn" id="rainDel" type="button" title="Удалить профиль">🗑</button>
+        </div>
+        <div class="field">
+          <label for="rainName">Имя профиля</label>
+          <input id="rainName" type="text" placeholder="Без имени">
+        </div>
+        <div class="field" title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
+          <div class="rain-labelrow">
+            <label for="rainQ20">q₂₀ — интенсивность дождя</label>
+            <button class="rain-map-btn" id="rainQ20Map" type="button" title="Карта значений q₂₀ — Приложение Б рекомендаций НИИ ВОДГЕО (2015), рисунок Ж.1 СП 32.13330.2018"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M8 13.5c1.63 0 3.094-.709 4.101-1.835A2.5 2.5 0 0 1 10.25 9.25V9a.75.75 0 0 0-.75-.75 2.25 2.25 0 0 1 0-4.5.75.75 0 0 0 .75-.75v-.02a5.5 5.5 0 0 0-7.471 3.287A2.25 2.25 0 0 1 4.75 8.5c0 .414.336.75.75.75a2.25 2.25 0 0 1 1.265 4.11q.597.139 1.235.14m-3.491-1.25H5.5a.75.75 0 0 0 0-1.5A2.25 2.25 0 0 1 3.25 8.5a.75.75 0 0 0-.744-.75 5.49 5.49 0 0 0 2.003 4.5m8.241-2h.27A5.5 5.5 0 0 0 13.5 8c0-1.665-.74-3.158-1.91-4.166A2.25 2.25 0 0 1 9.5 5.25a.75.75 0 1 0 0 1.5A2.25 2.25 0 0 1 11.75 9v.25a1 1 0 0 0 1 1M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14" clip-rule="evenodd"/></svg></button>
+          </div>
+          <div class="dual">
+            <input id="rainQ20" type="number" step="any" min="1">
+            <span class="dual-unit">л/с с га</span>
+          </div>
+        </div>
+        <div class="field" title="период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3)">
+          <label for="rainP">P — период превышения</label>
+          <div class="dual">
+            <input id="rainP" type="number" step="any" min="0.1">
+            <span class="dual-unit">лет</span>
+          </div>
+        </div>
+        <div class="field" title="подставить n, m_r и γ по району из таблицы Ж.1 СП 32.13330.2018 (район сохраняется в профиле); q₂₀ подсказки не задаются — он определяется по рисунку Ж.1 (карта)">
+          <label for="rainDistrict">Район (таблица Ж.1)</label>
+          <select id="rainDistrict">
+            <option value="">— вручную —</option>
+          </select>
+        </div>
+        <div class="field" title="показатель степени, климатический параметр местности (таблица Ж.1 СП 32.13330.2018; при P < 1 и P ≥ 1 — разные значения)">
+          <label for="rainN">n — климатический параметр</label>
+          <div class="rain-numline">
+            <input id="rainN" type="number" step="0.01" min="0.01" max="0.99">
+            <button class="rain-reset" id="rainResetN" type="button" hidden>↺</button>
+          </div>
+        </div>
+        <div class="field" title="среднее количество дождей за год (таблица Ж.1 СП 32.13330.2018)">
+          <label for="rainMr">m<sub>r</sub> — дождей за год</label>
+          <div class="rain-numline">
+            <input id="rainMr" type="number" step="any" min="1">
+            <button class="rain-reset" id="rainResetMr" type="button" hidden>↺</button>
+          </div>
+        </div>
+        <div class="field" title="показатель степени (таблица Ж.1 СП 32.13330.2018)">
+          <label for="rainGamma">γ — показатель степени</label>
+          <div class="rain-numline">
+            <input id="rainGamma" type="number" step="any" min="0.1">
+            <button class="rain-reset" id="rainResetGamma" type="button" hidden>↺</button>
+          </div>
+        </div>
+        <p class="rain-formula" id="rainFormula"></p>
+        <p class="rain-note">Общий для всех водосборов схемы: n, q₂₀, P, m_r и γ хранятся профилем дождя.</p>
       </div>
       <div class="zoom-controls">
         <button id="zoomIn" type="button" title="Приблизить">+</button>
@@ -532,14 +545,17 @@
 
   <div id="selfcheck" hidden></div>
 
-  <div id="modal" class="modal" hidden>
-    <div class="modal-box">
-      <button id="modalClose" class="modal-close" type="button" aria-label="Закрыть"><svg class="ic ic-xmark"
+  <div id="modal" class="modal help-modal" hidden>
+    <div class="modal-box" id="modalBox">
+      <div class="modal-head" id="modalHead">
+        <h3 id="modalTitle">Справка</h3>
+        <button id="modalClose" class="modal-close" type="button" aria-label="Закрыть"><svg class="ic ic-xmark"
           xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true">
           <path fill="currentColor" fill-rule="evenodd"
             d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06"
             clip-rule="evenodd" />
         </svg></button>
+      </div>
       <div id="modalBody"></div>
     </div>
   </div>

@@ -230,11 +230,85 @@ tr.active { background: #fff3d6; font-weight: 600; }
 .modal-box ol { margin: 0 0 10px; padding-left: 20px; }
 .modal-tex { margin: 6px 0 14px; overflow-x: auto; }
 .help-table-wrap { margin: 6px 0 14px; overflow-x: auto; }
+.modal-img { margin: 6px 0 14px; }
+.modal-img img { width: 100%; height: auto; cursor: zoom-in; }
+/* Полноэкранный просмотр картинки (карта q₂₀): пинч-зум двумя пальцами,
+   перетаскивание, колесо, двойной клик — зум; клик по фону/Esc — закрыть. */
+.img-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  overflow: hidden;
+}
+.img-viewer[hidden] { display: none; }
+.img-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.img-viewer .iv-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  color: #fff;
+  z-index: 2;
+}
+.img-viewer .iv-close:hover { color: #ffb3a7; }
 table.help-table { font-size: 12px; }
 table.help-table th, table.help-table td { padding: 4px 8px; }
 table.help-table th:first-child, table.help-table td:first-child { text-align: left; }
 .modal-box details { margin: 0 0 10px; }
 .modal-box summary { cursor: pointer; font-weight: 600; color: #12325e; margin-bottom: 6px; }
+
+/* Справка: не блокирующий оверлей, а плавающее окно — тянется за шапку,
+   фон-подложка не перехватывает клики, интерфейсом можно пользоваться. */
+.modal.help-modal {
+  background: none;
+  padding: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 11;
+}
+.modal.help-modal[hidden] { display: none; }
+.modal.help-modal .modal-box {
+  pointer-events: auto;
+  position: fixed;
+  left: max(10px, calc(50% - 390px));
+  top: 60px;
+  max-width: min(780px, 94vw);
+  height: min(640px, calc(100vh - 80px));
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.modal.help-modal #modalBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 24px;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 8px 16px;
+  border-bottom: 1px solid #dde1e6;
+  background: #f4f6f9;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+.modal-head h3 { margin: 0; font-size: 14px; color: #12325e; }
+.modal.help-modal .modal-close { position: static; }
 table.trace { font-size: 12px; }
 table.trace th, table.trace td { padding: 3px 8px; text-align: right; white-space: nowrap; }
 table.trace tr.bracket td { color: #5a6572; }
