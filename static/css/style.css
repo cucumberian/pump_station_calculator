@@ -80,7 +80,11 @@ main {
 }
 .right {
   display: grid;
-  justify-content: center;
+  /* Колонка во всю ширину, элементы центрируются и упираются в max-width.
+     Иначе свёрнутая секция (только заголовок) сжимала бы колонку по
+     содержимому — панели становились узкими «кнопками» по центру. */
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
   gap: 2rem;
   min-width: 0;
 }
@@ -343,6 +347,104 @@ table.trace tr.bracket td { color: #5a6572; }
   color: #fff;
   padding: 10px 24px;
 }
+
+/* ---------------------------------------------------------------
+   Одиночный расчёт: секции «Дождь» и «Водосбор». Аккордеон по образцу
+   «Результатов»; списки участков/поверхностей — те же .seg-row, что в
+   каскаде, но без привязки к нодам.
+   --------------------------------------------------------------- */
+.acc > h2 { cursor: pointer; user-select: none; }
+/* Рассчитанное значение в заголовке свёрнутой секции: обычный регистр и
+   цвет, чтобы не сливалось с капслочным названием. */
+.acc-val {
+  display: inline-flex;
+  gap: 10px;
+  align-items: baseline;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  color: #12325e;
+  white-space: nowrap;
+}
+.acc-val:empty { display: none; }
+.acc .acc-body { display: none; }
+.acc.open .acc-body { display: block; }
+.acc > h2 .scheme-arrow { display: inline-block; transition: transform 0.15s; }
+.acc.open > h2 .scheme-arrow { transform: rotate(180deg); }
+
+.field select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #c4ccd4;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.mode-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; margin: 8px 0 12px; }
+.mode-row label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+.mode-row.stacked { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+.pair { display: flex; flex-wrap: wrap; gap: 10px; }
+.pair .field { flex: 1; min-width: 140px; }
+
+.sec-h {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #5a6572; margin: 18px 0 8px;
+}
+.sec-h .help-btn { position: static; }
+
+.sub { font-size: 12px; font-weight: 600; color: #12325e; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #e4e9f1; }
+
+.seg-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.seg-list:empty::before { content: "не заданы"; color: #98a2b3; font-size: 11px; }
+.seg-row { display: flex; gap: 4px; align-items: center; }
+.seg-row input, .seg-row select {
+  flex: 1; min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #c4ccd4;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+/* Кнопка удаления строки участка/поверхности — одна и та же в одиночном
+   расчёте и в каскаде: стиль живёт здесь, cascade.css её не переопределяет. */
+.seg-del {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  border: 1px solid #d0d5dd;
+  border-radius: 4px;
+  background: #fff;
+  color: #b0341f;
+  font-size: 15px;
+  cursor: pointer;
+}
+.seg-del:hover { background: #fdecec; }
+.seg-del:disabled { opacity: .45; cursor: default; }
+.seg-add { font-size: 12px; padding: 4px 10px; }
+
+.num-line { display: flex; align-items: center; gap: 6px; }
+.num-line input { flex: 1; min-width: 0; }
+.reset-btn {
+  padding: 4px 8px; border: 1px solid #e07b39; border-radius: 6px;
+  background: #fdf1e7; color: #9a4b14; font-size: 13px; line-height: 1; cursor: pointer;
+}
+.reset-btn:hover { background: #fae2d1; }
+.field input.derived { background: #eef1f4; border-color: #d5dbe1; color: #46505d; }
+
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.map-btn { padding: 2px; border: none; background: none; color: #12325e; cursor: pointer; }
+.map-btn:hover { color: #1f6feb; }
+
+.formula-line { font-size: 13px; color: #12325e; line-height: 1.5; margin: 12px 0 8px; }
+.note-line { font-size: 13px; color: #46505d; margin: 0 0 10px; }
+.catch-res { font-size: 14px; font-weight: 600; color: #12325e; margin: 14px 0 8px; }
+.warn { color: #b0341f; }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; padding: 12px; gap: 12px; }

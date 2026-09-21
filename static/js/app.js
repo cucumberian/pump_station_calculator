@@ -59,6 +59,10 @@ function render() {
   saveToStorage();
 
   buildCards($("cards"), Q, Qr, tr, n, r, false);
+  // В свёрнутом виде в заголовке — главные результаты расчёта КНС.
+  $("resultsHeaderVal").innerHTML = r.dry
+    ? `<span>Wнс = ${fmt(r.W, 1)} м³</span>`
+    : `<span>Wнс = ${fmt(r.W, 1)} м³</span><span>tнⁿˢ = ${fmt(r.tn, 1)} мин</span><span>tкⁿˢ = ${fmt(r.tk, 1)} мин</span>`;
 
   let rangePts = [];
   const rc = clampRange(Qr);
@@ -99,6 +103,7 @@ function saveToStorage() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch { /* приватный режим */ }
   const p = new URLSearchParams();
   for (const id of PARAM_IDS) p.set(id, data[id]);
+  if (typeof catchUrlParams === "function") catchUrlParams(p); // дождь и водосбор
   history.replaceState(null, "", "?" + p);
 }
 
@@ -135,6 +140,7 @@ async function copyText(text) {
 $("share").addEventListener("click", async () => {
   const p = new URLSearchParams();
   for (const id of PARAM_IDS) p.set(id, $(id).value);
+  if (typeof catchUrlParams === "function") catchUrlParams(p);
   history.replaceState(null, "", "?" + p);
   const ok = await copyText(location.href);
   if (ok) {
@@ -153,9 +159,11 @@ $("chartsToggle").addEventListener("click", () => {
   $("charts").classList.toggle("open");
   requestAnimationFrame(() => { EC_REGISTRY.forEach(ec => ec.resize()); });
 });
+$("tableToggle").addEventListener("click", () => $("tableSection").classList.toggle("open"));
 if (window.matchMedia("(min-width: 901px)").matches) {
   $("results").classList.add("open");
   $("charts").classList.add("open");
+  $("tableSection").classList.add("open");
   requestAnimationFrame(() => { EC_REGISTRY.forEach(ec => ec.resize()); });
 }
 $("chartFitAxis").addEventListener("click", e => {
@@ -237,7 +245,12 @@ const shiftTr = dh => {
 $("trMinus").addEventListener("click", () => shiftTr(-1));
 $("trPlus").addEventListener("click", () => shiftTr(1));
 
-const WHEEL_STEPS = { Qr: 1, tr: 1, n: 0.01, Q: 1, Qm3h: 3.6, vFrom: 1, vTo: 1, vStep: 1 };
+const WHEEL_STEPS = {
+  Qr: 1, tr: 1, n: 0.01, Q: 1, Qm3h: 3.6, vFrom: 1, vTo: 1, vStep: 1,
+  // дождь и водосбор одиночного расчёта (single-catch.js)
+  rainQ20: 1, rainP: 0.5, rainMr: 10, rainGamma: 0.01,
+  catchF: 0.1, catchZ: 0.001, catchPsi: 0.001, catchTcon: 1, catchTcan: 1, catchTp: 1,
+};
 for (const [id, step] of Object.entries(WHEEL_STEPS)) {
   $(id).addEventListener("wheel", e => {
     e.preventDefault();

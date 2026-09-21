@@ -9,12 +9,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>КНС · п. 5.1 — Перекачка незарегулированного дождевого стока</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-  <link rel="stylesheet" href="static/css/style.css?v=14">
+  <link rel="stylesheet" href="static/css/style.css?v=19">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="static/js/hydro.js"></script>
   <script defer src="static/js/calc-view.js?v=16"></script>
-  <script defer src="static/js/app.js?v=4"></script>
+  <!-- Дождь и водосбор одиночного расчёта считают те же функции, что и каскад:
+       reference-data.js — таблицы Ж.1/Ж.6/Ж.7, cascade-catch.js — catchParams,
+       cascade-rain.js — профиль дождя и параметр A. -->
+  <script defer src="static/js/reference-data.js?v=2"></script>
+  <script defer src="static/js/cascade-catch.js?v=14"></script>
+  <script defer src="static/js/cascade-rain.js?v=13"></script>
+  <script defer src="static/js/single-catch.js?v=4"></script>
+  <script defer src="static/js/app.js?v=8"></script>
 </head>
 
 <body>
@@ -56,12 +63,6 @@
           </div>
         </div>
       </div>
-      <div class="field" title="параметр, характеризующий интенсивность и продолжительность дождя для конкретной местности">
-        <label for="n">n — климатический параметр</label>
-        <input id="n" type="number" step="any" min="0.01" max="0.99" value="0.71">
-        <input id="nrange" type="range" min="0.01" max="0.99" step="0.01" value="0.71">
-      </div>
-
       <div class="field" title="максимальная производительности насосов в насосной станции, л/с">
         <label for="Q">Q<sub>нс</sub> — производительность насосной станции</label>
         <div class="dual">
@@ -82,8 +83,162 @@
     </section>
 
     <div class="right panel">
+      <section class="panel acc" id="rainSection">
+        <h2 id="rainToggle">Дождь <span class="acc-val" id="rainHeaderVal"></span> <span class="scheme-arrow">▾</span></h2>
+        <div class="acc-body">
+          <div class="field"
+            title="параметры n, m_r и γ подставляются по району из таблицы Ж.1 СП 32.13330.2018; q₂₀ задаётся вручную по рисунку Ж.1 (карта), P — по условиям объекта">
+            <label for="rainDistrict">Район (таблица Ж.1)</label>
+            <select id="rainDistrict">
+              <option value="">— вручную —</option>
+            </select>
+          </div>
+          <div class="field"
+            title="интенсивность дождя для данной местности продолжительностью 20 мин при P = 1 год, л/с с 1 га (Приложение 2 рекомендаций)">
+            <div class="label-row">
+              <label for="rainQ20">q₂₀ — интенсивность дождя</label>
+              <button class="map-btn" id="rainQ20Map" type="button" title="Карта значений q₂₀ — Приложение Б рекомендаций НИИ ВОДГЕО (2015), рисунок Ж.1 СП 32.13330.2018"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M8 13.5c1.63 0 3.094-.709 4.101-1.835A2.5 2.5 0 0 1 10.25 9.25V9a.75.75 0 0 0-.75-.75 2.25 2.25 0 0 1 0-4.5.75.75 0 0 0 .75-.75v-.02a5.5 5.5 0 0 0-7.471 3.287A2.25 2.25 0 0 1 4.75 8.5c0 .414.336.75.75.75a2.25 2.25 0 0 1 1.265 4.11q.597.139 1.235.14m-3.491-1.25H5.5a.75.75 0 0 0 0-1.5A2.25 2.25 0 0 1 3.25 8.5a.75.75 0 0 0-.744-.75 5.49 5.49 0 0 0 2.003 4.5m8.241-2h.27A5.5 5.5 0 0 0 13.5 8c0-1.665-.74-3.158-1.91-4.166A2.25 2.25 0 0 1 9.5 5.25a.75.75 0 1 0 0 1.5A2.25 2.25 0 0 1 11.75 9v.25a1 1 0 0 0 1 1M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14" clip-rule="evenodd"/></svg></button>
+            </div>
+            <div class="dual">
+              <input id="rainQ20" type="number" step="any" min="1">
+              <span class="dual-unit">л/с с га</span>
+            </div>
+          </div>
+          <div class="field" title="период однократного превышения расчётной интенсивности дождя, годы (таблица 8 п. 5.3.3)">
+            <label for="rainP">P — период превышения</label>
+            <div class="dual">
+              <input id="rainP" type="number" step="any" min="0.1">
+              <span class="dual-unit">лет</span>
+            </div>
+          </div>
+          <div class="field" title="показатель степени, климатический параметр местности (таблица Ж.1 СП 32.13330.2018; при P < 1 и P ≥ 1 — разные значения)">
+            <label for="n">n — климатический параметр</label>
+            <div class="num-line">
+              <input id="n" type="number" step="any" min="0.01" max="0.99" value="0.71">
+              <button class="reset-btn" id="rainResetN" type="button" hidden title="Вернуть значение из таблицы Ж.1">↺</button>
+            </div>
+            <input id="nrange" type="range" min="0.01" max="0.99" step="0.01" value="0.71">
+          </div>
+          <div class="field" title="среднее количество дождей за год (таблица Ж.1 СП 32.13330.2018)">
+            <label for="rainMr">m<sub>r</sub> — дождей за год</label>
+            <div class="num-line">
+              <input id="rainMr" type="number" step="any" min="1">
+              <button class="reset-btn" id="rainResetMr" type="button" hidden>↺</button>
+            </div>
+          </div>
+          <div class="field" title="показатель степени (таблица Ж.1 СП 32.13330.2018)">
+            <label for="rainGamma">γ — показатель степени</label>
+            <div class="num-line">
+              <input id="rainGamma" type="number" step="any" min="0.1">
+              <button class="reset-btn" id="rainResetGamma" type="button" hidden>↺</button>
+            </div>
+          </div>
+          <p class="formula-line" id="rainFormula"></p>
+          <button class="btn" id="rainHelp" type="button" title="Формула A и источники параметров (Приложения 2–3 рекомендаций)">Справка по дождю</button>
+        </div>
+      </section>
+
+      <section class="panel acc" id="catchSection">
+        <h2 id="catchToggle">Водосбор <span class="acc-val" id="catchHeaderVal"></span> <span class="scheme-arrow">▾</span></h2>
+        <div class="acc-body">
+          <div class="mode-row">
+            <span>Q<sub>r</sub> и t<sub>r</sub> в расчёте КНС:</span>
+            <label><input type="radio" name="qrMode" value="catch" checked> по водосбору</label>
+            <label title="Qr и tr берутся из полей «Исходные данные» вручную, расчёт водосбора остаётся справочным."><input type="radio" name="qrMode" value="manual"> вручную</label>
+          </div>
+
+          <h3 class="sec-h">
+            Площадь и коэффициенты стока
+            <button class="help-btn" id="catchCoeffHelp" type="button" title="Как задаются и рассчитываются F, z_mid и Ψ_mid">?</button>
+          </h3>
+          <div class="mode-row stacked">
+            <span>Коэффициент стока:</span>
+            <label title="Переменный коэффициент (коэффициент покрова z) учитывает вид поверхности, а также интенсивность и продолжительность дождя. Q_r = z_mid·A^1,2·F / t_r^(1,2n−0,1) — формула (20) примера ВОДГЕО (2006) / формула (4) рекомендаций (2015)."><input type="radio" name="catchCoeff" value="variable" checked> переменный z</label>
+            <label title="Постоянный коэффициент стока Ψ учитывает только вид поверхности. Q_r = Ψ_mid·A·F / t_r^n — формула (12) примера ВОДГЕО (2006) / формула (5) рекомендаций (2015). Упрощение допустимо, когда водонепроницаемые поверхности >30–40 % площади."><input type="radio" name="catchCoeff" value="const"> постоянный Ψ</label>
+          </div>
+          <div class="pair">
+            <div class="field" title="средневзвешенный коэффициент, характеризующий вид поверхности бассейна водосбора (коэффициент покрова), таблицы 11–12">
+              <label for="catchZ">z<sub>mid</sub> — коэффициент покрова</label>
+              <input id="catchZ" type="number" step="any" min="0.001">
+            </div>
+            <div class="field" title="средневзвешенный постоянный коэффициент стока (таблица 11)">
+              <label for="catchPsi">Ψ<sub>mid</sub> — коэффициент стока</label>
+              <input id="catchPsi" type="number" step="any" min="0.001">
+            </div>
+          </div>
+          <div class="mode-row stacked">
+            <span>Площадь и коэффициенты:</span>
+            <label><input type="radio" name="catchSource" value="manual" checked> вручную (F, z, Ψ)</label>
+            <label><input type="radio" name="catchSource" value="table"> по составу поверхностей (F = ΣFᵢ, z, Ψ)</label>
+          </div>
+          <div class="pair">
+            <div class="field" title="расчётная площадь стока (водосбора), га; в режиме «по составу поверхностей» рассчитывается как ΣFᵢ, поле только для чтения">
+              <label for="catchF">F — площадь водосбора</label>
+              <div class="dual">
+                <input id="catchF" type="number" step="any" min="0.01">
+                <span class="dual-unit">га</span>
+              </div>
+            </div>
+          </div>
+          <div id="catchSurfBlock" hidden>
+            <div class="field" title="состав поверхностей стока: вид поверхности и площадь Fᵢ, га; z_mid и Ψ_mid считаются средневзвешенно, F = ΣFᵢ (п. 6.2.6 рекомендаций)">
+              <label>Поверхности стока: вид / F, га</label>
+              <div class="seg-list" id="catchSurfList"></div>
+              <button class="btn seg-add" id="catchSurfAdd" type="button">+ Добавить поверхность</button>
+            </div>
+            <p class="note-line" id="catchSurfNote" hidden></p>
+          </div>
+
+          <h3 class="sec-h">
+            Расчётная продолжительность дождя
+            <button class="help-btn" id="catchTrHelpBtn" type="button" title="Как рассчитывается t_r">?</button>
+          </h3>
+          <p>t<sub>r</sub> = t<sub>con</sub> + t<sub>can</sub> + t<sub>p</sub></p>
+
+          <p class="sub">Время поверхностной концентрации</p>
+          <div class="field" title="продолжительность протекания дождевых вод до уличного лотка (время поверхностной концентрации), мин; задаётся вручную">
+            <label for="catchTcon">t<sub>con</sub> — поверхностная концентрация</label>
+            <div class="dual">
+              <input id="catchTcon" type="number" step="any" min="0">
+              <span class="dual-unit">мин</span>
+            </div>
+          </div>
+
+          <p class="sub">Время протекания по лоткам</p>
+          <div class="field" title="ручное дополнительное время протекания по лоткам, мин; складывается с суммой по участкам лотка">
+            <label for="catchTcan">t<sub>can</sub> — по лоткам (добавочное время)</label>
+            <div class="dual">
+              <input id="catchTcan" type="number" step="any" min="0">
+              <span class="dual-unit">мин</span>
+            </div>
+          </div>
+          <div class="field" title="участки уличного лотка: длина l, м и скорость v, м/с; t_can = 0,021·Σ(l/v), мин (формула (16); СНиП 2.04.03-85 — ф. (6))">
+            <label>Участки лотка: l, м / v, м/с</label>
+            <div class="seg-list" id="catchTrayList"></div>
+            <button class="btn seg-add" id="catchTrayAdd" type="button">+ Добавить участок</button>
+          </div>
+
+          <p class="sub">Время протекания по трубам</p>
+          <div class="field" title="ручное дополнительное время протекания по трубам, мин; складывается с суммой по участкам сети">
+            <label for="catchTp">t<sub>p</sub> — по трубам (добавочное время)</label>
+            <div class="dual">
+              <input id="catchTp" type="number" step="any" min="0">
+              <span class="dual-unit">мин</span>
+            </div>
+          </div>
+          <div class="field" title="участки дождевой сети (трубы): длина l, м и скорость v, м/с; tp = 0,017·Σ(l/v), мин (формула (17); СНиП 2.04.03-85 — ф. (7))">
+            <label>Участки сети: l, м / v, м/с</label>
+            <div class="seg-list" id="catchSegList"></div>
+            <button class="btn seg-add" id="catchSegAdd" type="button">+ Добавить участок</button>
+          </div>
+
+          <p class="catch-res" id="catchOut"></p>
+          <button class="btn" id="catchHelpBtn" type="button" title="Все формулы с подставленными значениями">Формулы и расчёт</button>
+        </div>
+      </section>
+
       <section class="results" id="results">
-        <h2 id="resultsToggle">Результаты <span class="scheme-arrow">▾</span></h2>
+        <h2 id="resultsToggle">Результаты <span class="acc-val" id="resultsHeaderVal"></span> <span class="scheme-arrow">▾</span></h2>
         <div id="cards" class="cards"></div>
       </section>
 
@@ -98,29 +253,31 @@
         </div>
       </section>
 
-      <section class="table-panel">
-        <h2>Таблица вариантов</h2>
-        <div class="range-controls">
-          <div class="field"><label for="vFrom">Q<sub>нс</sub> от, л/с</label><input id="vFrom" type="number" step="any"
-              min="1" value="43.00"></div>
-          <div class="field"><label for="vTo">до, л/с</label><input id="vTo" type="number" step="any" min="1" value="342.00">
+      <section class="table-panel acc" id="tableSection">
+        <h2 id="tableToggle">Таблица вариантов <span class="scheme-arrow">▾</span></h2>
+        <div class="acc-body">
+          <div class="range-controls">
+            <div class="field"><label for="vFrom">Q<sub>нс</sub> от, л/с</label><input id="vFrom" type="number" step="any"
+                min="1" value="43.00"></div>
+            <div class="field"><label for="vTo">до, л/с</label><input id="vTo" type="number" step="any" min="1"
+                value="342.00"></div>
+            <div class="field"><label for="vStep">шаг, л/с</label><input id="vStep" type="number" step="any" min="0.5"
+                value="43.00"></div>
           </div>
-          <div class="field"><label for="vStep">шаг, л/с</label><input id="vStep" type="number" step="any" min="0.5"
-              value="43.00"></div>
-        </div>
-        <div class="table-wrap">
-          <table id="variants">
-            <thead>
-              <tr>
-                <th>Q<sub>нс</sub>, л/с</th>
-                <th>Q<sub>нс</sub>, м³/ч</th>
-                <th>T<sub>н</sub>, мин</th>
-                <th>T<sub>к</sub>, мин</th>
-                <th>W<sub>нс</sub>, м³</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <div class="table-wrap">
+            <table id="variants">
+              <thead>
+                <tr>
+                  <th>Q<sub>нс</sub>, л/с</th>
+                  <th>Q<sub>нс</sub>, м³/ч</th>
+                  <th>T<sub>н</sub>, мин</th>
+                  <th>T<sub>к</sub>, мин</th>
+                  <th>W<sub>нс</sub>, м³</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </div>
