@@ -100,26 +100,6 @@ function flushCascade() {
   computeCascadeNow();
 }
 
-// Баннер о цикле в #drawflow (скрыт, когда цикла нет). cyclic — узлы вне
-// пригодного порядка (узлы на циклах + получающие из них поток).
-function updateCycleBanner(data, cyclic) {
-  const el = document.getElementById("cycleWarn");
-  if (!el) return;
-  if (!cyclic.length) { el.hidden = true; return; }
-  const edges = edgesFromData(data);
-  const onCycle = nodesInCycles(edges);
-  const path = cyclePathExample(edges);
-  const nums = ids => ids.map(x => "#" + x).join(", ");
-  const parts = [];
-  parts.push(path ? `Цикл в схеме: ${path.join(" → ")}` : `Цикл в схеме: ${nums(onCycle)}`);
-  if (onCycle.length) parts.push(`узлы в цикле: ${nums(onCycle)}`);
-  const downstream = cyclic.filter(id => !onCycle.includes(id));
-  if (downstream.length) parts.push(`не рассчитаны (получают из цикла): ${nums(downstream)}`);
-  parts.push("разорвите связь, чтобы расчёт продолжился");
-  el.textContent = parts.join(" — ") + ".";
-  el.hidden = false;
-}
-
 // Горизонт расчётного события для нод «Доп. приток» с пустым t₂ («до конца
 // события»). Консервативная рамка, как у ряда водосбора (hydroTailT +
 // totalDelay + 30): максимум хвостов всех включённых гидрографов схемы
@@ -326,7 +306,6 @@ function computeCascadeNow() {
   }
   // Циклические узлы и их «потомки» в расчёте не участвуют; summary покажет «—».
   for (const id of cyclic) res[id] = null;
-  updateCycleBanner(data, cyclic);
   results = res;
   updateSummaries(data);
   saveScheme();

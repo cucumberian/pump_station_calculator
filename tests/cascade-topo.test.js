@@ -15,7 +15,7 @@ return { kahnParts, nodesInCycles, cyclePathExample, cycleMessage,
   edgesFromData, rawEdgesOf, effectiveEdgesOf };
 `)();
 
-// --- topoOrder / updateCycleBanner из cascade.js: извлекаем исходник по скобкам ---
+// --- topoOrder из cascade.js: извлекаем исходник по скобкам ---
 const cascadeSrc = readSrc("cascade.js");
 
 function extractFn(src, name) {
@@ -227,31 +227,6 @@ test("topoOrder: cycle — циклические узлы НЕ дописаны
 test("topoOrder: пустой граф", () => {
   const { order, cyclic } = topoOrder({});
   if (order.length || cyclic.length) throw new Error("empty graph should give empty results");
-});
-
-// ============================================================
-// updateCycleBanner — DOM-заглушка минимальна
-// ============================================================
-
-test("updateCycleBanner: цикл — видно текст с узлами; нет цикла — скрыт", () => {
-  const el = { hidden: true, textContent: "" };
-  const document = { getElementById: () => el };
-  const updateCycleBanner = new Function("document", "edgesFromData", "nodesInCycles", "cyclePathExample",
-    extractFn(cascadeSrc, "updateCycleBanner") + "\nreturn updateCycleBanner;")(document, G.edgesFromData, G.nodesInCycles, G.cyclePathExample);
-  const data = { 2: node([3]), 3: node([2, 4]), 4: node([]) };
-  updateCycleBanner(data, ["2", "3", "4"]);
-  if (el.hidden) throw new Error("banner should be visible");
-  if (!el.textContent.includes("2 → 3 → 2")) throw new Error(`bad text: ${el.textContent}`);
-  if (!el.textContent.includes("#4")) throw new Error(`downstream missing: ${el.textContent}`);
-  updateCycleBanner({ 1: node([]), 2: node([]) }, []);
-  if (!el.hidden) throw new Error("banner should hide when no cycle");
-});
-
-test("updateCycleBanner: нет элемента — не падает", () => {
-  const document = { getElementById: () => null };
-  const updateCycleBanner = new Function("document", "edgesFromData", "nodesInCycles", "cyclePathExample",
-    extractFn(cascadeSrc, "updateCycleBanner") + "\nreturn updateCycleBanner;")(document, G.edgesFromData, G.nodesInCycles, G.cyclePathExample);
-  updateCycleBanner({ 2: node([2]) }, ["2"]);
 });
 
 // ============================================================

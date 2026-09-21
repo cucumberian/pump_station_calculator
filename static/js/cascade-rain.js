@@ -190,14 +190,19 @@ function bindRainPanel() {
     e.stopPropagation();
     setRainPanel($c("rainPanel").hidden);
   });
-  // Клик мимо (по канвасу/палитре) закрывает; клики внутри панели — нет.
+  // Клик мимо (по канвасу/палитре) закрывает; клики внутри панели, кнопок дождя
+  // и модальных окон (справка/карта) — нет.
   document.addEventListener("click", e => {
     if ($c("rainPanel").hidden) return;
-    if (e.target.closest("#rainPanel") || e.target.closest("#rainBtn")) return;
+    if (e.target.closest("#rainPanel, #rainBtn, .modal, .img-viewer")) return;
     setRainPanel(false);
   });
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape") setRainPanel(false);
+    if (e.key !== "Escape") return;
+    // Пока открыто модальное окно или просмотр карты — Esc закрывает их, а не панель.
+    const m = $c("modal"), v = $c("imgViewer");
+    if ((m && !m.hidden) || (v && !v.hidden)) return;
+    setRainPanel(false);
   });
 
   $c("rainSelect").addEventListener("change", () => {

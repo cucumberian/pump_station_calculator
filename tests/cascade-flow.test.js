@@ -60,7 +60,6 @@ const topoOrder = (data) => {
 // getGlobalN теперь в cascade-rain.js (n в профиле дождя); эта прокидка в
 // расчёт с глобальным RT_N нужна чужой клетки — поэтому просто перекроем.
 function getGlobalN() { return RT_N; }
-const updateCycleBanner = () => {};
 const saveScheme = () => {};
 const refreshSidebar = () => {};
 const updateSummaries = () => {};
