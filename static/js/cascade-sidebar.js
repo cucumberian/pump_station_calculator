@@ -38,7 +38,6 @@ function setTitle(typeLabel) {
 const SB_CATCH_MAP = {
   sbCF: "F",
   sbCPsi: "psiMid", sbCZ: "zMid", sbCTcon: "tcon", sbCTcan: "tcan", sbCTp: "tp",
-  sbCFadd: "Fadd",
 };
 
 // t1 и t2 намеренно вне карты: пустые поля — легальные значения «с начала» и
@@ -123,14 +122,12 @@ function renderCatchSidebar(node) {
     // Каждая величина — отдельной строкой: рядом «ΣF = …, · z = …» читается
     // как произведение площади на коэффициент.
     const parts = [];
-    if (p && (p.areaSum + p.addF) > 0) {
+    if (p && p.areaSum > 0) {
       if (p.surfaces.some(s => s.type === "imp")) parts.push(`z водонепроницаемых по таблице Ж.7 = ${fmt(p.zImpAuto.z, 3)}`);
-      parts.push(`ΣFᵢ = ${fmt(p.areaSum, 2)} га${p.addF > 0 ? ` + Fдоб = ${fmt(p.addF, 2)} га` : ""}`);
-      parts.push(`<span class="note-area">F = ${fmt(p.F, 2)} га</span>`);
-      if (p.areaSum <= 0) parts.push(`коэффициенты ручные: z<sub>mid</sub> = ${fmt(p.zMid, 3)}, Ψ<sub>mid</sub> = ${fmt(p.psiMid, 3)}`);
+      parts.push(`<span class="note-area">F = ΣFᵢ = ${fmt(p.F, 2)} га</span>`);
       if (p.areaOver) parts.push(`<span class="warn">площадь > 150 га</span>`);
     } else {
-      parts.push(`<span class="warn">ΣFᵢ = 0 и Fдоб = 0 — задайте площадь</span>`);
+      parts.push(`<span class="warn">ΣFᵢ = 0 — задайте площадь</span>`);
       parts.push(`F = 0, z<sub>mid</sub> = Ψ<sub>mid</sub> = 0`);
     }
     note.innerHTML = parts.join("<br>");
@@ -367,7 +364,7 @@ function applySidebarLock() {
     const isConst = d.coeffMode === "const";
     $c("sbCZ").disabled = isConst;
     $c("sbCPsi").disabled = !isConst;
-    // По составу поверхностей площадь — производная (F = ΣFᵢ + Fдоб), поле
+    // По составу поверхностей площадь — производная (F = ΣFᵢ), поле
     // всегда заблокировано; при пустом составе F = 0.
     $c("sbCF").disabled = d.coeffSource === "table";
     const res = results[sbNodeId];

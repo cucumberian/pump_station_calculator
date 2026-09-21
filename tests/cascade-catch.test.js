@@ -26,7 +26,27 @@ function approx(a, b, tol = 1e-9) {
 }
 
 const n = 0.71;
-const base = () => ({ ...N.NODE_DEFAULTS.catch });
+// Явный "manual" — большинство тестов ниже про ручные zMid/ψ_mid; дефолт
+// ноды теперь "table" со всеми поверхностями (см. тест на дефолты).
+const base = () => ({ ...N.NODE_DEFAULTS.catch, coeffSource: "manual" });
+
+test("NODE_DEFAULTS.catch: режим «по составу» и все виды поверхностей с F = 0", () => {
+  const d = N.NODE_DEFAULTS.catch;
+  if (d.coeffSource !== "table") throw new Error("свежий водосбор должен считаться по составу поверхностей");
+  if (d.zRows.length !== N.SURFACE_TYPES.length)
+    throw new Error(`ожидалось ${N.SURFACE_TYPES.length} строк, получено ${d.zRows.length}`);
+  d.zRows.forEach((r, i) => {
+    if (r.type !== N.SURFACE_TYPES[i].key) throw new Error(`строка ${i}: вид ${r.type} вместо ${N.SURFACE_TYPES[i].key}`);
+    if (r.F !== 0) throw new Error(`строка ${i}: площадь ${r.F} вместо 0`);
+    if (r.z !== "") throw new Error(`строка ${i}: z должен быть пустым (авто по Ж.7)`);
+  });
+  // С нулевыми площадями нода честно просит задать площадь, а не считает мусор.
+  const p = N.catchParams({ ...d }, n);
+  approx(p.F, 0);
+  approx(p.Qr, 0);
+  const reason = N.catchErrorReason({ ...d });
+  if (!reason.includes("не заданы площади")) throw new Error(`неожиданная причина: ${reason}`);
+});
 
 // ============================================================
 // catchParams
@@ -166,9 +186,9 @@ test("catchErrorReason: пустой состав vs заполненный", ()
   if (rows.includes("не заданы площади")) throw new Error("при заданном составе причины про площади быть не должно");
   const manual = N.catchErrorReason({ coeffSource: "manual" });
   if (!manual) throw new Error("для manual причина должна быть общей (Qr = 0)");
-  // Fдоб > 0 без поверхностей — расчёт возможен (коэффициент ручной), ошибки нет.
-  const withAdd = N.catchErrorReason({ coeffSource: "table", zRows: [], Fadd: 3 });
-  if (withAdd.includes("не заданы площади")) throw new Error("при Fдоб > 0 причины про площади быть не должно");
+  // Только нулевые площади — та же причина про площади.
+  const zeros = N.catchErrorReason({ coeffSource: "table", zRows: [{ type: "imp", F: 0 }] });
+  if (!zeros.includes("не заданы площади")) throw new Error("нулевые площади должны давать причину про площади");
 });
 
 test("ручной режим: явный 0 в F/z_mid/Ψ_mid не подменяется дефолтом", () => {
@@ -237,14 +257,12 @@ test("phantom f=0 (нижний регистр от Drawflow) не подмен�
   approx(p2.F, 5, 1e-9);
 });
 
-test("table без состава, но с Fдоб: F = Fдоб, коэффициент ручной, расчёт идёт", () => {
-  const p = N.catchParams({ ...base(), coeffSource: "table", zRows: [], Fadd: 3 }, n);
-  approx(p.F, 3);
-  approx(p.zMid, 0.201);
-  approx(p.psiMid, 0.634);
-  if (!(p.Qr > 0)) throw new Error("Qr должен быть > 0 при Fдоб > 0");
-  if (N.catchErrorReason({ coeffSource: "table", zRows: [], Fadd: 3 }).includes("не заданы площади"))
-    throw new Error("при Fдоб > 0 ошибки про площади быть не должно");
+test("table без состава: F = 0 и коэффициенты не подменяются ручными", () => {
+  const p = N.catchParams({ ...base(), coeffSource: "table", zRows: [] }, n);
+  approx(p.F, 0);
+  approx(p.zMid, 0);
+  approx(p.psiMid, 0);
+  approx(p.Qr, 0);
 });
 
 test("z_mid: предупреждение при ΣF > 150 га", () => {
@@ -252,23 +270,16 @@ test("z_mid: предупреждение при ΣF > 150 га", () => {
   if (!p.areaOver) throw new Error("ΣF > 150 га должен помечаться");
 });
 
-test("Fadd: добавочная площадь входит в F, но не в z_mid/Ψ_mid", () => {
+test("table: F = ΣFᵢ, а z_mid/Ψ_mid — средневзвешенные по тому же составу", () => {
   const d = {
-    ...base(), coeffSource: "table", Fadd: 2.5,
+    ...base(), coeffSource: "table",
     zRows: [{ type: "imp", F: 2.45, z: 0.297 }, { type: "lawn", F: 1.45 }],
   };
   const p = N.catchParams(d, n);
   approx(p.areaSum, 3.9, 1e-9);
-  approx(p.addF, 2.5, 1e-9);
-  approx(p.F, 6.4, 1e-9);
-  // коэффициенты — только по поверхностям (без добавочной площади)
+  approx(p.F, 3.9, 1e-9);
   approx(p.zMid, (2.45 * 0.297 + 1.45 * 0.038) / 3.9, 1e-9);
   approx(p.psiMid, (2.45 * 0.95 + 1.45 * 0.1) / 3.9, 1e-9);
-});
-
-test("Fadd: суммарная площадь с добавкой проверяется на лимит 150 га", () => {
-  const p = N.catchParams({ ...base(), coeffSource: "table", Fadd: 20, zRows: [{ type: "lawn", F: 140 }] }, n);
-  if (!p.areaOver) throw new Error("ΣFᵢ + Fдоб > 150 га должен помечаться");
 });
 
 test("catchCoeffHelp: общая формула вручную и подстановка в режиме table", () => {
@@ -458,10 +469,18 @@ test("migrateNodeData catch: coeffSource и zRows нормализуются", (
   if (d.zRows[3].F !== 0) throw new Error("отрицательная площадь → 0");
 });
 
-test("migrateNodeData catch: без coeffSource → manual, zRows=[]", () => {
-  const d = ioMod.migrateNodeData("catch", { zRows: "x" });
+test("migrateNodeData catch: без coeffSource → manual, zRows — заготовки с F=0", () => {
+  // Старая схема без zRows получает заготовки из NODE_DEFAULTS.
+  const d = ioMod.migrateNodeData("catch", { F: 7.5 });
   if (d.coeffSource !== "manual") throw new Error("coeffSource не сброшен в manual");
-  if (!Array.isArray(d.zRows) || d.zRows.length) throw new Error("zRows не приведён к []");
+  if (!Array.isArray(d.zRows) || d.zRows.length !== N.SURFACE_TYPES.length)
+    throw new Error(`zRows: ожидались заготовки всех видов, получено ${d.zRows.length}`);
+  if (d.zRows.some(r => r.F !== 0)) throw new Error("заготовки должны быть с нулевой площадью");
+  // Мусор в zRows по-прежнему приводится к пустому списку.
+  const bad = ioMod.migrateNodeData("catch", { zRows: "x" });
+  if (!Array.isArray(bad.zRows) || bad.zRows.length) throw new Error("zRows не приведён к []");
+  // Убранная добавочная площадь вычищается из старых схем.
+  if ("Fadd" in ioMod.migrateNodeData("catch", { Fadd: 5 })) throw new Error("Fadd не удалён из данных");
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);

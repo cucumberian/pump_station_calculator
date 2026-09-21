@@ -79,21 +79,16 @@ function catchParams(d, n, rain) {
   const coeffSource = d.coeffSource === "table" ? "table" : "manual";
   const surfaces = coeffSource === "table" ? parseSurfaces(d.zRows, A, n) : [];
   const areaSum = surfaces.reduce((s, x) => s + x.F, 0);
-  // Добавочная площадь просто увеличивает итоговую F = ΣFᵢ + Fдоб, своего
-  // коэффициента у неё нет — средневзвешенные z_mid/Ψ_mid по-прежнему
-  // считаются только по составу поверхностей.
-  const addF = num(d.Fadd, 0, 0);
-  const totalF = areaSum + addF;
-  // В режиме «по составу» площадь берётся только из состава и добавочной.
-  // Коэффициенты: по поверхностям; если их нет, но Fдоб > 0 — из ручных полей
-  // (коэффициент есть, а площадей нет); если и площади нет — 0.
+  // В режиме «по составу» площадь — только сумма площадей поверхностей
+  // (ΣFᵢ = 0 → F = 0 и Qr = 0: причина скажется в catchErrorReason).
+  const totalF = areaSum;
   const useTable = coeffSource === "table";
   const zTable = areaSum > 0
     ? surfaces.reduce((s, x) => s + x.F * x.z, 0) / areaSum
-    : (totalF > 0 ? num(d.zMid, 0.201, 0) : 0);
+    : 0;
   const psiTable = areaSum > 0
     ? surfaces.reduce((s, x) => s + x.F * x.psi, 0) / areaSum
-    : (totalF > 0 ? num(d.psiMid, 0.634, 0) : 0);
+    : 0;
   const zImpAuto = coeffSource === "table" ? impermeableZ(A, n) : null;
   const zMid = useTable ? zTable : num(d.zMid, 0.201, 0);
   const psiMid = useTable ? psiTable : num(d.psiMid, 0.634, 0);
@@ -125,7 +120,7 @@ function catchParams(d, n, rain) {
     : 0;
   return { q20, P, mr, gamma, F, manualF, psiMid, zMid, tcon, segs, trays, A, lvSum, lvTraySum,
     tp, tpManual, tpCalc, tcan, tcanManual, tcanCalc, tr, Qr, variable, n,
-    coeffSource, surfaces, areaSum, addF, useTable, areaOver, zImpAuto };
+    coeffSource, surfaces, areaSum, useTable, areaOver, zImpAuto };
 }
 
 // Причина, по которой водосбор не даёт результата (Qr = 0). Возвращает текст
@@ -136,8 +131,7 @@ function catchErrorReason(d) {
   if (data.coeffSource === "table") {
     const rows = Array.isArray(data.zRows) ? data.zRows : [];
     const area = rows.reduce((s, r) => s + (parseFloat(r?.F) || 0), 0);
-    const add = parseFloat(data.Fadd) || 0;
-    if (area + add <= 0) return "не заданы площади поверхностей и добавочная (F = 0)";
+    if (area <= 0) return "не заданы площади поверхностей (F = 0)";
     return "расчёт не выполнен (Qr = 0)";
   }
   const f = parseFloat(data.F !== undefined ? data.F : data.f);
@@ -254,9 +248,7 @@ function catchCoeffHelp(p) {
         "ψ_i — постоянный коэффициент стока по таблице Ж.6.",
       ] },
       table
-        ? (p.addF > 0
-          ? { p: `Состав поверхностей не задан (ΣFᵢ = 0), задана только добавочная площадь Fдоб = ${fmt(p.addF, 2)} га — она просто увеличивает итоговую F = ${fmt(p.F, 2)} га. Коэффициенты взяты из ручных значений z_mid = ${fmt(p.zMid, 3)} и ψ_mid = ${fmt(p.psiMid, 3)}.` }
-          : { p: "Состав поверхностей и добавочная площадь не заданы: F = 0, поэтому z_mid и Ψ_mid не определены (приняты 0) и расчёт даёт Qr = 0. Добавьте поверхности стока (или добавочную площадь) и укажите площади." })
+        ? { p: "Состав поверхностей не задан: ΣFᵢ = 0, поэтому F = 0, z_mid и Ψ_mid не определены (приняты 0) и расчёт даёт Qr = 0. Добавьте поверхности стока и укажите площади." }
         : { p: `Режим «вручную»: приняты z_mid = ${fmt(p.zMid, 3)} и ψ_mid = ${fmt(p.psiMid, 3)}. Чтобы получить их по таблице Ж.6, переключите источник площади и коэффициентов на «по составу поверхностей» и задайте площади.` },
       ...coeffModeBlocks(p),
       ...coeffTableBlocks(),
@@ -271,8 +263,8 @@ function catchCoeffHelp(p) {
   const imp = rows.find(r => r.type === "imp");
   return [
     head,
-    { p: "Площадь стока F = ΣFᵢ + Fдоб (добавочная площадь прибавляется без коэффициентов), а средневзвешенные z_mid и Ψ_mid — только по составу поверхностей:" },
-    { tex: `F = \\sum F_i + F_{add} = ${fmt(p.areaSum, 2)}${p.addF > 0 ? ` + ${fmt(p.addF, 2)}` : ""} = ${fmt(p.F, 2)}\\ \\text{га}` },
+    { p: "Площадь стока F — сумма площадей поверхностей, средневзвешенные z_mid и Ψ_mid — по тому же составу:" },
+    { tex: `F = \\sum F_i = ${fmt(p.areaSum, 2)}\\ \\text{га}` },
     { tex: `z_{mid} = \\frac{\\sum F_i z_i}{\\sum F_i} = \\frac{${zTerms}}{${fmt(p.areaSum, 2)}} = ${fmt(p.zMid, 3)}` },
     { tex: `\\Psi_{mid} = \\frac{\\sum F_i \\Psi_i}{\\sum F_i} = \\frac{${psiTerms}}{${fmt(p.areaSum, 2)}} = ${fmt(p.psiMid, 3)}` },
     { ol: list },

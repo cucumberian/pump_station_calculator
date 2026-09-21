@@ -384,7 +384,7 @@ function updateSummaries(data = graphData()) {
           : `Q<sub>r</sub> = 0 <br> t<sub>r</sub> = 0`;
         out.innerHTML = `<span class="catch-res-text">${text}</span>${outWarn}`;
       }
-      // В режиме «по составу поверхностей» площадь производна (F = ΣFᵢ + Fдоб);
+      // В режиме «по составу поверхностей» площадь производна (F = ΣFᵢ);
       // при пустом составе F = 0, поле остаётся заблокированным.
       const fInp = document.querySelector(`#node-${id} input[df-f]`);
       if (fInp) {

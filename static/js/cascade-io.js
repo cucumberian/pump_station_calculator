@@ -653,7 +653,9 @@ function migrateNodeData(type, raw) {
     // coeffSource = "table": z_mid/ψ_mid считаются по составу поверхностей
     // zRows = [{ type, F, z? }]; z (ручное переопределение) — только у
     // водонепроницаемых, у прочих видов пусто.
-    if (d.coeffSource !== "table") d.coeffSource = "manual";
+    // Режим берём из самой схемы, а не из NODE_DEFAULTS: старые схемы без
+    // поля хранили ручные zMid/psiMid и должны остаться в режиме "manual".
+    d.coeffSource = (raw || {}).coeffSource === "table" ? "table" : "manual";
     d.zRows = Array.isArray(d.zRows)
       ? d.zRows.map(r => {
         const type = String(r?.type || "").trim();
@@ -669,9 +671,9 @@ function migrateNodeData(type, raw) {
         return row;
       }).filter(Boolean)
       : [];
-    // Добавочная площадь Fдоб, га: прибавляется к F без коэффициентов.
-    const fadd = parseFloat(d.Fadd);
-    d.Fadd = Number.isFinite(fadd) && fadd >= 0 ? fadd : 0;
+    // Убранное поле «добавочная площадь»: чистим у старых схем, чтобы не
+    // тащилось в сохранённом JSON и в ссылках.
+    delete d.Fadd;
   }
   if (type === "delay") {
     const lOld = parseFloat(d.l ?? d.L);

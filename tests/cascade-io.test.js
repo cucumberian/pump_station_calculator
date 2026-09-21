@@ -16,8 +16,9 @@ const NODE_DEFAULTS = {
 
 // ---- load cascade-nodes (for NODE_HTML) ----
 const nodesSrc = fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-nodes.js"), "utf8");
+const refSrc = fs.readFileSync(path.join(__dirname, "..", "static/js/reference-data.js"), "utf8");
 const nodesMod = new Function(
-  nodesSrc + `
+  refSrc + nodesSrc + `
 return { NODE_HTML, NODE_PORTS, NODE_DEFAULTS };
 `,
 )();

@@ -250,7 +250,7 @@ function catchSectionMD(node, res, n) {
   const p = res.params;
   out.push("### Исходные данные", "");
   out.push("| Параметр | Значение |", "|---|---|");
-  out.push(`| Площадь водосбора F | ${f(p.F)} га${p.useTable ? ` (ΣFᵢ = ${f(p.areaSum, 2)} га${p.addF > 0 ? ` + Fдоб = ${f(p.addF, 2)} га` : ""})` : ""} |`);
+  out.push(`| Площадь водосбора F | ${f(p.F)} га |`);
   out.push(`| q₂₀ | ${f(p.q20)} л/с·га |`);
   out.push(`| P | ${f(p.P, 1)} годы |`);
   out.push(`| mr | ${f(p.mr, 0)} |`);

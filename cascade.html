@@ -19,15 +19,15 @@
   <script defer src="static/js/calc-view.js?v=16"></script>
   <script defer src="static/js/cascade-graph.js?v=2"></script>
   <script defer src="static/js/reference-data.js?v=2"></script>
-  <script defer src="static/js/cascade-nodes.js?v=16"></script>
-  <script defer src="static/js/cascade-catch.js?v=13"></script>
+  <script defer src="static/js/cascade-nodes.js?v=17"></script>
+  <script defer src="static/js/cascade-catch.js?v=14"></script>
   <script defer src="static/js/cascade-rain.js?v=13"></script>
   <script defer src="static/js/cascade-view.js?v=1"></script>
   <script defer src="static/js/cascade-charts.js?v=7"></script>
-  <script defer src="static/js/cascade-sidebar.js?v=32"></script>
+  <script defer src="static/js/cascade-sidebar.js?v=33"></script>
   <script defer src="static/js/cascade-schemes.js?v=2"></script>
-  <script defer src="static/js/cascade-io.js?v=19"></script>
-  <script defer src="static/js/cascade-report.js?v=16"></script>
+  <script defer src="static/js/cascade-io.js?v=20"></script>
+  <script defer src="static/js/cascade-report.js?v=17"></script>
   <script defer src="static/js/cascade.js?v=54"></script>
 </head>
 
@@ -300,18 +300,10 @@
             </div>
             <div id="sbSurfBlock" hidden>
               <div class="field"
-                title="состав поверхностей стока: вид поверхности и площадь Fᵢ, га; z_mid и Ψ_mid считаются средневзвешенно, F = ΣFᵢ + Fдоб (п. 6.2.6 рекомендаций)">
+                title="состав поверхностей стока: вид поверхности и площадь Fᵢ, га; z_mid и Ψ_mid считаются средневзвешенно, F = ΣFᵢ (п. 6.2.6 рекомендаций)">
                 <label>Поверхности стока: вид / F, га</label>
                 <div class="seg-list" id="sbSurfList"></div>
                 <button class="btn seg-add" type="button" id="sbSurfAdd">+ Добавить поверхность</button>
-              </div>
-              <div class="field"
-                title="добавочная площадь, га; прибавляется к итоговой F без коэффициентов — не участвует в средневзвешенных z_mid и Ψ_mid">
-                <label for="sbCFadd">F<sub>доб</sub> — добавочная площадь (без коэффициентов)</label>
-                <div class="dual">
-                  <input id="sbCFadd" type="number" step="any" min="0">
-                  <span class="dual-unit">га</span>
-                </div>
               </div>
               <p class="num-note" id="sbSurfNote" hidden></p>
             </div>

@@ -506,7 +506,7 @@ test("заблокированный насос: расчёт идёт по во
 
 test("разблокированный насос: водосбор синхронизирует qr/tr как раньше", () => {
   const data = dataWith(
-    node(1, "catch", { q20: 240, P: 1, tcon: 10 }, [], [2]),
+    node(1, "catch", { q20: 240, P: 1, tcon: 10, zRows: [{ type: "imp", F: 3.9, z: 0.297 }] }, [], [2]),
     node(2, "pump", { qr: 222.2, tr: 33.3, q: 100 }, [1]),
   );
   const r2 = RT.run(data).results[2];
