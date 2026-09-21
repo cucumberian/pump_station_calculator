@@ -877,7 +877,7 @@ function showGFInfo(nodeId) {
   const data = graphData();
   const nd = data[nodeId];
   const res = results[nodeId];
-  if (!nd || !res) { $c("gfModal").hidden = false; $c("gfNodeTitle").textContent = "—"; $c("gfContent").innerHTML = '<p class="gf-na">Нода не найдена</p>'; return; }
+  if (!nd || !res) { openGfModal(); $c("gfNodeTitle").textContent = "—"; $c("gfContent").innerHTML = '<p class="gf-na">Нода не найдена</p>'; return; }
   $c("gfNodeTitle").textContent = `${NODE_LABEL[nd.name] || nd.name} #${nodeId}`;
   let html = "";
   const upstreams = upstreamIds(nodeId, data);
@@ -943,6 +943,14 @@ function showGFInfo(nodeId) {
     html += `<div class="gf-section gf-section-out"><h3>Выход${outLabel}</h3>${methodNote}${fmtGF(res.gf, "")}</div>`;
   }
   $c("gfContent").innerHTML = html || '<p class="gf-na">Нет данных о функциях для этой ноды</p>';
+  openGfModal();
+}
+
+// Окно функций ноды — плавающее, как справка: при открытии возвращается на
+// штатное место, тянется за шапку.
+function openGfModal() {
+  const box = $c("gfBox");
+  box.style.left = box.style.top = "";
   $c("gfModal").hidden = false;
 }
 
@@ -963,3 +971,4 @@ $c("gfContent").addEventListener("click", e => {
 $c("gfModal").addEventListener("click", e => {
   if (e.target === $c("gfModal")) $c("gfModal").hidden = true;
 });
+bindModalDrag($c("gfBox"), $c("gfHead"));

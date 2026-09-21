@@ -69,6 +69,7 @@
 .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: -20px; }
 #paletteBtn { padding: 6px; background: none; color: #fff; border-radius: 6px; }
 #paletteBtn:hover { background: rgba(255, 255, 255, 0.16); }
+.header-btns .btn { gap: 6px; }
 #paletteBtn .ic-collapse { display: inline-block; }
 #paletteBtn .ic-expand { display: none; }
 #paletteBtn.collapsed .ic-collapse { display: none; }
@@ -930,8 +931,23 @@ body.sb-dragging { cursor: col-resize; user-select: none; }
   box-sizing: border-box;
 }
 
-.gf-box { max-width: 480px; width: min(480px, 92vw); }
-.gf-h { margin: 0 0 12px; font-size: 16px; }
+/* Функции ноды: плавающее окно с шапкой (как справка) — тянется за шапку,
+   содержимое скроллится внутри. */
+.gf-box {
+  position: fixed;
+  left: max(10px, calc(50% - 240px));
+  top: 80px;
+  max-width: 480px;
+  width: min(480px, 92vw);
+  max-height: calc(100vh - 100px);
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.gf-box #gfContent { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; }
+.gf-box .help-btn { position: static; margin-left: 6px; }
+.gf-box .modal-head .modal-close { position: static; }
 .gf-section { margin-bottom: 10px; border-radius: 6px; padding: 6px 10px; }
 .gf-section-in { background: #f5f7fa; border-left: 3px solid #b0c4de; }
 .gf-section-out { background: #f8f5fa; border-right: 3px solid #d4b8c8; text-align: right; }

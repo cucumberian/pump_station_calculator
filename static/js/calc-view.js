@@ -300,10 +300,13 @@ function bindModal() {
   $view("modalClose").addEventListener("click", () => { $view("modal").hidden = true; });
   $view("modal").addEventListener("click", e => { if (e.target === $view("modal")) $view("modal").hidden = true; });
   document.addEventListener("keydown", e => { if (e.key === "Escape") $view("modal").hidden = true; });
-  // Справка — плавающее окно: тянется за шапку (pointer-события — и мышь, и тач).
-  $view("modalHead").addEventListener("pointerdown", e => {
-    if (e.target.closest(".modal-close")) return;
-    const box = $view("modalBox");
+  bindModalDrag($view("modalBox"), $view("modalHead"));
+}
+
+// Плавающее окно: тянется за шапку (pointer-события — и мышь, и тач).
+function bindModalDrag(box, head) {
+  head.addEventListener("pointerdown", e => {
+    if (e.target.closest("button")) return;
     const r = box.getBoundingClientRect();
     const dx = e.clientX - r.left, dy = e.clientY - r.top;
     const move = ev => {

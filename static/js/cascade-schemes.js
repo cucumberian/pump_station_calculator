@@ -5,6 +5,12 @@
 // (listSchemes / switchScheme / createScheme / renameScheme / duplicateScheme /
 // deleteScheme). Здесь только отрисовка модалки и биндинг.
 
+// Иконки gravity-ui (inline SVG, currentColor). Копии живут и в cascade-nodes.js —
+// намеренно: файл остаётся самодостаточным, дедуп через спрайт не заводим.
+const ICON_PENCIL = `<svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M11.423 1A3.577 3.577 0 0 1 15 4.577c0 .27-.108.53-.3.722l-.528.529-1.971 1.971-5.059 5.059a3 3 0 0 1-1.533.82l-2.638.528a1 1 0 0 1-1.177-1.177l.528-2.638a3 3 0 0 1 .82-1.533l5.059-5.059 2.5-2.5c.191-.191.451-.299.722-.299m-2.31 4.009-4.91 4.91a1.5 1.5 0 0 0-.41.766l-.38 1.903 1.902-.38a1.5 1.5 0 0 0 .767-.41l4.91-4.91a2.08 2.08 0 0 0-1.88-1.88m3.098.658a3.6 3.6 0 0 0-1.878-1.879l1.28-1.28c.995.09 1.788.884 1.878 1.88z" clip-rule="evenodd"/></svg>`;
+const ICON_XMARK = `<svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg>`;
+const ICON_DUPLICATE = `<svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2.5H8A1.5 1.5 0 0 0 6.5 4v1H8a3 3 0 0 1 3 3v1.5h1A1.5 1.5 0 0 0 13.5 8V4A1.5 1.5 0 0 0 12 2.5M11 11h1a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v1H4a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3zM8 6.5H4A1.5 1.5 0 0 0 2.5 8v4A1.5 1.5 0 0 0 4 13.5h4A1.5 1.5 0 0 0 9.5 12V8A1.5 1.5 0 0 0 8 6.5M6 7.75a.75.75 0 0 1 .75.75v.75h.75a.75.75 0 0 1 0 1.5h-.75v.75a.75.75 0 0 1-1.5 0v-.75H4.5a.75.75 0 0 1 0-1.5h.75V8.5A.75.75 0 0 1 6 7.75" clip-rule="evenodd"/></svg>`;
+
 function fmtSchemeDate(ts) {
   if (!ts) return "";
   const d = new Date(ts);
@@ -121,7 +127,7 @@ function schemeRow(it, total) {
 
   const acts = document.createElement("div");
   acts.className = "scheme-actions";
-  const del = schemeAct("del", "Удалить", "✕", () => {
+  const del = schemeAct("del", "Удалить", ICON_XMARK, () => {
     if (total <= 1) return;
     if (!confirm(`Удалить схему «${it.displayName}»? Это нельзя отменить.`)) return;
     deleteScheme(it.id);
@@ -129,8 +135,8 @@ function schemeRow(it, total) {
   });
   if (total <= 1) del.disabled = true;
   acts.append(
-    schemeAct("rename", "Переименовать", "✎", () => startRename(row, it)),
-    schemeAct("dup", "Дублировать", "⧉", () => {
+    schemeAct("rename", "Переименовать", ICON_PENCIL, () => startRename(row, it)),
+    schemeAct("dup", "Дублировать", ICON_DUPLICATE, () => {
       duplicateScheme(it.id);
       renderSchemesModal();
     }),
@@ -148,12 +154,12 @@ function schemeAct(act, title, glyph, fn) {
   b.dataset.act = act;
   b.title = title;
   b.setAttribute("aria-label", title);
-  b.textContent = glyph;
+  b.innerHTML = glyph;
   b.addEventListener("click", fn);
   return b;
 }
 
-// Инлайн-переименование: клик по «✎» меняет заголовок на input; Enter/blur —
+// Инлайн-переименование: клик по иконке Pencil меняет заголовок на input; Enter/blur —
 // сохранить, Escape — отменить (не закрывая модалку).
 function startRename(row, it) {
   const title = row.querySelector(".scheme-title");
