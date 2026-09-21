@@ -41,6 +41,13 @@ header p { margin: 4px 0 0; opacity: 0.85; font-size: 13px; }
 }
 .header-btns { display: flex; gap: 8px; }
 .header-btns .btn { font-size: 12px; }
+/* Кнопка «Поделиться» — иконочная (без подписи), как в каскаде:
+   значок nodes-right, после копирования на 1,5 с показывается галочка
+   (.copied вешает JS). «В каскад» — тоже иконочная. */
+#share, #toCascade { padding-left: 10px; padding-right: 10px; }
+#share .ic-check { display: none; }
+#share.copied .ic-nodes-right { display: none; }
+#share.copied .ic-check { display: inline-block; }
 
 .menu-toggle {
   display: none;
@@ -354,6 +361,44 @@ table.trace tr.bracket td { color: #5a6572; }
    каскаде, но без привязки к нодам.
    --------------------------------------------------------------- */
 .acc > h2 { cursor: pointer; user-select: none; }
+/* Панель переноса параметров: ровная сетка 2×2 — копировать/вставить,
+   в файл/из файла. Строки-обёртки боксов не создают, поэтому четыре кнопки
+   ложатся в сетку в порядке разметки. */
+.param-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 12px; }
+.param-row { display: contents; }
+.param-bar .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.param-bar .btn .ic { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* Всплывающее уведомление о переносе параметров (вместо системных модалок
+   на каждое копирование/вставку). Ошибки показываются alert'ом. */
+.param-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 12px);
+  max-width: min(92vw, 480px);
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #12325e;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 60;
+}
+.param-toast.show { opacity: 1; transform: translate(-50%, 0); }
 /* Рассчитанное значение в заголовке свёрнутой секции: обычный регистр и
    цвет, чтобы не сливалось с капслочным названием. */
 .acc-val {
@@ -372,14 +417,21 @@ table.trace tr.bracket td { color: #5a6572; }
 .acc > h2 .scheme-arrow { display: inline-block; transition: transform 0.15s; }
 .acc.open > h2 .scheme-arrow { transform: rotate(180deg); }
 
-.field select {
+/* Селекты — один общий стиль на обе страницы: профиль и район в панели
+   дождя, состав поверхностей, участки. Тот же вид, что у селектов в панели
+   ноды водосбора. */
+.field select,
+.seg-row select,
+.rain-profiles select {
   width: 100%;
+  min-width: 0;
   padding: 6px 8px;
   border: 1px solid #c4ccd4;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
   background: #fff;
+  box-sizing: border-box;
 }
 
 .mode-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; margin: 8px 0 12px; }
@@ -401,7 +453,7 @@ table.trace tr.bracket td { color: #5a6572; }
 .seg-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
 .seg-list:empty::before { content: "не заданы"; color: #98a2b3; font-size: 11px; }
 .seg-row { display: flex; gap: 4px; align-items: center; }
-.seg-row input, .seg-row select {
+.seg-row input {
   flex: 1; min-width: 0;
   padding: 5px 6px;
   border: 1px solid #c4ccd4;
@@ -409,6 +461,8 @@ table.trace tr.bracket td { color: #5a6572; }
   font-size: 13px;
   font-family: inherit;
 }
+/* Селект строки тянется по свободному месту; вид — из общего правила выше. */
+.seg-row select { flex: 1; }
 /* Кнопка удаления строки участка/поверхности — одна и та же в одиночном
    расчёте и в каскаде: стиль живёт здесь, cascade.css её не переопределяет. */
 .seg-del {

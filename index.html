@@ -9,34 +9,54 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>КНС · п. 5.1 — Перекачка незарегулированного дождевого стока</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-  <link rel="stylesheet" href="static/css/style.css?v=19">
+  <link rel="stylesheet" href="static/css/style.css?v=24">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script defer src="static/js/hydro.js"></script>
-  <script defer src="static/js/calc-view.js?v=16"></script>
+  <script defer src="static/js/calc-view.js?v=17"></script>
   <!-- Дождь и водосбор одиночного расчёта считают те же функции, что и каскад:
        reference-data.js — таблицы Ж.1/Ж.6/Ж.7, cascade-catch.js — catchParams,
        cascade-rain.js — профиль дождя и параметр A. -->
   <script defer src="static/js/reference-data.js?v=2"></script>
-  <script defer src="static/js/cascade-catch.js?v=14"></script>
-  <script defer src="static/js/cascade-rain.js?v=13"></script>
-  <script defer src="static/js/single-catch.js?v=4"></script>
-  <script defer src="static/js/app.js?v=8"></script>
+  <script defer src="static/js/param-schema.js?v=1"></script>
+  <script defer src="static/js/param-transfer.js?v=3"></script>
+  <script defer src="static/js/cascade-catch.js?v=15"></script>
+  <script defer src="static/js/cascade-rain.js?v=15"></script>
+  <script defer src="static/js/share-code.js?v=1"></script>
+  <script defer src="static/js/single-catch.js?v=10"></script>
+  <script defer src="static/js/app.js?v=11"></script>
 </head>
 
 <body>
   <header>
     <div>
       <h1>Насосная станция</h1>
-      <p>Перекачка незарегулированного дождевого стока</p>
     </div>
 
     <button class="menu-toggle" id="menuToggle" type="button" aria-label="Меню">☰</button>
 
     <div class="header-btns" id="headerBtns">
-      <button class="btn" id="share" type="button" title="Поделиться ссылкой с текущими параметрами">Поделиться</button>
+      <button class="btn" id="share" type="button" aria-label="Поделиться"
+        title="Поделиться ссылкой с текущими параметрами"><svg class="ic ic-nodes-right"
+          xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" fill-rule="evenodd"
+            d="M11 2.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M14 4a3 3 0 1 0-5.895.79L6.15 5.908a3 3 0 1 0 0 4.185l1.955 1.117A3.003 3.003 0 0 0 11 15a3 3 0 1 0-2.15-5.092L6.895 8.79a3 3 0 0 0 0-1.58L8.85 6.092A3 3 0 0 0 14 4m-3 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"
+            clip-rule="evenodd" />
+        </svg><svg class="ic ic-check" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
+          viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" fill-rule="evenodd"
+            d="M13.78 4.22a.75.75 0 0 1 0 1.06l-6.5 6.5a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 1 1 1.06-1.06L6.579 10.44l5.97-5.97a.75.75 0 0 1 1.06 0Z"
+            clip-rule="evenodd" />
+        </svg></button>
+      <button class="btn" id="toCascade" type="button" aria-label="В каскад"
+        title="Создать схему каскада из текущего расчёта и открыть её в новой вкладке"><svg class="ic"
+          xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" fill-rule="evenodd"
+            d="M12 2.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0M12.75.5A2.25 2.25 0 0 0 10.628 2h-.378a3 3 0 0 0-3 3v2.19L5.03 4.97a.75.75 0 0 0-1.06 1.06l1.22 1.22H1.75a.75.75 0 0 0 0 1.5h3.44L3.97 9.97a.75.75 0 1 0 1.06 1.06l2.22-2.22V11a3 3 0 0 0 3 3h.378a2.251 2.251 0 1 0 0-1.5h-.378a1.5 1.5 0 0 1-1.5-1.5V8.75h1.878a2.251 2.251 0 1 0 0-1.5H8.75V5a1.5 1.5 0 0 1 1.5-1.5h.378a2.251 2.251 0 1 0 2.122-3M12 13.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0m.75-4.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5"
+            clip-rule="evenodd" />
+        </svg></button>
       <a class="btn" href="method.html" title="Открыть страницу из методического пособия">Документация</a>
-      <a class="btn" href="cascade.html" title="Открыть редактор каскадов насосных станций">Каскад КНС</a>
+      <a class="btn" href="cascade.html" title="Открыть редактор каскадов насосных станций">Каскад НС</a>
     </div>
 
   </header>
@@ -86,6 +106,16 @@
       <section class="panel acc" id="rainSection">
         <h2 id="rainToggle">Дождь <span class="acc-val" id="rainHeaderVal"></span> <span class="scheme-arrow">▾</span></h2>
         <div class="acc-body">
+          <div class="param-bar">
+            <div class="param-row">
+              <button class="btn" type="button" data-param-copy="rain" title="Скопировать параметры дождя в буфер обмена"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2.5H8A1.5 1.5 0 0 0 6.5 4v1H8a3 3 0 0 1 3 3v1.5h1A1.5 1.5 0 0 0 13.5 8V4A1.5 1.5 0 0 0 12 2.5M11 11h1a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v1H4a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3zM4 6.5h4A1.5 1.5 0 0 1 9.5 8v4A1.5 1.5 0 0 1 8 13.5H4A1.5 1.5 0 0 1 2.5 12V8A1.5 1.5 0 0 1 4 6.5" clip-rule="evenodd"/></svg>Копировать</button>
+              <button class="btn" type="button" data-param-paste="rain" title="Вставить параметры дождя из буфера обмена"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="m6.44 4.06.439.44H12.5A1.5 1.5 0 0 1 14 6v5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11V4.5A1.5 1.5 0 0 1 3.5 3h1.257a1.5 1.5 0 0 1 1.061.44zM.5 4.5a3 3 0 0 1 3-3h1.257a3 3 0 0 1 2.122.879L7.5 3h5a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3zm10.03 4.53a.75.75 0 1 0-1.06-1.06l-.72.72V6.5a.75.75 0 1 0-1.5 0v2.19l-.72-.72a.75.75 0 1 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0z" clip-rule="evenodd"/></svg>Вставить</button>
+            </div>
+            <div class="param-row">
+              <button class="btn" type="button" data-param-save="rain" title="Сохранить параметры дождя в файл"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 11.5A1.5 1.5 0 0 0 4.5 13v-2.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V13a1.5 1.5 0 0 0 1.5-1.5V6.036a1 1 0 0 0-.293-.708l-2.035-2.035A1 1 0 0 0 9.964 3H6v1a.5.5 0 0 0 .5.5h3a.75.75 0 0 1 0 1.5h-3a2 2 0 0 1-2-2V3A1.5 1.5 0 0 0 3 4.5zm-1.5 0a3 3 0 0 0 3 3h7a3 3 0 0 0 3-3V6.036a2.5 2.5 0 0 0-.732-1.768l-2.036-2.036A2.5 2.5 0 0 0 9.964 1.5H4.5a3 3 0 0 0-3 3zm8.5-1V13H6v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5" clip-rule="evenodd"/></svg>В файл</button>
+              <button class="btn" type="button" data-param-file="rain" title="Загрузить параметры дождя из файла"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="m6.379 4.5-.44-.44-.621-.62A1.5 1.5 0 0 0 4.258 3H3a1.5 1.5 0 0 0-1.5 1.5v5.25l1.376-2.293A3 3 0 0 1 5.45 6h7.05A1.5 1.5 0 0 0 11 4.5zM14 6.026V6a3 3 0 0 0-3-3H7l-.621-.621A3 3 0 0 0 4.257 1.5H3a3 3 0 0 0-3 3V11a3 3 0 0 0 3 3h8.301a3 3 0 0 0 2.573-1.457l1.791-2.985A2.35 2.35 0 0 0 14 6.026M10 12.5h1.301a1.5 1.5 0 0 0 1.287-.728l1.791-2.986 1.286.772-1.286-.772a.85.85 0 0 0-.728-1.286H5.449a1.5 1.5 0 0 0-1.287.728l-1.791 2.986a.85.85 0 0 0 .728 1.286z" clip-rule="evenodd"/></svg>Из файла</button>
+            </div>
+          </div>
           <div class="field"
             title="параметры n, m_r и γ подставляются по району из таблицы Ж.1 СП 32.13330.2018; q₂₀ задаётся вручную по рисунку Ж.1 (карта), P — по условиям объекта">
             <label for="rainDistrict">Район (таблица Ж.1)</label>
@@ -141,6 +171,12 @@
       <section class="panel acc" id="catchSection">
         <h2 id="catchToggle">Водосбор <span class="acc-val" id="catchHeaderVal"></span> <span class="scheme-arrow">▾</span></h2>
         <div class="acc-body">
+          <div class="param-bar">
+            <button class="btn" type="button" data-param-copy="catch" title="Скопировать параметры водосбора в буфер обмена">Копировать</button>
+            <button class="btn" type="button" data-param-paste="catch" title="Вставить параметры водосбора из буфера обмена">Вставить</button>
+            <button class="btn" type="button" data-param-save="catch" title="Сохранить параметры водосбора в файл">В файл</button>
+            <button class="btn" type="button" data-param-file="catch" title="Загрузить параметры водосбора из файла">Из файла</button>
+          </div>
           <div class="mode-row">
             <span>Q<sub>r</sub> и t<sub>r</sub> в расчёте КНС:</span>
             <label><input type="radio" name="qrMode" value="catch" checked> по водосбору</label>

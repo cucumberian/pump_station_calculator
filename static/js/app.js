@@ -41,8 +41,11 @@ const wqChart = makeWQChart($("chart"));
 const qtChart = makeQTChart($("chartQT"));
 
 function render() {
-  const Qr = parseFloat($("Qr").value);
-  const tr = parseFloat($("tr").value);
+  // В режиме «по водосбору» Qr/tr — витрина: расчёт идёт по точным значениям,
+  // иначе округление полей утекает в результат и расходится с каскадом.
+  const derived = singleCatchDerived;
+  const Qr = derived ? derived.Qr : parseFloat($("Qr").value);
+  const tr = derived ? derived.tr : parseFloat($("tr").value);
   const n = parseFloat($("n").value);
   const Q = parseFloat($("Q").value);
   if (!(Qr > 0 && tr > 0 && n > 0 && n < 1 && Q > 0)) return;
@@ -63,6 +66,9 @@ function render() {
   $("resultsHeaderVal").innerHTML = r.dry
     ? `<span>Wнс = ${fmt(r.W, 1)} м³</span>`
     : `<span>Wнс = ${fmt(r.W, 1)} м³</span><span>tнⁿˢ = ${fmt(r.tn, 1)} мин</span><span>tкⁿˢ = ${fmt(r.tk, 1)} мин</span>`;
+  $("resultsHeaderVal").title = r.dry
+    ? derivedTitle(r.W, "м³")
+    : derivedTitleMany([["Wнс", r.W, "м³"], ["tнⁿˢ", r.tn, "мин"], ["tкⁿˢ", r.tk, "мин"]]);
 
   let rangePts = [];
   const rc = clampRange(Qr);
@@ -144,8 +150,9 @@ $("share").addEventListener("click", async () => {
   history.replaceState(null, "", "?" + p);
   const ok = await copyText(location.href);
   if (ok) {
-    $("share").textContent = "Скопировано!";
-    setTimeout(() => { $("share").textContent = "Поделиться"; }, 1500);
+    // кнопка иконочная: feedback — класс .copied (CSS меняет значок на галочку)
+    $("share").classList.add("copied");
+    setTimeout(() => { $("share").classList.remove("copied"); }, 1500);
   } else {
     prompt("Скопируйте ссылку:", location.href);
   }

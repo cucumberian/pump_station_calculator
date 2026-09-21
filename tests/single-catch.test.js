@@ -67,20 +67,23 @@ function makeEnv(seed = {}) {
 }
 
 const PRELUDE = `
-function padNum(v) { return typeof v === "number" && Number.isFinite(v) ? v.toFixed(2) : v; }
-function fmt(x, d = 2) { return Number(x).toFixed(Math.max(2, d)); }
-const smartRound = v => (Math.abs(v) > 0 && Math.abs(v) < 0.01 ? +v.toPrecision(2) : +v.toFixed(2));
 function openHelp() {}
 function render() {}
 `;
 
 function loadModule(env) {
-  const src = readSrc("reference-data.js") + readSrc("cascade-catch.js") +
-    readSrc("cascade-rain.js") + PRELUDE + readSrc("single-catch.js");
+  // calc-view.js подключаем целиком: padNum/fmt/smartRound/derivedTitle —
+  // настоящие, а не копия в тесте.
+  const src = readSrc("hydro.js") + readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") +
+    readSrc("calc-view.js") + readSrc("cascade-catch.js") + readSrc("cascade-rain.js") +
+    readSrc("share-code.js") +
+    PRELUDE + readSrc("single-catch.js");
   const body = new Function("document", "localStorage", "location", "window", "Event",
     src + `
 return { catchState, CATCH_DEFAULTS, singleCatchCalc, singleCatchData, catchUrlParams,
-  catchUrlLoad, recompute, activeRain, getActiveRain, rainProfiles, SURFACE_TYPES };
+  catchUrlLoad, recompute, activeRain, getActiveRain, rainProfiles, SURFACE_TYPES,
+  cascadeImportPayload, encodeSharePayload, decodeSharePayload,
+  getDerived: () => singleCatchDerived, derivedTitle, derivedTitleMany, calc };
 `);
   return body(env.globals.document, env.globals.localStorage, env.globals.location,
     env.globals.window, env.globals.Event);
@@ -95,6 +98,9 @@ function approx(a, b, tol = 1e-9) {
   if (!(Math.abs(a - b) <= tol)) throw new Error(`ожидалось ${b}, получено ${a} (допуск ${tol})`);
 }
 function ok(cond, msg) { if (!cond) throw new Error(msg); }
+function eq(a, b, msg) {
+  if (a !== b) throw new Error(`${msg || "значения разошлись"}: получено ${JSON.stringify(a)}, ожидалось ${JSON.stringify(b)}`);
+}
 
 const SEED = { n: "0.71", Qr: "342.30", tr: "10.00" };
 
@@ -230,5 +236,121 @@ test("скролл: поля дождя и водосбора перечисле
   }
 });
 
-console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);
-process.exit(failed ? 1 : 0);
+test("подсказка: 6 знаков и единица измерения", () => {
+  const env = makeEnv(SEED);
+  const M = loadModule(env);
+  eq(M.derivedTitle(10.051761904761907, "мин"), "точное значение: 10,051762 мин");
+  eq(M.derivedTitle(0.8444476701971355, "мин"), "точное значение: 0,844448 мин");
+  eq(M.derivedTitle(Number.NaN, "мин"), "");
+  eq(M.derivedTitleMany([["Wнс", 112.3483604382589, "м³"], ["Tк", 120.19011550964575, "мин"]]),
+    "точные значения: Wнс = 112,348360 м³, Tк = 120,190116 мин");
+});
+
+test("точность: расчёт КНС берёт точную пару, поля — витрина с точным в подсказке", () => {
+  const env = makeEnv({ ...SEED, n: "0.4" });
+  const M = loadModule(env);
+  // Параметры дождя из отчёта: n = 0,4, q₂₀ = 40, m_r = 130, γ = 1,33.
+  Object.assign(M.rainProfiles[0], { q20: 40, P: 1, mr: 130, gamma: 1.33 });
+  M.catchState.data = {
+    ...M.CATCH_DEFAULTS, coeffSource: "manual", tcon: 3, tcan: 0, tp: 0,
+    segs: [{ l: 68, v: 0.7 }, { l: 133, v: 1 }, { l: 277, v: 1.5 }],
+  };
+  M.recompute();
+  const { p } = M.singleCatchCalc({ data: M.catchState.data });
+  // 10,051762 против 10,05 — тот самый случай, из-за которого расходились
+  // одиночный расчёт и каскад.
+  approx(p.tr, 10.051761904761907, 1e-9);
+  approx(p.Qr, 114.91454944913622, 1e-9);
+  const derived = M.getDerived();
+  ok(derived, "точная пара для расчёта КНС не выставлена");
+  approx(derived.tr, p.tr, 1e-12);
+  approx(derived.Qr, p.Qr, 1e-12);
+  approx(parseFloat(env.el("tr").value), 10.05, 1e-9);
+  approx(parseFloat(env.el("Qr").value), 114.91, 1e-9);
+  ok(env.el("tr").title.includes("10,051762"), `нет точного значения в подсказке: ${env.el("tr").title}`);
+  ok(env.el("Qr").title.includes("114,914549"), `нет точного значения в подсказке: ${env.el("Qr").title}`);
+});
+
+test("точность: в ручном режиме производных значений нет", () => {
+  const env = makeEnv({ ...SEED, storage: [["kns-single-catch", JSON.stringify({ mode: "manual", rain: {}, data: {} })]] });
+  const M = loadModule(env);
+  M.recompute();
+  ok(M.getDerived() === null, "в ручном режиме расчёт не должен брать производные значения");
+  eq(env.el("tr").title, "", "в ручном режиме подсказка про точное значение лишняя");
+});
+
+test("точность: точные Tн/Tк/Wнс совпадают с каскадными на тех же данных", () => {
+  const env = makeEnv({ ...SEED, n: "0.4" });
+  const M = loadModule(env);
+  // Параметры дождя из отчёта: n = 0,4, q₂₀ = 40, m_r = 130, γ = 1,33.
+  Object.assign(M.rainProfiles[0], { q20: 40, P: 1, mr: 130, gamma: 1.33 });
+  M.catchState.data = {
+    ...M.CATCH_DEFAULTS, coeffSource: "manual", tcon: 3, tcan: 0, tp: 0,
+    segs: [{ l: 68, v: 0.7 }, { l: 133, v: 1 }, { l: 277, v: 1.5 }],
+  };
+  M.recompute();
+  const { p } = M.singleCatchCalc({ data: M.catchState.data });
+  approx(p.n, 0.4, 1e-12);
+  approx(p.Qr, 114.91454944913622, 1e-9);
+  const r = M.calc(26, p.Qr, p.tr, p.n);
+  approx(r.W, 112.3483604382589, 1e-9);
+  approx(r.tk, 120.19011550964575, 1e-9);
+  // а по округлённым полям получалось 112,32 — то, что видел пользователь
+  approx(M.calc(26, 114.91, 10.05, p.n).W, 112.31685142430513, 1e-9);
+});
+
+test("мост «В каскад»: автоматический режим — водосбор → КНС с дождём и Qнс", () => {
+  const env = makeEnv(SEED);
+  const M = loadModule(env);
+  env.el("Q").value = "100";
+  M.recompute();
+  const payload = M.cascadeImportPayload();
+  ok(payload.rains.length === 1 && payload.rains[0].id === 1, "дождь не перенесён");
+  approx(payload.rains[0].q20, 80);
+  approx(payload.n, 0.71);
+  eq(payload.nodes.map(n => n.type).join(","), "catch,pump", "ожидались водосбор и КНС");
+  eq(payload.connections.length, 1);
+  eq(payload.connections[0].from, 1);
+  eq(payload.connections[0].to, 2);
+  const pump = payload.nodes.find(n => n.type === "pump");
+  approx(pump.data.q, 100);
+  const p = M.singleCatchCalc({ data: M.catchState.data }).p;
+  approx(pump.data.qr, p.Qr, 1e-9);
+  approx(pump.data.tr, p.tr, 1e-9);
+});
+
+test("мост «В каскад»: ручной режим — только КНС, без водосбора", () => {
+  const env = makeEnv({ ...SEED, Qr: "123.00", tr: "7.00", Q: "100.00",
+    storage: [["kns-single-catch", JSON.stringify({ mode: "manual", rain: {}, data: {} })]] });
+  const M = loadModule(env);
+  M.recompute();
+  const payload = M.cascadeImportPayload();
+  eq(payload.nodes.length, 1, "в ручном режиме водосбор не переносится");
+  eq(payload.nodes[0].type, "pump");
+  eq(payload.connections.length, 0);
+  approx(payload.nodes[0].data.qr, 123);
+  approx(payload.nodes[0].data.tr, 7);
+});
+
+// Ссылка #s=, которую открывает кнопка «В каскад»: общий кодек
+// (share-code.js) должен давать код, который разбирает каскад.
+(async () => {
+  try {
+    const env = makeEnv(SEED);
+    const M = loadModule(env);
+    env.el("Q").value = "100";
+    const payload = M.cascadeImportPayload();
+    const code = await M.encodeSharePayload(payload);
+    ok(/^[dj]\.[A-Za-z0-9_-]+$/.test(code), "не base64url: " + code.slice(0, 24));
+    const back = await M.decodeSharePayload(code);
+    eq(back.nodes.map(n => n.type).join(","), "catch,pump");
+    eq(back.connections.length, 1);
+    approx(back.rains[0].q20, 80);
+    passed++;
+  } catch (e) {
+    failed++;
+    console.error(`\u2716 ${"ссылка одиночного расчёта кодируется и разбирается"}\n  ${e.stack || e.message}`);
+  }
+  console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);
+  process.exit(failed ? 1 : 0);
+})();

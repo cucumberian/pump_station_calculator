@@ -11,6 +11,13 @@ const WARN_TRIANGLE_SVG = `<svg class="ic ic-warn" xmlns="http://www.w3.org/2000
 
 const XMARK_HTML = `<svg class="ic ic-xmark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06" clip-rule="evenodd"/></svg>`;
 
+// Иконки gravity-ui для контекстного меню ноды. В шапке панели те же значки
+// стоят инлайном в cascade.html — HTML не видит эти константы.
+const ICON_COPY_HTML = `<svg class="ic ic-copy" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2.5H8A1.5 1.5 0 0 0 6.5 4v1H8a3 3 0 0 1 3 3v1.5h1A1.5 1.5 0 0 0 13.5 8V4A1.5 1.5 0 0 0 12 2.5M11 11h1a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v1H4a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3zM4 6.5h4A1.5 1.5 0 0 1 9.5 8v4A1.5 1.5 0 0 1 8 13.5H4A1.5 1.5 0 0 1 2.5 12V8A1.5 1.5 0 0 1 4 6.5" clip-rule="evenodd"/></svg>`;
+const ICON_PASTE_HTML = `<svg class="ic ic-paste" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="m6.44 4.06.439.44H12.5A1.5 1.5 0 0 1 14 6v5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11V4.5A1.5 1.5 0 0 1 3.5 3h1.257a1.5 1.5 0 0 1 1.061.44zM.5 4.5a3 3 0 0 1 3-3h1.257a3 3 0 0 1 2.122.879L7.5 3h5a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3zm10.03 4.53a.75.75 0 1 0-1.06-1.06l-.72.72V6.5a.75.75 0 1 0-1.5 0v2.19l-.72-.72a.75.75 0 1 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0z" clip-rule="evenodd"/></svg>`;
+const ICON_SAVE_HTML = `<svg class="ic ic-save" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 11.5A1.5 1.5 0 0 0 4.5 13v-2.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V13a1.5 1.5 0 0 0 1.5-1.5V6.036a1 1 0 0 0-.293-.708l-2.035-2.035A1 1 0 0 0 9.964 3H6v1a.5.5 0 0 0 .5.5h3a.75.75 0 0 1 0 1.5h-3a2 2 0 0 1-2-2V3A1.5 1.5 0 0 0 3 4.5zm-1.5 0a3 3 0 0 0 3 3h7a3 3 0 0 0 3-3V6.036a2.5 2.5 0 0 0-.732-1.768l-2.036-2.036A2.5 2.5 0 0 0 9.964 1.5H4.5a3 3 0 0 0-3 3zm8.5-1V13H6v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5" clip-rule="evenodd"/></svg>`;
+const ICON_DUPLICATE_HTML = `<svg class="ic ic-duplicate" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2.5H8A1.5 1.5 0 0 0 6.5 4v1H8a3 3 0 0 1 3 3v1.5h1A1.5 1.5 0 0 0 13.5 8V4A1.5 1.5 0 0 0 12 2.5M11 11h1a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v1H4a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3zM8 6.5H4A1.5 1.5 0 0 0 2.5 8v4A1.5 1.5 0 0 0 4 13.5h4A1.5 1.5 0 0 0 9.5 12V8A1.5 1.5 0 0 0 8 6.5M6 7.75a.75.75 0 0 1 .75.75v.75h.75a.75.75 0 0 1 0 1.5h-.75v.75a.75.75 0 0 1-1.5 0v-.75H4.5a.75.75 0 0 1 0-1.5h.75V8.5A.75.75 0 0 1 6 7.75" clip-rule="evenodd"/></svg>`;
+
 const NODE_HTML = {
   pump: `
     <div class="node-box node-pump">
@@ -60,41 +67,16 @@ const NODE_HTML = {
 
 const NODE_TYPE_LABEL = { pump: "Насосная станция", delay: "Участок сети", catch: "Водосбор", flow: "Дополнительный приток" };
 
-const NODE_DEFAULTS = {
-  pump: { name: "", desc: "", qr: 342.3, tr: 10, q: 100, idle: 50, mode: "analytic" },
-  delay: { name: "", desc: "", v: 1, l: 3600, d: "" },
-  // t1: "" — «с начала события»; t2: "" — «до конца события»: горизонт
-  // резолвится в rainHorizon при пересчёте. Оба пустые — поток постоянный
-  // на всём времени расчёта.
-  flow: { name: "", desc: "", mode: "constant", q: 50, t1: "", t2: "" },
-  catch: {
-    name: "", desc: "",
-    F: 3.9, q20: 80, P: 1.0, mr: 150, gamma: 1.54,
-    psiMid: 0.634, zMid: 0.201, tcon: 3, tcan: 0, tp: 0,
-    // tcan/tp — ручные добавочные времена протекания по лоткам и по трубам;
-    // segs — участки дождевой сети (трубы): tp += 0,017·Σ(l/v) (ф. 7 СНиП 2.04.03-85);
-    // trays — участки лотка: tcan += 0,021·Σ(l/v) (ф. 6). Оба списка
-    // произвольной длины, пустые по умолчанию.
-    segs: [], trays: [],
-    coeffMode: "variable",
-    // coeffSource = "table": z_mid и ψ_mid считаются средневзвешенными по
-    // составу поверхностей zRows (F = ΣFᵢ), вручную заданные zMid/psiMid
-    // сохраняются для режима "manual".
-    // Новый водосбор сразу идёт по составу и уже содержит все виды
-    // поверхностей с нулевой площадью — инженеру остаётся вписать площади
-    // (строки можно добавлять и удалять). До заполнения ΣFᵢ = 0, поэтому
-    // нода честно показывает Qr = 0 и просит задать площадь.
-    coeffSource: "table",
-    zRows: SURFACE_TYPES.map(t => ({ type: t.key, F: 0, z: "" })),
-  },
-};
+// NODE_DEFAULTS выводится из PARAM_SCHEMA (param-schema.js) — там же версии
+// интерфейса, миграции и проверка чужих данных.
+const NODE_DEFAULTS = Object.fromEntries(NODE_TYPES.map(t => [t, nodeDefaultsOf(t)]));
 
 const NODE_PORTS = { pump: [1, 1], delay: [1, 1], catch: [0, 1], flow: [0, 1] };
 const NODE_LABEL = { pump: "КНС", delay: "Участок", catch: "Водосбор", flow: "Доп. приток" };
 const COMP_COLORS = ["#0b7285", "#f08c00", "#7048e8", "#2f9e44", "#e8590c", "#1098ad"];
 
 const NODE_WHEEL_STEPS = { qr: 1, tr: 1, q: 1, idle: 5, v: 0.1, l: 100, d: 50, F: 0.1, tcon: 1, t1: 1, t2: 1 };
-const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbD: 50, sbFrom: 1, sbTo: 1, sbStep: 1, sbCF: 0.1, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCTp: 1, sbFQ: 1, sbFT1: 1, sbFT2: 1 };
+const SB_WHEEL_STEPS = { sbQr: 1, sbTr: 1, sbQ: 1, sbQm3h: 3.6, sbIdle: 5, sbV: 0.1, sbL: 100, sbD: 50, sbFrom: 1, sbTo: 1, sbStep: 1, sbCF: 0.1, sbCPsi: 0.01, sbCZ: 0.01, sbCTcon: 1, sbCTcan: 1, sbCTp: 1, sbFQ: 1, sbFT1: 1, sbFT2: 1, rainQ20: 1, rainP: 0.5, rainN: 0.01, rainMr: 10, rainGamma: 0.01 };
 
 // Нода «Доп. приток» — источник прямоугольного импульса: Q с t₁ до t₂.
 // Пустое t₁ означает «с начала события» (эквивалент 0). Эмитирует

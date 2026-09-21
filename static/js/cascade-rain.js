@@ -69,7 +69,8 @@ function updateRainBtn() {
   const btn = $c("rainBtn");
   btn.textContent = "";
   const name = document.createElement("b");
-  name.textContent = `🌧 ${r.name.trim() || `Дождь ${r.id}`}`;
+  // id берём у активного профиля, а не у нормализованного: normRain его не несёт.
+  name.textContent = `🌧 ${r.name.trim() || `Дождь ${rainActive}`}`;
   const val = document.createElement("span");
   val.className = "rain-btn-val";
   val.textContent = ` ${rainFmt(rainA(r))} л/(с·га)`;
@@ -323,8 +324,25 @@ function rainHelpBlocks() {
     ...rainClimateHelpBlocks(),
     { p: "Несколько профилей хранятся в одной схеме (например, расчётный дождь разной обеспеченности P): активный выбирается в панели и участвует в расчёте всех водосборов. Таблицы коэффициентов поверхностей (Ж.6, Ж.7) — в справке ноды «Водосбор»." },
     ...catchSources(),
+    ...schemaHelpBlocks("rain"),
   ];
 }
+
+// Перенос профиля дождя: в буфер/файл уезжает активный профиль целиком;
+// вставка добавляет новый профиль (как «Дублировать», только извне) —
+// так чужие параметры не затирают текущую схему.
+registerParamTarget("rain", {
+  copy: () => ({ data: paramDataOf("rain", getActiveRain()), name: getActiveRain().name }),
+  paste: data => {
+    const id = rainNextId();
+    rainProfiles.push({ ...normRain(data), id, name: data.name?.trim() || `Дождь ${id}` });
+    rainActive = id;
+    renderRainPanel(true);
+    saveScheme();
+    flushCascade();
+    return true;
+  },
+});
 
 // Таблицы Ж.1–Ж.3 СП 32.13330.2018: подбор n/m_r/γ по району и выбор периода
 // превышения P. Таблица Ж.1 строится из RAIN_CLIMATE (reference-data.js),

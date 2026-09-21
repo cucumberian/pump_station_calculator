@@ -113,9 +113,10 @@ function renderCatchSidebar(node) {
   renderSurfList(table ? d.zRows : []);
   if (fromCalc) {
     const rd = (v, d) => Number.isFinite(v) ? Math.round(v * 10 ** d) / 10 ** d : v;
-    if (document.activeElement !== $c("sbCF")) $c("sbCF").value = padNum(rd(p.F, 3));
-    if (document.activeElement !== $c("sbCZ")) $c("sbCZ").value = padNum(rd(p.zMid, 4));
-    if (document.activeElement !== $c("sbCPsi")) $c("sbCPsi").value = padNum(rd(p.psiMid, 4));
+    // Производные F = ΣFᵢ, z_mid и Ψ_mid: точное значение — в подсказке.
+    if (document.activeElement !== $c("sbCF")) { $c("sbCF").value = padNum(rd(p.F, 3)); $c("sbCF").title = derivedTitle(p.F, "га"); }
+    if (document.activeElement !== $c("sbCZ")) { $c("sbCZ").value = padNum(rd(p.zMid, 4)); $c("sbCZ").title = derivedTitle(p.zMid); }
+    if (document.activeElement !== $c("sbCPsi")) { $c("sbCPsi").value = padNum(rd(p.psiMid, 4)); $c("sbCPsi").title = derivedTitle(p.psiMid); }
   }
   const note = $c("sbSurfNote");
   if (table) {
@@ -143,6 +144,7 @@ function renderCatchSidebar(node) {
   $c("sbCOut").innerHTML = res
     ? `Q<sub>r</sub> = ${fmt(res.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(res.tr, 2)} мин`
     : `<span class="warn">${WARN_TRIANGLE_SVG} Q<sub>r</sub> = 0 — ${errReason || "расчёт не выполнен"}</span>`;
+  $c("sbCOut").title = res ? derivedTitleMany([["Qr", res.Qr, "л/с"], ["tr", res.tr, "мин"]]) : "";
   $c("sbCatchChartWrap").hidden = !res;
   if (res) catchChart.update(seriesFromResult(res), res.Qr, res.tr);
   applySidebarLock();
@@ -482,8 +484,18 @@ function renderSidebar() {
   showPumpSections();
 
   const manualLock = !!node?.data?.locked;
-  if (document.activeElement !== $c("sbQr")) $c("sbQr").value = Number(displayParam(node, res, "qr")).toFixed(2);
-  if (document.activeElement !== $c("sbTr")) $c("sbTr").value = Number(displayParam(node, res, "tr")).toFixed(2);
+  // Запертые водосбором Qr/tr — производные: показываем округлёнными,
+  // точное значение уводим в подсказку. Свои (не запертые) — просто показываем.
+  const qrShown = Number(displayParam(node, res, "qr"));
+  const trShown = Number(displayParam(node, res, "tr"));
+  if (document.activeElement !== $c("sbQr")) {
+    if (res.lockId) showDerived($c("sbQr"), qrShown, "л/с");
+    else { $c("sbQr").value = padNum(smartRound(qrShown)); $c("sbQr").title = ""; }
+  }
+  if (document.activeElement !== $c("sbTr")) {
+    if (res.lockId) showDerived($c("sbTr"), trShown, "мин");
+    else { $c("sbTr").value = padNum(smartRound(trShown)); $c("sbTr").title = ""; }
+  }
   $c("sbQr").disabled = manualLock || !!res.lockId;
   $c("sbTr").disabled = manualLock || !!res.lockId;
   const sbQrTrPair = $c("sbParams")?.querySelector(".sb-pair");
@@ -944,9 +956,9 @@ $c("sbReportBtn").addEventListener("click", () => {
   if (md) downloadTextFile(`kns-node-${sbNodeId}.md`, md);
 });
 $c("gfClose").addEventListener("click", () => { $c("gfModal").hidden = true; });
-$c("gfHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
+$c("gfHelp").addEventListener("click", () => openHelp([...CASCADE_HELP, ...schemaHelpBlocks()], {}));
 $c("gfContent").addEventListener("click", e => {
-  if (e.target.closest(".gf-method-help")) openHelp(CASCADE_HELP, {});
+  if (e.target.closest(".gf-method-help")) openHelp([...CASCADE_HELP, ...schemaHelpBlocks()], {});
 });
 $c("gfModal").addEventListener("click", e => {
   if (e.target === $c("gfModal")) $c("gfModal").hidden = true;

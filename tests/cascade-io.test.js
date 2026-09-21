@@ -17,8 +17,10 @@ const NODE_DEFAULTS = {
 // ---- load cascade-nodes (for NODE_HTML) ----
 const nodesSrc = fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-nodes.js"), "utf8");
 const refSrc = fs.readFileSync(path.join(__dirname, "..", "static/js/reference-data.js"), "utf8");
+const schemaSrc = fs.readFileSync(path.join(__dirname, "..", "static/js/param-schema.js"), "utf8");
+const transferSrc = fs.readFileSync(path.join(__dirname, "..", "static/js/param-transfer.js"), "utf8");
 const nodesMod = new Function(
-  refSrc + nodesSrc + `
+  refSrc + schemaSrc + nodesSrc + `
 return { NODE_HTML, NODE_PORTS, NODE_DEFAULTS };
 `,
 )();
@@ -74,6 +76,12 @@ const NODE_HTML = ${JSON.stringify(nodesMod.NODE_HTML)};
 
 function getGlobalN() { return 0.71; }
 function padNum(v) { return String(v); }
+
+${refSrc}
+${schemaSrc}
+${transferSrc}
+
+${fs.readFileSync(path.join(__dirname, "..", "static/js/share-code.js"), "utf8")}
 
 ${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-rain.js"), "utf8")}
 

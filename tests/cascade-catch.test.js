@@ -10,7 +10,7 @@ const readSrc = f => fs.readFileSync(path.join(__dirname, "..", "static/js", f),
 const graphSrc = readSrc("cascade-graph.js");
 
 const N = new Function("window",
-  readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("reference-data.js") + readSrc("cascade-nodes.js") + readSrc("cascade-catch.js") + `
+  readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") + readSrc("cascade-nodes.js") + readSrc("cascade-catch.js") + `
 return { catchParams, parseSections, catchHelp, catchTrHelp, catchCoeffHelp, catchSources, coeffModeBlocks,
   catchErrorReason, CATCH_SOURCES, fmt, impermeableZ, coeffTableBlocks, Z_TABLE_A, Z_TABLE_N, SURFACE_TYPES, SURFACE_BY_KEY,
   NODE_DEFAULTS, NODE_PORTS, NODE_HTML };
@@ -409,7 +409,7 @@ const ioMod = new Function(
 const NODE_DEFAULTS = ${JSON.stringify(N.NODE_DEFAULTS)};
 const NODE_HTML = ${JSON.stringify(N.NODE_HTML)};
 function getGlobalN() { return 0.71; }
-` + graphSrc + readSrc("cascade-io.js") + `
+` + readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") + graphSrc + readSrc("cascade-io.js") + `
 return { migrateNodeData };
 `,
 )();

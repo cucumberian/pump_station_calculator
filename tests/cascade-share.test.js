@@ -141,6 +141,11 @@ const NODE_HTML = {};
 function getGlobalN() { return parseFloat($c("globalN").value); }
 function padNum(v) { return String(v); }
 
+${fs.readFileSync(path.join(__dirname, "..", "static/js/reference-data.js"), "utf8")}
+${fs.readFileSync(path.join(__dirname, "..", "static/js/param-schema.js"), "utf8")}
+${fs.readFileSync(path.join(__dirname, "..", "static/js/param-transfer.js"), "utf8")}
+${fs.readFileSync(path.join(__dirname, "..", "static/js/share-code.js"), "utf8")}
+
 ${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-rain.js"), "utf8")}
 
 ${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-graph.js"), "utf8")}
@@ -151,6 +156,7 @@ const ioMod = new Function(
 return {
   validatePayload,
   stripSharePayload, encodeShareCode, decodeShareCode,
+  encodeSharePayload, decodeSharePayload,
   serializeScheme, saveScheme, loadInitial, applyPayload,
   listSchemes, activeId, schemeItemPayload,
   SHARE_PARAM, SHARE_LIMIT, FORMAT, FORMAT_VERSION,
@@ -391,6 +397,32 @@ await test("большая схема (90 нод) влезает в SHARE_LIMIT"
   if (code.length > ioMod.SHARE_LIMIT) throw new Error(`90-нодовая схема: ${code.length} > ${ioMod.SHARE_LIMIT}`);
   const back = await ioMod.decodeShareCode(code);
   if (ioMod.validatePayload(back).length) throw new Error("валидация большой схемы упала");
+});
+
+await test("ссылка из одиночного расчёта (encodeSharePayload) открывается как новая схема", async () => {
+  reset();
+  // Кнопка «В каскад» (single-catch.js) формирует #s= общим кодеком
+  // encodeSharePayload — без strip и без format/version, как есть.
+  const payload = {
+    name: "Из одиночного расчёта", n: 0.71,
+    rains: [{ id: 1, name: "Дождь 1", district: null, q20: 80, P: 1, mr: 150, gamma: 1.54, n: 0.71 }],
+    rainActive: 1,
+    nodes: [
+      { id: 1, type: "catch", x: 60, y: 80, data: { ...NODE_DEFAULTS.catch, F: 5 } },
+      { id: 2, type: "pump", x: 360, y: 80, data: { ...NODE_DEFAULTS.pump, qr: 100, q: 40 } },
+    ],
+    connections: [{ from: 1, to: 2 }],
+  };
+  const code = await ioMod.encodeSharePayload(payload);
+  if (!/^[dj]\.[A-Za-z0-9_-]+$/.test(code)) throw new Error("не base64url: " + code.slice(0, 30));
+  const back = await ioMod.decodeShareCode(code);
+  if (ioMod.validatePayload(back).length) throw new Error("ссылка одиночного расчёта не проходит валидацию");
+  location.hash = "#s=" + code;
+  await ioMod.loadInitial();
+  if (lastAlert) throw new Error("alert при открытии: " + lastAlert);
+  if (editor.nodes.length !== 2) throw new Error("загружено " + editor.nodes.length + " нод вместо 2");
+  eq(editor.nodes.find(n => n.type === "catch").data.F, 5);
+  if (location.hash.startsWith("#s=")) throw new Error("фрагмент не убран после применения");
 });
 
 console.log(`\n=== ${passed} пройдено, ${failed} не прошло ===`);

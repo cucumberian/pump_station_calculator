@@ -32,6 +32,9 @@ const SINGLE_RAIN_RESETS = [["n", "rainResetN"], ["mr", "rainResetMr"], ["gamma"
 
 const catchState = { mode: "catch", data: { ...CATCH_DEFAULTS } };
 let applying = false;
+// Точные (неокруглённые) Qr/tr режима «по водосбору» — их читает расчёт КНС
+// в app.js. В полях показываются округлённые значения: поля — витрина.
+let singleCatchDerived = null;
 
 function currentN() {
   const v = parseFloat($sc("n").value);
@@ -147,6 +150,15 @@ function fillInput(el, v) {
   el.value = v === "" || v === null || v === undefined || !Number.isFinite(n) ? "" : padNum(n);
 }
 
+// Производное поле: округлённый показ (заданное число знаков) + точное
+// значение в подсказке. Округление здесь — только для глаза.
+const roundTo = (v, dec) => (Number.isFinite(v) ? Math.round(v * 10 ** dec) / 10 ** dec : v);
+function fillDerived(el, value, dec, unit) {
+  if (!el || document.activeElement === el || !Number.isFinite(value)) return;
+  el.value = padNum(roundTo(value, dec));
+  el.title = derivedTitle(value, unit);
+}
+
 function renderRain() {
   const r = activeRain();
   const sel = $sc("rainDistrict");
@@ -155,6 +167,7 @@ function renderRain() {
   $sc("rainFormula").innerHTML = rainFormulaHTML(r);
   // В свёрнутом виде в заголовке виден результат расчёта дождя — параметр A.
   $sc("rainHeaderVal").innerHTML = `A = ${fmt(rainA(r))} л/(с·га)`;
+  $sc("rainHeaderVal").title = derivedTitle(rainA(r), "л/(с·га)");
   const row = rainRegionRow(r);
   for (const [key, btnId] of SINGLE_RAIN_RESETS) {
     const std = rainRegionValue(row, key, r.P);
@@ -195,10 +208,20 @@ function renderCatch(p) {
   $sc("catchHeaderVal").innerHTML = p.Qr > 0
     ? `<span>Q<sub>r</sub> = ${fmt(p.Qr, 1)} л/с</span><span>t<sub>r</sub> = ${fmt(p.tr, 1)} мин</span>`
     : `<span class="warn">Q<sub>r</sub> = 0</span>`;
+  $sc("catchHeaderVal").title = p.Qr > 0 ? derivedTitleMany([["Qr", p.Qr, "л/с"], ["tr", p.tr, "мин"]]) : "";
   for (const rb of document.querySelectorAll('input[name="qrMode"]')) rb.checked = rb.value === catchState.mode;
   for (const rb of document.querySelectorAll('input[name="catchCoeff"]')) rb.checked = rb.value === (d.coeffMode === "const" ? "const" : "variable");
   for (const rb of document.querySelectorAll('input[name="catchSource"]')) rb.checked = rb.value === (table ? "table" : "manual");
   for (const [elId, key] of Object.entries(CATCH_NUM)) fillInput($sc(elId), d[key]);
+  // В режиме «по составу» F, z_mid и Ψ_mid — производные расчёта: показываем
+  // посчитанное (а не сохранённое) и уводим точное значение в подсказку.
+  if (table) {
+    fillDerived($sc("catchF"), p.F, 3, "га");
+    fillDerived($sc("catchZ"), p.zMid, 4, "");
+    fillDerived($sc("catchPsi"), p.psiMid, 4, "");
+  } else {
+    for (const id of ["catchF", "catchZ", "catchPsi"]) $sc(id).title = "";
+  }
   // В режиме «по составу» F, z_mid и Ψ_mid — производные расчёта.
   $sc("catchF").readOnly = table;
   $sc("catchZ").readOnly = table;
@@ -260,23 +283,30 @@ function renderOut(p) {
     ? `A = ${fmt(p.A)} л/(с·га) · t<sub>can</sub> = ${fmt(p.tcan, 1)} · t<sub>p</sub> = ${fmt(p.tp, 1)} мин<br>` +
       `Q<sub>r</sub> = ${fmt(p.Qr, 2)} л/с <br> t<sub>r</sub> = ${fmt(p.tr, 2)} мин`
     : `<span class="warn">⚠ Q<sub>r</sub> = 0 — ${catchErrorReason(catchState.data)}</span>`;
+  $sc("catchOut").title = p.Qr > 0
+    ? derivedTitleMany([["A", p.A, "л/(с·га)"], ["t_can", p.tcan, "мин"], ["t_p", p.tp, "мин"], ["Qr", p.Qr, "л/с"], ["tr", p.tr, "мин"]])
+    : "";
 }
 
 function applyMode() {
   const auto = catchState.mode === "catch";
+  singleCatchDerived = null;
   for (const id of ["Qr", "tr"]) {
-    $sc(id).readOnly = auto;
-    $sc(id).classList.toggle("derived", auto);
+    const el = $sc(id);
+    el.readOnly = auto;
+    el.classList.toggle("derived", auto);
+    if (!auto) el.title = ""; // ручное значение — «точное» показывать нечего
   }
 }
 
 function writeComputed(p) {
   applying = true;
   try {
-    // smartRound: поле типа number не должно получать хвост вида 342,3309814…,
-    // но и малые расходы не обнуляются.
-    $sc("Qr").value = padNum(smartRound(p.Qr));
-    $sc("tr").value = padNum(smartRound(p.tr));
+    // Поля показывают округлённое, а расчёт (app.js) берёт точную пару —
+    // иначе одиночный расчёт расходится с каскадом (10,05 против 10,051762).
+    singleCatchDerived = { Qr: p.Qr, tr: p.tr };
+    showDerived($sc("Qr"), p.Qr, "л/с");
+    showDerived($sc("tr"), p.tr, "мин");
     // app.js по событию input пересчитает м³/ч и диапазон таблицы вариантов.
     $sc("Qr").dispatchEvent(new Event("input"));
   } finally {
@@ -476,6 +506,82 @@ if (window.matchMedia("(min-width: 901px)").matches) {
 // Параметры из ссылки важнее сохранённых: так работает «Поделиться».
 catchUrlLoad(new URLSearchParams(location.search));
 renderRain();
+
+// ---------- перенос параметров ----------
+// Приёмники для конвертов kns-param: дождь и водосбор. Ноды КНС/участка/притока
+// сюда не вставляются — сработает общее сообщение о несовместимости.
+
+registerParamTarget("rain", {
+  copy: () => ({ data: paramDataOf("rain", activeRain()), name: getActiveRain().name || "Дождь" }),
+  paste: data => {
+    Object.assign(rainProfiles[0], data);
+    if (Number.isFinite(data.n)) $sc("n").value = padNum(data.n);
+    recompute();
+    return true;
+  },
+});
+
+registerParamTarget("catch", {
+  copy: () => ({ data: paramDataOf("catch", catchState.data), name: "Водосбор" }),
+  paste: data => {
+    // Берём только поля модели водосбора: имя/описание ноды и наследие
+    // q₂₀/P/m_r/γ здесь не нужны — дождь живёт отдельной секцией.
+    const next = { ...catchState.data };
+    for (const key of Object.keys(next)) if (key in data) next[key] = data[key];
+    catchState.data = next;
+    recompute();
+    return true;
+  },
+});
+
+bindParamTransfer();
+initParamPaste();
+
+// ---------- мост «В каскад» ----------
+// Собирает из состояния одиночного расчёта НОВУЮ схему каскада (дождь →
+// водосбор → КНС) и открывает её в новой вкладке ссылкой #s= — тем же
+// механизмом, что кнопка «Поделиться» в каскаде (share-code.js пишет,
+// decodeShareCode в cascade-io.js читает). Ссылка заводит отдельную схему
+// и не затирает активную; никакого localStorage-моста не нужно.
+function cascadeImportPayload() {
+  const rain = { ...normRain(activeRain()), id: 1 };
+  const auto = catchState.mode === "catch";
+  const derived = singleCatchDerived;
+  const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
+  const Qr = derived ? derived.Qr : num(parseFloat($sc("Qr").value), 0);
+  const tr = derived ? derived.tr : num(parseFloat($sc("tr").value), 0);
+  const Q = num(parseFloat($sc("Q").value), 0);
+  const nodes = [];
+  const connections = [];
+  // В режиме «по водосбору» Qr/tr считает водосбор; в ручном — это исходные
+  // данные, источника-водосбора у них нет.
+  if (auto) nodes.push({ id: 1, type: "catch", x: 60, y: 80, data: { ...catchState.data } });
+  nodes.push({
+    id: nodes.length + 1, type: "pump", x: auto ? 360 : 120, y: 80,
+    data: { name: "Насосная станция", desc: "", qr: Qr, tr, q: Q, idle: 50, mode: "analytic" },
+  });
+  if (auto) connections.push({ from: 1, to: 2 });
+  return {
+    meta: { custom: [], title: "Из одиночного расчёта" },
+    name: "Из одиночного расчёта",
+    n: currentN(), rains: [rain], rainActive: 1, nodes, connections,
+  };
+}
+
+$sc("toCascade").addEventListener("click", async () => {
+  try {
+    const code = await encodeSharePayload(cascadeImportPayload());
+    if (code.length > SHARE_LIMIT) {
+      alert(`Расчёт велик для ссылки: ${code.length} символов, предел ${SHARE_LIMIT}.`);
+      return;
+    }
+    const url = new URL("cascade.html", location.href);
+    url.hash = SHARE_PARAM + "=" + code;
+    window.open(url.href, "_blank");
+  } catch (err) {
+    alert("Не удалось подготовить схему каскада: " + err.message);
+  }
+});
 
 // После app.js: его loadFromUrl мог проставить Qr/tr из адреса, в режиме
 // «по водосбору» рассчитанные значения главнее. Обработчик ползунка n тоже

@@ -6,7 +6,7 @@ const path = require("path");
 const readSrc = f => fs.readFileSync(path.join(__dirname, "..", "static/js", f), "utf8");
 const load = new Function("window",
   readSrc("hydro.js") + readSrc("calc-view.js") + readSrc("cascade-graph.js") +
-  readSrc("reference-data.js") + readSrc("cascade-nodes.js") +
+  readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") + readSrc("cascade-nodes.js") +
   readSrc("cascade-catch.js") + readSrc("cascade-rain.js") + readSrc("cascade-report.js") + `
 return {
   buildReportMD, buildNodeReportMD, helpBlocksToMD, reportFmt, CARDS, fmt,

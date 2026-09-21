@@ -47,6 +47,29 @@ const padNum = v => {
   return v.toFixed(Math.max(2, dec));
 };
 
+// Производные числа показываем округлёнными, а считаем по точным: иначе
+// округление поля утекает в расчёт и одиночный расчёт расходится с каскадом
+// (tr = 10,051762 в каскаде против 10,05 в поле). Точное значение — в подсказке.
+function derivedTitle(value, unit) {
+  return Number.isFinite(value)
+    ? `точное значение: ${fmt(value, 6)}${unit ? " " + unit : ""}`
+    : "";
+}
+// Несколько производных величин в одной подсказке: [[подпись, значение, единица], …].
+function derivedTitleMany(pairs) {
+  const parts = [];
+  for (const [label, value, unit] of pairs) {
+    if (Number.isFinite(value)) parts.push(`${label} = ${fmt(value, 6)}${unit ? " " + unit : ""}`);
+  }
+  return parts.length ? `точные значения: ${parts.join(", ")}` : "";
+}
+// Поле с производным значением: округлённый показ + точное в подсказке.
+function showDerived(el, value, unit) {
+  if (!el || !Number.isFinite(value)) return;
+  el.value = padNum(smartRound(value));
+  el.title = derivedTitle(value, unit);
+}
+
 // Почти нулевой объём — не ошибка, а особенный режим: резервуар почти не работает.
 function nearZeroNote(r) {
   if (!r || r.dry || !(r.W > 0)) return null;
@@ -299,6 +322,7 @@ const CARDS = [
     title: "Tнⁿˢ — начало превышения, мин",
     sym: "T_{н}^{\\text{нс}}", unit: "\\text{мин}",
     val: r => fmt(r.tn),
+    raw: r => r.tn, tipUnit: "мин",
     tex: (Q, Qr, tr, n, r) =>
       `T_{н}^{\\text{нс}} = t_r\\left(\\frac{Q_{нс}}{Q_r}\\right)^{\\frac{1}{1-n}} = ${fmt(tr)}\\left(\\frac{${fmt(Q)}}{${fmt(Qr)}}\\right)^{\\frac{1}{1-${fmt(n)}}} = ${fmt(r.tn)}\\ \\text{мин}`
   },
@@ -306,6 +330,7 @@ const CARDS = [
     title: "Tкⁿˢ — конец превышения, мин",
     sym: "T_{к}^{\\text{нс}}", unit: "\\text{мин}",
     val: r => fmt(r.tk),
+    raw: r => r.tk, tipUnit: "мин",
     tex: (Q, Qr, tr, n, r) =>
       `Q_{нс} = Q_r\\left[\\left(\\frac{T_{к}^{\\text{нс}}}{t_r}\\right)^{1-n} - \\left(\\frac{T_{к}^{\\text{нс}}}{t_r}-1\\right)^{1-n}\\right] \\Rightarrow T_{к}^{\\text{нс}} = ${fmt(r.tk)}\\ \\text{мин}`,
     help: [
@@ -327,6 +352,7 @@ const CARDS = [
     wide: true,
     znote: true,
     val: r => fmt(r.W, 1),
+    raw: r => r.W, tipUnit: "м³",
     tex: (Q, Qr, tr, n, r) => {
       // В подстановку идут значения с 5 значащими цифрами: слагаемые вычитаются
       // из близких чисел, при 2–3 знаках строка «не сходится» с итогом.
@@ -367,6 +393,7 @@ function buildCards(cardsEl, Q, Qr, tr, n, r, numeric, noteText = null) {
     }
     const v = document.createElement("div");
     v.className = "value";
+    if (c.raw && r) v.title = derivedTitle(c.raw(r), c.tipUnit);
     v.append(tex(`${c.sym} = ${c.val(r, Q)}\\ ${c.unit}`));
     if (numeric) {
       const note = document.createElement("span");

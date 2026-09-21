@@ -355,7 +355,11 @@ function updateSummaries(data = graphData()) {
     }
     if (nd.name === "delay") {
       const out = document.querySelector(`#node-${id} .delay-out`);
-      if (out) out.innerHTML = `Δt = <b>${fmt(delayDt(nd.data || {}), 1)} мин</b>`;
+      const dt = delayDt(nd.data || {});
+      if (out) {
+        out.innerHTML = `Δt = <b>${fmt(dt, 1)} мин</b>`;
+        out.title = derivedTitle(dt, "мин");
+      }
       continue;
     }
     if (nd.name === "flow") {
@@ -383,6 +387,7 @@ function updateSummaries(data = graphData()) {
           ? `Q<sub>r</sub> = <b>${fmt(r.Qr, 2)} л/с</b> <br> t<sub>r</sub> = <b>${fmt(r.tr, 2)} мин</b>`
           : `Q<sub>r</sub> = 0 <br> t<sub>r</sub> = 0`;
         out.innerHTML = `<span class="catch-res-text">${text}</span>${outWarn}`;
+        out.title = r ? derivedTitleMany([["Qr", r.Qr, "л/с"], ["tr", r.tr, "мин"]]) : "";
       }
       // В режиме «по составу поверхностей» площадь производна (F = ΣFᵢ);
       // при пустом составе F = 0, поле остаётся заблокированным.
@@ -421,7 +426,9 @@ function updateSummaries(data = graphData()) {
       // Заблокированная станция показывает свои персистентные qr/tr, а не
       // пересчитанные от водосбора (расчёт при этом всё равно идёт по притоку).
       if (locked && !isLocked && document.activeElement !== inp) {
-        inp.value = (k === "qr" ? r.Qr : r.tr).toFixed(2);
+        showDerived(inp, k === "qr" ? r.Qr : r.tr, k === "qr" ? "л/с" : "мин");
+      } else {
+        inp.title = ""; // значение своё, «точное из расчёта» показывать нечего
       }
     }
     const slider = document.querySelector(`#node-${id} .q-range`);
@@ -436,6 +443,11 @@ function updateSummaries(data = graphData()) {
     }
     const el = document.querySelector(`#node-${id} .node-summary`);
     if (!el) continue;
+    // В подсказке — точные Tн/Tк/Wнс: на экране они округлены до знаков,
+    // а расчёт идёт по полным значениям.
+    el.title = r && !r.r.dry
+      ? derivedTitleMany([["Tн", r.r.tn, "мин"], ["Tк", r.r.tk, "мин"], ["Wнс", r.r.W, "м³"]])
+      : "";
     if (!r) {
       el.innerHTML = `<span class="warn">задайте Q<sub>r</sub>, t<sub>r</sub>, Q<sub>нс</sub></span>`;
     } else if (r.r.dry) {
@@ -706,22 +718,23 @@ editor.on("nodeMoved", () => saveScheme());
 
 // Панель дождя схемы (cascade-rain.js): кнопка + профили + параметры.
 bindRainPanel();
-$c("sbHydroHelp").addEventListener("click", () => openHelp(CASCADE_HELP, {}));
+$c("sbHydroHelp").addEventListener("click", () => openHelp([...CASCADE_HELP, ...schemaHelpBlocks()], {}));
 
 const LS_PALETTE = "kns-palette-collapsed";
 function setPaletteCollapsed(collapsed) {
   $c("palette").classList.toggle("collapsed", collapsed);
-  $c("nFloat").hidden = !collapsed;
+  const btn = $c("paletteBtn");
+  btn.classList.toggle("collapsed", collapsed);
+  btn.title = collapsed ? "Развернуть панель нод" : "Свернуть панель нод";
+  btn.setAttribute("aria-label", btn.title);
   try { localStorage.setItem(LS_PALETTE, collapsed ? "1" : "0"); } catch { /* приватный режим */ }
 }
-$c("paletteToggle").addEventListener("click", () => setPaletteCollapsed(true));
-$c("paletteExpand").addEventListener("click", () => setPaletteCollapsed(false));
+$c("paletteBtn").addEventListener("click", () => {
+  setPaletteCollapsed(!$c("palette").classList.contains("collapsed"));
+});
 try {
   if (localStorage.getItem(LS_PALETTE) === "1") setPaletteCollapsed(true);
 } catch { /* приватный режим */ }
-for (const ev of ["mousedown", "touchstart", "pointerdown", "click", "contextmenu"]) {
-  $c("nFloat").addEventListener(ev, e => e.stopPropagation());
-}
 
 let ctxPos = null, ctxConn = null, ctxNode = null, ctxShownAt = 0, ctxFromTouch = false;
 function showCtxMenu(x, y, { nodeEl = null, connEl = null, fromTouch = false } = {}) {
@@ -734,7 +747,10 @@ function showCtxMenu(x, y, { nodeEl = null, connEl = null, fromTouch = false } =
   if (nodeEl) {
     ctxNode = nodeEl.id.replace("node-", "");
     m.innerHTML = `
-      <button type="button" data-dupnode>Дублировать ноду</button>
+      <button type="button" data-copynode>${ICON_COPY_HTML}Копировать параметры</button>
+      <button type="button" data-pastenode>${ICON_PASTE_HTML}Вставить параметры</button>
+      <button type="button" data-savenode>${ICON_SAVE_HTML}Сохранить в JSON</button>
+      <button type="button" data-dupnode>${ICON_DUPLICATE_HTML}Дублировать ноду</button>
       <button type="button" data-delnode>${XMARK_HTML}Удалить ноду</button>`;
   } else if (connEl) {
     const cls = [...connEl.classList];
@@ -747,6 +763,7 @@ function showCtxMenu(x, y, { nodeEl = null, connEl = null, fromTouch = false } =
     m.innerHTML = `<button type="button" data-delconn>${XMARK_HTML}Удалить связь</button>`;
   } else {
     m.innerHTML = `
+      <button type="button" data-pastenode>Вставить ноду из буфера</button>
       <button type="button" data-add="pump">Насосная станция</button>
       <button type="button" data-add="delay">Участок сети</button>
       <button type="button" data-add="catch">Водосбор</button>
@@ -811,8 +828,41 @@ window.cancelLongPress = () => {
   lpStart = null;
 };
 
-$c("ctxMenu").addEventListener("click", e => {
+$c("ctxMenu").addEventListener("click", async e => {
   if (ctxFromTouch && Date.now() - ctxShownAt < 300) return;
+  const copyNodeBtn = e.target.closest("[data-copynode]");
+  if (copyNodeBtn && ctxNode) {
+    const nd = editor.getNodeFromId(ctxNode);
+    if (nd && PARAM_SCHEMA[nd.name]) {
+      const got = nodeParamsOf(ctxNode, nd.name);
+      if (got) copyParam(nd.name, got.data, { name: got.name });
+    }
+    hideCtxMenu();
+    return;
+  }
+  const saveNodeBtn = e.target.closest("[data-savenode]");
+  if (saveNodeBtn && ctxNode) {
+    const nd = editor.getNodeFromId(ctxNode);
+    if (nd && PARAM_SCHEMA[nd.name]) {
+      const got = nodeParamsOf(ctxNode, nd.name);
+      if (got) saveParamFile(nd.name, got.data, { name: got.name });
+    }
+    hideCtxMenu();
+    return;
+  }
+  const pasteNodeBtn = e.target.closest("[data-pastenode]");
+  if (pasteNodeBtn) {
+    // По ноде — вставляем в неё (её же и открываем), по пустому холсту —
+    // создаём ноду в точке вызова контекстного меню.
+    const ctx = ctxNode
+      ? { mode: "into" }
+      : { mode: "new", ...(ctxPos ? palPointToCanvas(ctxPos[0], ctxPos[1]) : canvasCenterPoint()) };
+    if (ctxNode) openSidebar(ctxNode);
+    hideCtxMenu();
+    const text = await paramReadText();
+    if (text) pasteParamText(text, ctx);
+    return;
+  }
   const delNodeBtn = e.target.closest("[data-delnode]");
   if (delNodeBtn && ctxNode) {
     editor.removeNodeId(`node-${ctxNode}`);
@@ -868,6 +918,13 @@ document.querySelectorAll("#headerBtns .btn").forEach(b => {
 });
 
 const fsBtn = $c("fullscreen");
+// Кнопка иконочная: состояние показываем сменой иконки (стрелки наружу/внутрь),
+// а не подписью — подпись уехала в подсказку.
+function setFullscreenLabel(on) {
+  fsBtn.classList.toggle("fullscreen-on", on);
+  fsBtn.title = on ? "Выйти из полноэкранного режима" : "Полноэкранный режим — скрывает адресную строку браузера";
+  fsBtn.setAttribute("aria-label", on ? "Выйти из полноэкранного режима" : "Полноэкранный режим");
+}
 const fsRequest = document.documentElement.requestFullscreen
   ? () => document.documentElement.requestFullscreen()
   : document.documentElement.webkitRequestFullscreen
@@ -877,7 +934,7 @@ if (!fsRequest) {
   fsBtn.addEventListener("click", () => {
     document.documentElement.classList.toggle("fs-fallback");
     const on = document.documentElement.classList.contains("fs-fallback");
-    fsBtn.textContent = on ? "Свернуть экран" : "Во весь экран";
+    setFullscreenLabel(on);
     if (on) window.scrollTo(0, 0);
   });
 } else {
@@ -889,8 +946,7 @@ if (!fsRequest) {
     }
   });
   const fsSync = () => {
-    const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    fsBtn.textContent = on ? "Свернуть экран" : "Во весь экран";
+    setFullscreenLabel(!!(document.fullscreenElement || document.webkitFullscreenElement));
   };
   document.addEventListener("fullscreenchange", fsSync);
   document.addEventListener("webkitfullscreenchange", fsSync);
@@ -899,3 +955,112 @@ if (!fsRequest) {
 bindModal();
 bindMetaModal();
 loadInitial();
+
+// ============================================================
+// Перенос параметров: копирование из ноды, вставка в ноду или на холст.
+// Формат и проверку версий см. param-schema.js / param-transfer.js.
+// ============================================================
+
+// Последняя точка курсора над холстом — туда встанет нода при вставке.
+let lastCanvasPoint = null;
+$c("drawflow").addEventListener("pointermove", e => {
+  lastCanvasPoint = palPointToCanvas(e.clientX, e.clientY);
+});
+
+function canvasCenterPoint() {
+  const rect = $c("drawflow").getBoundingClientRect();
+  return palPointToCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
+}
+
+function selectedNodeKind() {
+  if (sbNodeId === null) return null;
+  const nd = editor.getNodeFromId(sbNodeId);
+  return nd && PARAM_SCHEMA[nd.name] ? nd.name : null;
+}
+
+function nodeParamsOf(id, kind) {
+  const nd = editor.getNodeFromId(id);
+  if (!nd) return null;
+  return { data: paramDataOf(kind, nd.data || {}), name: (nd.data?.name || "").trim() || NODE_TYPE_LABEL[kind] };
+}
+
+function copySelectedNodeParams() {
+  const kind = selectedNodeKind();
+  if (!kind) { alert("Сначала выберите ноду"); return; }
+  const got = nodeParamsOf(sbNodeId, kind);
+  if (got) copyParam(kind, got.data, { name: got.name });
+}
+
+// Тот же конверт kns-param, что уходит в буфер, но файлом — файл принимает
+// «Импорт ноды» на любой схеме.
+function saveSelectedNodeParams() {
+  const kind = selectedNodeKind();
+  if (!kind) { alert("Сначала выберите ноду"); return; }
+  const got = nodeParamsOf(sbNodeId, kind);
+  if (got) saveParamFile(kind, got.data, { name: got.name });
+}
+
+// Вставка в уже выбранную ноду: тот же путь, что у правки в сайдбаре —
+// syncNodeParam обновляет и данные ноды, и поле на карточке холста.
+function pasteIntoSelectedNode(kind, data) {
+  const id = sbNodeId;
+  const nd = id !== null ? editor.getNodeFromId(id) : null;
+  if (!nd) { alert("Сначала выберите ноду"); return false; }
+  if (nd.name !== kind) {
+    alert(`В ноду «${NODE_TYPE_LABEL[nd.name]}» можно вставить только параметры «${NODE_TYPE_LABEL[nd.name]}», а в буфере — «${NODE_TYPE_LABEL[kind] || kind}»`);
+    return false;
+  }
+  for (const [key, value] of Object.entries(data)) syncNodeParam(id, key, value);
+  flushCascade();
+  refreshSidebar();
+  return true;
+}
+
+function pasteAsNewNode(kind, data, x, y) {
+  if (!NODE_PORTS[kind]) { alert(`Нода «${kind}» не поддерживается`); return false; }
+  const pt = (x === undefined || y === undefined) ? canvasCenterPoint() : { x, y };
+  const [ni, no] = NODE_PORTS[kind];
+  nextNodeId();
+  // Drawflow сам заполняет поля карточки из data по атрибутам df-<ключ>.
+  const id = editor.addNode(kind, ni, no, pt.x, pt.y, kind, migrateNodeData(kind, data), NODE_HTML[kind]);
+  flushCascade();
+  openSidebar(id);
+  return true;
+}
+
+for (const kind of NODE_TYPES) {
+  registerParamTarget(kind, {
+    copy: () => (selectedNodeKind() === kind ? nodeParamsOf(sbNodeId, kind) : null),
+    paste: (data, ctx) => (ctx?.mode === "new"
+      ? pasteAsNewNode(kind, data, ctx.x, ctx.y)
+      : pasteIntoSelectedNode(kind, data)),
+  });
+}
+
+// Ctrl+C на выделенной ноде. Текстовое выделение и поля ввода не трогаем.
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+  const key = e.key.toLowerCase();
+  if (key !== "c" && key !== "с") return; // «с» — та же клавиша в русской раскладке
+  if (e.target?.closest?.("input, textarea, select, [contenteditable]")) return;
+  const sel = window.getSelection?.();
+  if (sel && !sel.isCollapsed) return;
+  if (selectedNodeKind() === null) return;
+  e.preventDefault();
+  copySelectedNodeParams();
+});
+
+// «Импорт ноды» из палитры — из файла; вставка из буфера живёт на Ctrl+V
+// и в контекстном меню холста.
+$c("importNodeBtn").addEventListener("click", () => importParamFile({ mode: "new", ...canvasCenterPoint() }));
+
+$c("sbCopyBtn").addEventListener("click", copySelectedNodeParams);
+$c("sbSaveBtn").addEventListener("click", saveSelectedNodeParams);
+$c("sbPasteBtn").addEventListener("click", async () => {
+  if (selectedNodeKind() === null) { alert("Сначала выберите ноду"); return; }
+  const text = await paramReadText();
+  if (text) pasteParamText(text, { mode: "into" });
+});
+
+bindParamTransfer();
+initParamPaste(() => ({ mode: "new", ...(lastCanvasPoint || canvasCenterPoint()) }));

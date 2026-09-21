@@ -147,6 +147,11 @@ const NODE_HTML = {};
 function getGlobalN() { return parseFloat($c("globalN").value); }
 function padNum(v) { return String(v); }
 
+${fs.readFileSync(path.join(__dirname, "..", "static/js/reference-data.js"), "utf8")}
+${fs.readFileSync(path.join(__dirname, "..", "static/js/param-schema.js"), "utf8")}
+${fs.readFileSync(path.join(__dirname, "..", "static/js/param-transfer.js"), "utf8")}
+${fs.readFileSync(path.join(__dirname, "..", "static/js/share-code.js"), "utf8")}
+
 ${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-rain.js"), "utf8")}
 
 ${fs.readFileSync(path.join(__dirname, "..", "static/js/cascade-graph.js"), "utf8")}

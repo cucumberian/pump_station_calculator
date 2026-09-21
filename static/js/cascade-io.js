@@ -373,9 +373,11 @@ function loadActiveIntoEditor() {
     cascadeMeta = { custom: [], ...(payload.meta && typeof payload.meta === "object" ? payload.meta : {}) };
     if (!Array.isArray(cascadeMeta.custom)) cascadeMeta.custom = [];
     setRainsFromPayload(payload);
-    renderRainPanel();
-    rebuildScheme(payload, { allowCycle: true });
   }
+  // Панель дождя рисуем и без payload: у новой схемы профиль дефолтный, иначе
+  // поля и подпись кнопки дождя остаются пустыми до первой правки.
+  renderRainPanel();
+  if (payload) rebuildScheme(payload, { allowCycle: true });
   const view = readView(id);
   if (view) applyStoredView(view);
   else fitView();
@@ -486,8 +488,7 @@ function deleteScheme(id) {
 // избыточность сжатие съедает, формат менять не имеет смысла.
 // ============================================================
 
-const SHARE_PARAM = "s";
-const SHARE_LIMIT = 6000;
+// SHARE_PARAM / SHARE_LIMIT — в share-code.js (общий кодек страниц).
 
 function stripSharePayload(payload) {
   return {
@@ -506,49 +507,15 @@ function stripSharePayload(payload) {
   };
 }
 
-function bytesToB64url(bytes) {
-  let bin = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function b64urlToBytes(code) {
-  const bin = atob(code.replace(/-/g, "+").replace(/_/g, "/"));
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-// d — deflate-raw (CompressionStream, Chrome 80+/FF 113+/Safari 16.4+);
-// j — без сжатия, деградация для старых браузеров: ссылка длиннее, но живая.
-async function encodeShareCode(payload) {
-  const json = JSON.stringify(stripSharePayload(payload));
-  if (typeof CompressionStream === "function") {
-    const stream = new Blob([json]).stream()
-      .pipeThrough(new CompressionStream("deflate-raw"));
-    return "d." + bytesToB64url(new Uint8Array(await new Response(stream).arrayBuffer()));
-  }
-  return "j." + bytesToB64url(new TextEncoder().encode(json));
+// Сжатие/base64url и разбор — в share-code.js (общий с index.html кодек):
+// ту же ссылку #s= строит кнопка «В каскад» одиночного расчёта.
+function encodeShareCode(payload) {
+  return encodeSharePayload(stripSharePayload(payload));
 }
 
 async function decodeShareCode(code) {
-  let json;
-  if (code.startsWith("d.")) {
-    if (typeof DecompressionStream !== "function") {
-      throw new Error("браузер не поддерживает сжатые ссылки");
-    }
-    const stream = new Blob([b64urlToBytes(code.slice(2))]).stream()
-      .pipeThrough(new DecompressionStream("deflate-raw"));
-    json = await new Response(stream).text();
-  } else if (code.startsWith("j.")) {
-    json = new TextDecoder().decode(b64urlToBytes(code.slice(2)));
-  } else {
-    throw new Error("неизвестный формат ссылки");
-  }
-  const p = JSON.parse(json);
-  return { format: FORMAT, version: FORMAT_VERSION,
+  const p = await decodeSharePayload(code);
+  return { format: FORMAT, version: FORMAT_VERSION, meta: p.meta,
     n: p.n, rains: p.rains, rainActive: p.rainActive, nodes: p.nodes, connections: p.connections };
 }
 
@@ -615,92 +582,6 @@ function serializeScheme() {
     nodes,
     connections,
   };
-}
-
-function migrateNodeData(type, raw) {
-  const d = { ...NODE_DEFAULTS[type], ...(raw || {}) };
-  if (type === "pump") {
-    if (d.Qr !== undefined) { d.qr = d.Qr; delete d.Qr; }
-    if (d.Q !== undefined) { d.q = d.Q; delete d.Q; }
-  }
-  if (type === "catch") {
-    // Drawflow пишет в данные имя DOM-атрибута, а DOM всегда нижний регистр:
-    // ввод в поле F/P плодил в data призрачный ключ "f"/"p" — поле показывало
-    // его, а расчёт читал устаревший канонический F/P. При загрузке склеиваем:
-    // свежее показанное значение (f/p) становится каноническим, дубликат вон.
-    const pf = parseFloat(d.f), pp = parseFloat(d.p);
-    if (Number.isFinite(pf) && pf > 0) d.F = pf;
-    if (Number.isFinite(pp) && pp > 0) d.P = pp;
-    delete d.f;
-    delete d.p;
-    // Участки сети раньше хранились фиксированной тройкой l1/v1…l3/v3 —
-    // переносим в массив segs. Участки лотка — новый массив trays. В обоих
-    // массивах держим только числовые {l, v}, прочие записи сохраняем как есть.
-    const norm = arr => Array.isArray(arr)
-      ? arr.map(s => ({ l: parseFloat(s?.l), v: parseFloat(s?.v) }))
-        .filter(s => Number.isFinite(s.l) && Number.isFinite(s.v))
-      : [];
-    const legacy = [];
-    for (const [l, v] of [[d.l1, d.v1], [d.l2, d.v2], [d.l3, d.v3]]) {
-      const L = parseFloat(l), V = parseFloat(v);
-      if (L > 0 && V > 0) legacy.push({ l: L, v: V });
-    }
-    const hasSegs = Object.prototype.hasOwnProperty.call(raw || {}, "segs");
-    const segs = norm(d.segs);
-    d.segs = hasSegs ? segs : (legacy.length ? legacy : segs);
-    d.trays = norm(d.trays);
-    for (const k of ["l1", "v1", "l2", "v2", "l3", "v3"]) delete d[k];
-    // coeffSource = "table": z_mid/ψ_mid считаются по составу поверхностей
-    // zRows = [{ type, F, z? }]; z (ручное переопределение) — только у
-    // водонепроницаемых, у прочих видов пусто.
-    // Режим берём из самой схемы, а не из NODE_DEFAULTS: старые схемы без
-    // поля хранили ручные zMid/psiMid и должны остаться в режиме "manual".
-    d.coeffSource = (raw || {}).coeffSource === "table" ? "table" : "manual";
-    d.zRows = Array.isArray(d.zRows)
-      ? d.zRows.map(r => {
-        const type = String(r?.type || "").trim();
-        if (!type) return null;
-        const F = parseFloat(r?.F);
-        const row = { type, F: Number.isFinite(F) && F >= 0 ? F : 0 };
-        const zRaw = r?.z;
-        if (zRaw === "" || zRaw === null || zRaw === undefined) row.z = "";
-        else {
-          const z = parseFloat(zRaw);
-          if (Number.isFinite(z)) row.z = z;
-        }
-        return row;
-      }).filter(Boolean)
-      : [];
-    // Убранное поле «добавочная площадь»: чистим у старых схем, чтобы не
-    // тащилось в сохранённом JSON и в ссылках.
-    delete d.Fadd;
-  }
-  if (type === "delay") {
-    const lOld = parseFloat(d.l ?? d.L);
-    const dtOld = parseFloat(d.dt);
-    d.v = parseFloat(d.v) > 0 ? parseFloat(d.v) : 1;
-    d.l = lOld >= 0 ? lOld : (dtOld >= 0 ? Math.round(dtOld * 60) : 3600);
-    delete d.L;
-    delete d.dt;
-  }
-  if (type === "flow") {
-    // Drawflow пишет значения как строки из input; "" в t1 и t2 легально —
-    // «с начала» и «до конца события». Числа нормализуем, мусор → пустое.
-    if (d.mode !== "constant") d.mode = "constant";
-    const q = parseFloat(d.q);
-    d.q = q >= 0 ? q : NODE_DEFAULTS.flow.q;
-    if (d.t1 === "" || d.t1 === null || d.t1 === undefined) d.t1 = "";
-    else {
-      const t1 = parseFloat(d.t1);
-      d.t1 = Number.isFinite(t1) && t1 >= 0 ? t1 : "";
-    }
-    if (d.t2 === "" || d.t2 === null || d.t2 === undefined) d.t2 = "";
-    else {
-      const t2 = parseFloat(d.t2);
-      d.t2 = Number.isFinite(t2) ? t2 : "";
-    }
-  }
-  return d;
 }
 
 function rebuildScheme(payload, opts) {
@@ -854,6 +735,9 @@ async function loadInitial() {
     // на импорте) — грузим как есть, о цикле предупредит баннер пересчёта.
     applyPayload(stored, { fit: false });
   } else {
+    // Свежая схема: профиль дождя дефолтный, но панель и подпись кнопки надо
+    // нарисовать — иначе поля пустые, а на кнопке висит статичный текст из HTML.
+    renderRainPanel();
     addNodeOfType("pump", 320, 160);
     fitView();
   }

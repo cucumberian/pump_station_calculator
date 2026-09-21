@@ -19,7 +19,7 @@ return { calc, hydroInt, mixedAnalyticCalc, numericCalc, makeHydroGF, makePiecew
 `)();
 
 // ---- flowGF и реестр нод (DOM-мок для cascade-nodes не нужен: он чистый) ----
-const N = new Function(readSrc("hydro.js") + readSrc("reference-data.js") + readSrc("cascade-nodes.js") + `
+const N = new Function(readSrc("hydro.js") + readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") + readSrc("cascade-nodes.js") + `
 return { flowGF, NODE_DEFAULTS, NODE_PORTS, NODE_TYPE_LABEL, NODE_LABEL, NODE_HTML };
 `)();
 
@@ -44,7 +44,7 @@ const graphSrc = readSrc("cascade-graph.js");
 const catchSrc = readSrc("cascade-catch.js");
 
 const RT = new Function(
-  readSrc("hydro.js") + readSrc("reference-data.js") + readSrc("cascade-nodes.js") + readSrc("cascade-rain.js") + readSrc("cascade-catch.js") + graphSrc
+  readSrc("hydro.js") + readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") + readSrc("cascade-nodes.js") + readSrc("cascade-rain.js") + readSrc("cascade-catch.js") + graphSrc
   + extractFn(cascadeSrc, "rainHorizon") + "\n" + extractFn(cascadeSrc, "computeCascadeNow") + `
 const upstreamIds = (id, data) => {
   const nd = data[id]; if (!nd) return [];
@@ -104,7 +104,7 @@ const NODE_DEFAULTS = ${JSON.stringify(N.NODE_DEFAULTS)};
 const NODE_HTML = ${JSON.stringify(N.NODE_HTML)};
 function getGlobalN() { return 0.71; }
 
-` + readSrc("cascade-rain.js") + graphSrc + readSrc("cascade-io.js") + `
+` + readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") + readSrc("cascade-rain.js") + graphSrc + readSrc("cascade-io.js") + `
 return { validatePayload, migrateNodeData, serializeScheme };
 `,
 )();
@@ -409,7 +409,7 @@ test("NODE_HTML.flow: карточка с df-q/df-t1/df-t2 и без входо�
 
 const R = new Function("window",
   readSrc("hydro.js") + readSrc("calc-view.js") + graphSrc +
-  readSrc("reference-data.js") + readSrc("cascade-nodes.js") + readSrc("cascade-rain.js") + readSrc("cascade-catch.js") + readSrc("cascade-report.js") +
+  readSrc("reference-data.js") + readSrc("param-schema.js") + readSrc("param-transfer.js") + readSrc("cascade-nodes.js") + readSrc("cascade-rain.js") + readSrc("cascade-catch.js") + readSrc("cascade-report.js") +
   extractFn(cascadeSrc, "flowSummaryHTML") + `
 return { buildNodeReportMD, buildReportMD, reportFmt, flowSummaryHTML };
 `)({ addEventListener() {} });

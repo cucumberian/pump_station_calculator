@@ -40,6 +40,12 @@
    (gravity-ui), после копирования на 1,5 с показывается галочка.
    .copied вешает JS; width фиксирован, чтобы кнопка не дёргалась. */
 #shareCascade { padding-left: 10px; padding-right: 10px; }
+/* Иконочные кнопки шапки (поделиться, экспорт, импорт, полный экран) — без подписи. */
+.header-btns .icon-btn { padding-left: 10px; padding-right: 10px; }
+/* Полный экран: наружу — войти, внутрь — выйти. */
+#fullscreen .ic-fs-collapse { display: none; }
+#fullscreen.fullscreen-on .ic-fs-expand { display: none; }
+#fullscreen.fullscreen-on .ic-fs-collapse { display: inline-block; }
 #shareCascade .ic-check { display: none; }
 #shareCascade.copied .ic-nodes-right { display: none; }
 #shareCascade.copied .ic-check { display: inline-block; }
@@ -57,52 +63,23 @@
   overflow-y: auto;
 }
 .palette.collapsed { display: none; }
-.palette-toggle {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #c6d3e4;
-  border-radius: 6px;
-  background: #fff;
-  color: #12325e;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-}
-.palette-toggle:hover { background: #dbe6f5; }
-.n-float {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 6;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #fff;
-  border: 1px solid #dde1e6;
-  border-radius: 8px;
-  padding: 6px 8px;
-  user-select: none;
-  box-shadow: 0 1px 4px rgba(18, 50, 94, 0.15);
-}
+/* Кнопка панели нод — белая иконка на прозрачном фоне: занимает минимум
+   места. Отрицательный отступ компенсирует padding шапки (24px на десктопе,
+   16px на мобильном) и оставляет пару пикселей зазора от края экрана. */
+.header-left { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: -20px; }
+#paletteBtn { padding: 6px; background: none; color: #fff; border-radius: 6px; }
+#paletteBtn:hover { background: rgba(255, 255, 255, 0.16); }
+#paletteBtn .ic-collapse { display: inline-block; }
+#paletteBtn .ic-expand { display: none; }
+#paletteBtn.collapsed .ic-collapse { display: none; }
+#paletteBtn.collapsed .ic-expand { display: inline-block; }
 
-/* Панель дождя: кнопка в левом верхнем углу канваса; сама панель —
-   левая выдвижная колонна на всю высоту канваса (внутри #drawflow, т.е.
-   автоматически справа от палитры), прокручивается по высоте. При открытии
-   кнопка дождя и кнопка раскрытия палитры сдвигаются за панель. */
+/* Кнопка дождя — в левом верхнем углу холста: кнопка панели нод оттуда
+   уехала в шапку, угол свободен. При открытии панели дождя кнопка
+   сдвигается за неё. */
 .rain-float {
   position: absolute;
-  top: 56px;
+  top: 10px;
   left: 10px;
   z-index: 7;
 }
@@ -127,8 +104,11 @@
 }
 .rain-panel[hidden] { display: none; }
 body.rain-open .rain-float { left: 300px; }
-body.rain-open .n-float { left: 300px; top: 10px; }
 .rain-panel h2 { margin: 0; }
+/* «?» — сразу за заголовком, а не в правом верхнем углу панели: там она
+   перекрывала кнопку закрытия. */
+.rain-head h2 { display: flex; align-items: center; gap: 6px; }
+.rain-head .help-btn { position: static; }
 .rain-head {
   display: flex;
   align-items: center;
@@ -183,8 +163,6 @@ body.rain-open .n-float { left: 300px; top: 10px; }
   color: #5a6572;
   line-height: 1.35;
 }
-.n-float[hidden] { display: none; }
-.n-float .palette-toggle { position: static; }
 .palette h2 {
   font-size: 14px;
   text-transform: uppercase;
@@ -664,7 +642,7 @@ body.sb-dragging { cursor: col-resize; user-select: none; }
 .sidebar .seg-list:empty::before { content: "участки не заданы"; color: #98a2b3; font-size: 11px; }
 .sidebar .seg-row { display: flex; gap: 4px; align-items: center; }
 .sidebar .seg-row input { width: 100%; min-width: 0; }
-.sidebar .seg-row select { min-width: 0; flex: 2 1 0; font-size: 12px; }
+.sidebar .seg-row select { min-width: 0; flex: 2 1 0; }
 .sidebar .surf-row input[data-field="F"] { flex: 0 0 64px; width: 64px; }
 .sidebar .surf-row input[data-field="z"] { flex: 0 0 56px; width: 56px; }
 /* Названию вида с коэффициентами в скобках нужно больше места, чем h/l. */
@@ -802,6 +780,9 @@ body.sb-dragging { cursor: col-resize; user-select: none; }
 }
 
 @media (max-width: 900px) {
+  /* Шапка на мобильном имеет padding 16px (style.css) — компенсируем его,
+     чтобы зазор от края экрана остался тем же. */
+  .header-left { margin-left: -12px; }
   .cascade-main { flex-direction: column; }
   #drawflow { flex: 1; min-height: 0; }
   .sidebar {
@@ -825,7 +806,6 @@ body.sb-dragging { cursor: col-resize; user-select: none; }
     border-bottom: 1px solid #dde1e6;
     flex-direction: row;
   }
-  .palette-toggle {position: relative; top: 0; right: 0; width: 26px; height: 26px; flex-shrink: 0;}
   .palette > div {flex-direction: row; width: 100%;}
   .palette h2, .pal-hint { display: none; }
   .pal-node { margin-bottom: 0; flex: 1; padding: 6px 8px; }
@@ -844,7 +824,6 @@ body.sb-dragging { cursor: col-resize; user-select: none; }
 .field input[type="text"],
 .field input[type="email"],
 .field input[type="date"],
-.field select,
 .field textarea {
   width: 100%;
   padding: 6px 8px;
