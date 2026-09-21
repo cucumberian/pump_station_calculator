@@ -598,6 +598,52 @@ function closeSidebar() {
   $c("sidebar").hidden = true;
 }
 
+// Ширина сайдбара — преф вьюпорта, не часть схемы: храним отдельно от неё.
+const LS_SB_W = "kns-cascade-sbw";
+const SB_W_MIN = 300;
+const SB_W_MAX_PAD = 320; // минимум, который оставляем холсту
+let sbW = 460;
+let sbDragging = false;
+const sbMain = document.querySelector(".cascade-main");
+
+function setSidebarWidth(w) {
+  const max = Math.max(SB_W_MIN, window.innerWidth - SB_W_MAX_PAD);
+  sbW = Math.min(Math.max(Math.round(w), SB_W_MIN), max);
+  sbMain.style.setProperty("--sb-w", sbW + "px");
+}
+
+{
+  const saved = parseFloat(localStorage.getItem(LS_SB_W));
+  if (Number.isFinite(saved)) setSidebarWidth(saved);
+}
+
+$c("sbResizer").addEventListener("pointerdown", e => {
+  sbDragging = true;
+  $c("sbResizer").classList.add("drag");
+  $c("sbResizer").setPointerCapture(e.pointerId);
+  document.body.classList.add("sb-dragging");
+  e.preventDefault();
+});
+$c("sbResizer").addEventListener("pointermove", e => {
+  if (!sbDragging) return;
+  setSidebarWidth(window.innerWidth - e.clientX);
+  requestAnimationFrame(() => EC_REGISTRY.forEach(c => c.resize()));
+});
+const endSbDrag = () => {
+  if (!sbDragging) return;
+  sbDragging = false;
+  $c("sbResizer").classList.remove("drag");
+  document.body.classList.remove("sb-dragging");
+  try { localStorage.setItem(LS_SB_W, String(sbW)); } catch { /* приватный режим */ }
+};
+$c("sbResizer").addEventListener("pointerup", endSbDrag);
+$c("sbResizer").addEventListener("pointercancel", endSbDrag);
+$c("sbResizer").addEventListener("dblclick", () => {
+  sbMain.style.removeProperty("--sb-w");
+  sbW = 460;
+  try { localStorage.removeItem(LS_SB_W); } catch { /* приватный режим */ }
+});
+
 // Дисковые (дискретные) переключения ждём мгновенной реакции, а ввод чисел
 // и протягивание слайдера пересчитываются пачкой — см. computeCascade.
 const IMMEDIATE_KEYS = new Set(["locked", "disabled", "mode", "coeffMode"]);
